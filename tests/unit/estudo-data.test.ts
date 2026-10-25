@@ -15,9 +15,9 @@ import { db } from "@/lib/db";
 import { toIsoDate } from "@/lib/dates";
 
 const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
-const input = { descricao: "Cálculo I", pasta: "Matemática", dataInicial: "2026-08-04" };
+const input = { descricao: "Cálculo I", pasta: "C:\\Estudos\\Matemática", dataInicial: "2026-08-04" };
 
-async function insert(userId: string, descricao: string, updatedAt: Date, pasta = "Geral") {
+async function insert(userId: string, descricao: string, updatedAt: Date, pasta = "C:\\Estudos\\Geral") {
   return db.studyRecord.create({
     data: { userId, descricao, pasta, dataInicial: "2026-08-04", updatedAt },
   });
@@ -65,13 +65,13 @@ describe("updateStudyRecord", () => {
 
     const result = await updateStudyRecord(created.data.id, {
       descricao: "Cálculo II",
-      pasta: "Exatas",
+      pasta: "C:\\Estudos\\Exatas",
       dataInicial: "2026-09-01",
     });
     expect(result.ok).toBe(true);
 
     const [item] = (await listStudyRecords({})).items;
-    expect(item).toMatchObject({ descricao: "Cálculo II", pasta: "Exatas", dataInicial: "2026-09-01" });
+    expect(item).toMatchObject({ descricao: "Cálculo II", pasta: "C:\\Estudos\\Exatas", dataInicial: "2026-09-01" });
   });
 
   it("com dados inválidos devolve fieldErrors e mantém o registro", async () => {

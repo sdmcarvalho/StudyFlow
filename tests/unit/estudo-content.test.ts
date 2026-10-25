@@ -12,7 +12,7 @@ const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
 
 async function insert(userId: string, descricao = "Cálculo I", updatedAt = new Date(2026, 0, 1, 12)) {
   return db.studyRecord.create({
-    data: { userId, descricao, pasta: "Geral", dataInicial: "2026-08-04", updatedAt },
+    data: { userId, descricao, pasta: "C:\\Estudos\\Geral", dataInicial: "2026-08-04", updatedAt },
   });
 }
 
@@ -27,7 +27,7 @@ describe("getStudyDocument", () => {
     expect(await getStudyDocument(record.id)).toEqual({
       id: record.id,
       descricao: "Cálculo I",
-      pasta: "Geral",
+      pasta: "C:\\Estudos\\Geral",
       cells: [],
     });
   });

@@ -16,8 +16,8 @@ import { StudyView } from "@/features/estudo/components/StudyView";
 import { buildListPage, type StudyRecordRow } from "@/features/estudo/list";
 
 const rows: StudyRecordRow[] = [
-  { id: "1", descricao: "Física II", pasta: "Física", dataInicial: "2026-09-01", dataAtualizacao: "2026-10-14" },
-  { id: "2", descricao: "Anatomia", pasta: "Medicina", dataInicial: "2026-08-11", dataAtualizacao: "2026-10-20" },
+  { id: "1", descricao: "Física II", pasta: "C:\\Estudos\\Física", dataInicial: "2026-09-01", dataAtualizacao: "2026-10-14" },
+  { id: "2", descricao: "Anatomia", pasta: "C:\\Estudos\\Medicina", dataInicial: "2026-08-11", dataAtualizacao: "2026-10-20" },
 ];
 
 function view(q: string) {
@@ -77,7 +77,7 @@ describe("StudyView: falha na chamada da server action", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "Novo" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Novo registro" });
     await userEvent.type(within(dialog).getByLabelText("Descrição"), "Estatística");
-    await userEvent.type(within(dialog).getByLabelText("Pasta"), "Matemática");
+    await userEvent.type(within(dialog).getByLabelText("Pasta"), "C:\\Estudos\\Matemática");
     await userEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(GENERIC_ERROR);

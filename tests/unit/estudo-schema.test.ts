@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { parseStudyRecordInput } from "@/features/estudo/schema";
 
-const valid = { descricao: "Cálculo I", pasta: "Matemática", dataInicial: "2026-08-04" };
+const valid = { descricao: "Cálculo I", pasta: "C:\\Estudos\\Matemática", dataInicial: "2026-08-04" };
 
 describe("parseStudyRecordInput", () => {
   it("aceita entrada válida e aplica trim", () => {
     const result = parseStudyRecordInput({
       descricao: "  Cálculo I  ",
-      pasta: " Matemática ",
+      pasta: " c:/Estudos/Matemática/ ",
       dataInicial: "2026-08-04",
     });
     expect(result).toEqual({
       ok: true,
-      data: { descricao: "Cálculo I", pasta: "Matemática", dataInicial: "2026-08-04" },
+      data: { descricao: "Cálculo I", pasta: "c:\\Estudos\\Matemática", dataInicial: "2026-08-04" },
     });
   });
 
@@ -39,11 +39,18 @@ describe("parseStudyRecordInput", () => {
     });
   });
 
-  it("aceita pasta de 40 caracteres e rejeita 41", () => {
-    expect(parseStudyRecordInput({ ...valid, pasta: "a".repeat(40) }).ok).toBe(true);
-    expect(parseStudyRecordInput({ ...valid, pasta: "a".repeat(41) })).toEqual({
+  it("rejeita pasta que não é caminho absoluto", () => {
+    expect(parseStudyRecordInput({ ...valid, pasta: "Matemática" })).toEqual({
       ok: false,
-      fieldErrors: { pasta: "Use no máximo 40 caracteres." },
+      fieldErrors: { pasta: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo." },
+    });
+  });
+
+  it("aceita pasta de 260 caracteres e rejeita 261", () => {
+    expect(parseStudyRecordInput({ ...valid, pasta: "C:\\" + "a".repeat(257) }).ok).toBe(true);
+    expect(parseStudyRecordInput({ ...valid, pasta: "C:\\" + "a".repeat(258) })).toEqual({
+      ok: false,
+      fieldErrors: { pasta: "Use no máximo 260 caracteres." },
     });
   });
 

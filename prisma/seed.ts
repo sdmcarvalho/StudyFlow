@@ -27,9 +27,10 @@ async function main() {
     create: { id: USER_ID, name: "Usuário local" },
   });
   await db.studyRecord.deleteMany({ where: { userId: USER_ID } });
-  for (const { atualizado, ...record } of records) {
+  for (const { atualizado, pasta, ...record } of records) {
     await db.studyRecord.create({
-      data: { userId: USER_ID, ...record, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },
+      // Só o texto do caminho; a criação das pastas em disco não é feita pelo seed.
+      data: { userId: USER_ID, ...record, pasta: `C:\\StudyFlow\\${pasta}`, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },
     });
   }
   console.log(`Seed concluído: ${records.length} registros para ${USER_ID}.`);

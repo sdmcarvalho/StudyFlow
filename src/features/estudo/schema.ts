@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidIsoDate } from "@/lib/dates";
+import { normalizeFolderPath } from "./folder-path";
 
 export type StudyRecordInput = {
   descricao: string;
@@ -10,7 +11,6 @@ export type StudyRecordInput = {
 export type FieldErrors = Partial<Record<keyof StudyRecordInput, string>>;
 
 const DESCRICAO_MAX = 80;
-const PASTA_MAX = 40;
 
 const studyRecordInputSchema = z.object({
   descricao: z
@@ -20,9 +20,12 @@ const studyRecordInputSchema = z.object({
     .max(DESCRICAO_MAX, `Use no máximo ${DESCRICAO_MAX} caracteres.`),
   pasta: z
     .string({ error: "Informe uma pasta." })
-    .trim()
-    .min(1, "Informe uma pasta.")
-    .max(PASTA_MAX, `Use no máximo ${PASTA_MAX} caracteres.`),
+    .transform((value, ctx) => {
+      const result = normalizeFolderPath(value);
+      if (result.ok) return result.path;
+      ctx.addIssue({ code: "custom", message: result.message });
+      return z.NEVER;
+    }),
   dataInicial: z
     .string({ error: "Informe uma data válida." })
     .trim()

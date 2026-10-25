@@ -11,7 +11,7 @@ const toast = (page: Page) => page.getByRole("status");
 async function createRecord(page: Page, descricao: string, pasta: string) {
   await page.getByRole("button", { name: "Novo" }).first().click();
   await page.getByLabel("Descrição").fill(descricao);
-  await page.getByLabel("Pasta").fill(pasta);
+  await page.getByLabel("Pasta").fill(`C:\\StudyFlow\\${pasta}`);
   await page.getByRole("button", { name: "Salvar" }).click();
 }
 

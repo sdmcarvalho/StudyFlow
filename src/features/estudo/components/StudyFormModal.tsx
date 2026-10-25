@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { todayIso } from "@/lib/dates";
 import { createStudyRecord, updateStudyRecord } from "../actions";
 import type { StudyRecordRow } from "../list";
+import { MAX_FOLDER_CHARS } from "../folder-path";
 import { parseStudyRecordInput, type FieldErrors } from "../schema";
 import styles from "./StudyFormModal.module.css";
 
@@ -83,7 +84,7 @@ function StudyForm({ record, onCancel, onSaved, onError }: StudyFormProps) {
         <input
           id="field-pasta"
           value={pasta}
-          maxLength={40}
+          maxLength={MAX_FOLDER_CHARS}
           required
           aria-invalid={errors.pasta ? true : undefined}
           aria-describedby={errors.pasta ? "field-pasta-error" : undefined}
