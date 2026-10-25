@@ -331,3 +331,34 @@ describe("MarkdownView — KaTeX sem avisos", () => {
     }
   });
 });
+
+describe("MarkdownView — links", () => {
+  it("links http(s) abrem em nova aba, sem acesso à página de origem", () => {
+    render(<MarkdownView texto={"[site](https://example.com) e [outro](http://example.org/x)"} studyId="S1" />);
+    for (const name of ["site", "outro"]) {
+      const link = screen.getByRole("link", { name });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+  });
+
+  it("âncoras e caminhos relativos ficam como estão", () => {
+    render(<MarkdownView texto={"[topo](#topo) e [rel](outra/pagina)"} studyId="S1" />);
+    for (const [name, href] of [
+      ["topo", "#topo"],
+      ["rel", "outra/pagina"],
+    ]) {
+      const link = screen.getByRole("link", { name });
+      expect(link).toHaveAttribute("href", href);
+      expect(link).not.toHaveAttribute("target");
+      expect(link).not.toHaveAttribute("rel");
+    }
+  });
+
+  it("link bloqueado continua sem href e sem target", () => {
+    const { container } = render(<MarkdownView texto={"[mau](javascript:alert(1))"} studyId="S1" />);
+    const anchor = container.querySelector("a");
+    expect(anchor).not.toHaveAttribute("href");
+    expect(anchor).not.toHaveAttribute("target");
+  });
+});

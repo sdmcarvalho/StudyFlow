@@ -382,7 +382,26 @@ function WidthField({ initial, committedWidth, onCommit, onCancel }: WidthFieldP
   );
 }
 
+const EXTERNAL_HREF = /^https?:\/\//i;
+
+/**
+ * Link do conteúdo. Endereço http(s) abre em nova aba (sem `window.opener`), para não trocar o
+ * editor pela página externa; âncoras e caminhos relativos ficam como estão. O `href` já passou
+ * pelo `urlTransform` (esquemas perigosos chegam aqui sem `href`).
+ */
+function MarkdownLink(props: ComponentProps<"a"> & ExtraProps) {
+  const { node, href, children, ...rest } = props;
+  void node; // o nó do hast não é atributo do DOM
+  const external = typeof href === "string" && EXTERNAL_HREF.test(href);
+  return (
+    <a {...rest} href={href} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+      {children}
+    </a>
+  );
+}
+
 const components: Components = {
+  a: MarkdownLink,
   img: MarkdownImage,
   table: MarkdownTable,
 };
