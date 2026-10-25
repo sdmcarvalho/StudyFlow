@@ -26,21 +26,37 @@ export function StudyView({ page, q }: StudyViewProps) {
   const router = useRouter();
   const { toast, show, hide } = useToast();
   const [search, setSearch] = useState(q);
+  // Último q que este componente pediu à URL, para distinguir a resposta ao que o usuário digitou
+  // (não mexer no campo) de uma mudança externa, como o menu ou o botão Voltar (campo acompanha).
+  const [requestedQ, setRequestedQ] = useState(q);
+  const [seenQ, setSeenQ] = useState(q);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<StudyRecordRow | null>(null);
   const [deleting, setDeleting] = useState<StudyRecordRow | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
+  if (q !== seenQ) {
+    setSeenQ(q);
+    if (q !== requestedQ) {
+      setSearch(q);
+      setRequestedQ(q);
+    }
+  }
+
   // A busca vive na URL; o campo só empurra o valor para lá depois de uma pausa na digitação.
   useEffect(() => {
     const trimmed = search.trim();
     if (trimmed === q) return;
-    const timer = setTimeout(() => router.replace(buildStudyHref(trimmed, 1)), SEARCH_DEBOUNCE_MS);
+    const timer = setTimeout(() => {
+      setRequestedQ(trimmed);
+      router.replace(buildStudyHref(trimmed, 1));
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [search, q, router]);
 
   function clearSearch() {
     setSearch("");
+    setRequestedQ("");
     router.replace(buildStudyHref("", 1));
   }
 
@@ -62,19 +78,28 @@ export function StudyView({ page, q }: StudyViewProps) {
 
   async function undoDelete(id: string) {
     hide();
-    const result = await restoreStudyRecord(id);
-    if (!result.ok) show(result.message ?? GENERIC_ERROR);
+    try {
+      const result = await restoreStudyRecord(id);
+      if (!result.ok) show(result.message ?? GENERIC_ERROR);
+    } catch {
+      show(GENERIC_ERROR);
+    }
   }
 
   async function confirmDelete() {
     if (!deleting) return;
     const target = deleting;
     setDeletePending(true);
-    const result = await deleteStudyRecord(target.id);
-    setDeletePending(false);
-    setDeleting(null);
-    if (result.ok) show("Registro excluído.", () => undoDelete(target.id));
-    else show(result.message ?? GENERIC_ERROR);
+    try {
+      const result = await deleteStudyRecord(target.id);
+      if (result.ok) show("Registro excluído.", () => undoDelete(target.id));
+      else show(result.message ?? GENERIC_ERROR);
+    } catch {
+      show(GENERIC_ERROR);
+    } finally {
+      setDeletePending(false);
+      setDeleting(null);
+    }
   }
 
   const hasRecords = page.totalAll > 0;

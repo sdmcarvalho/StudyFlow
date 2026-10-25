@@ -12,6 +12,11 @@ export type ActionResult<T = undefined> =
 const NOT_FOUND = { ok: false, message: "Registro não encontrado." } as const;
 const SAVE_FAILED = { ok: false, message: "Não foi possível salvar. Tente novamente." } as const;
 
+/** Argumentos de server actions vêm do cliente: um objeto de filtro como id atingiria vários registros. */
+function isValidId(id: unknown): id is string {
+  return typeof id === "string" && id.length > 0;
+}
+
 function done(): ActionResult {
   revalidatePath("/estudo");
   return { ok: true, data: undefined };
@@ -32,6 +37,7 @@ export async function createStudyRecord(input: unknown): Promise<ActionResult<{ 
 }
 
 export async function updateStudyRecord(id: string, input: unknown): Promise<ActionResult> {
+  if (!isValidId(id)) return NOT_FOUND;
   const parsed = parseStudyRecordInput(input);
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
 
@@ -48,6 +54,7 @@ export async function updateStudyRecord(id: string, input: unknown): Promise<Act
 }
 
 export async function deleteStudyRecord(id: string): Promise<ActionResult> {
+  if (!isValidId(id)) return NOT_FOUND;
   try {
     const userId = await getCurrentUserId();
     const record = await db.studyRecord.findFirst({ where: { id, userId, deletedAt: null } });
@@ -64,6 +71,7 @@ export async function deleteStudyRecord(id: string): Promise<ActionResult> {
 }
 
 export async function restoreStudyRecord(id: string): Promise<ActionResult> {
+  if (!isValidId(id)) return NOT_FOUND;
   try {
     const userId = await getCurrentUserId();
     const record = await db.studyRecord.findFirst({ where: { id, userId, deletedAt: { not: null } } });

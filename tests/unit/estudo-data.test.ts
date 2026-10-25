@@ -169,3 +169,30 @@ describe("listStudyRecords", () => {
     expect(page.items).toHaveLength(5);
   });
 });
+
+describe("id que não é um texto válido", () => {
+  const filterObject = { not: "" } as unknown as string;
+
+  it("objeto de filtro como id não atinge nenhum registro (update, delete e restore)", async () => {
+    const userId = await getCurrentUserId();
+    await insert(userId, "A", new Date(2026, 0, 1, 12));
+    await insert(userId, "B", new Date(2026, 0, 2, 12));
+
+    expect(await updateStudyRecord(filterObject, { ...input, descricao: "HACK" })).toEqual(NOT_FOUND);
+    expect(await deleteStudyRecord(filterObject)).toEqual(NOT_FOUND);
+    const visible = (await listStudyRecords({})).items.map((r) => r.descricao);
+    expect(visible).toEqual(["B", "A"]);
+
+    await db.studyRecord.updateMany({ data: { deletedAt: new Date() } });
+    expect(await restoreStudyRecord(filterObject)).toEqual(NOT_FOUND);
+    expect((await listStudyRecords({})).totalAll).toBe(0);
+  });
+
+  it("id vazio e ids de outros tipos devolvem 'Registro não encontrado.'", async () => {
+    for (const id of ["", 42, null, undefined] as unknown as string[]) {
+      expect(await updateStudyRecord(id, input)).toEqual(NOT_FOUND);
+      expect(await deleteStudyRecord(id)).toEqual(NOT_FOUND);
+      expect(await restoreStudyRecord(id)).toEqual(NOT_FOUND);
+    }
+  });
+});

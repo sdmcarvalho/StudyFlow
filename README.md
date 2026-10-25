@@ -8,12 +8,14 @@ Spec e plano de implementação ficam em `docs/superpowers/`.
 ## Setup
 
 ```bash
-npm install
 cp .env.example .env
+npm install
 npm run db:migrate
 npm run db:seed
 npm run dev
 ```
+
+Para os testes e2e, instale o navegador uma vez com `npx playwright install chromium`. O `npm run test:e2e` faz um build e sobrescreve `.next`.
 
 O app abre em http://localhost:3000 e redireciona para `/estudo`.
 
