@@ -31,7 +31,7 @@ function controllableSave() {
   };
 }
 
-function setup(options: { retryDelaysMs?: number[] } = {}) {
+function setup(options: { retryDelaysMs?: number[]; validate?: (cells: Cell[]) => boolean } = {}) {
   const control = controllableSave();
   const states: AutosaveState[] = [];
   const clock = new Date("2026-10-25T10:30:00");
@@ -518,6 +518,48 @@ describe("createAutosave", () => {
       expect(result).toBe(false);
       expect(t.save).not.toHaveBeenCalled();
       expect(t.states).toEqual([]);
+    });
+  });
+
+  describe("documento fora do limite (validate)", () => {
+    const valid = (cells: Cell[]) => !cells.some((cell) => cell.texto.includes("grande"));
+
+    it("não chama o servidor nem tenta de novo: fica em invalid e continua pendente", async () => {
+      const t = setup({ validate: valid });
+      t.autosave.change(doc("grande"));
+      expect(t.statuses().at(-1)).toBe("dirty");
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(t.save).not.toHaveBeenCalled();
+      expect(t.statuses().at(-1)).toBe("invalid");
+      expect(t.autosave.hasPending()).toBe(true);
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(t.save).not.toHaveBeenCalled();
+      expect(t.statuses().at(-1)).toBe("invalid");
+    });
+
+    it("saveNow com documento inválido devolve false sem chamar o servidor", async () => {
+      const t = setup({ validate: valid });
+      t.autosave.change(doc("grande"));
+      await expect(t.autosave.saveNow()).resolves.toBe(false);
+      expect(t.save).not.toHaveBeenCalled();
+      expect(t.statuses().at(-1)).toBe("invalid");
+    });
+
+    it("alteração que continua inválida mantém invalid na hora; voltando ao limite, salva de novo", async () => {
+      const t = setup({ validate: valid });
+      t.autosave.change(doc("grande"));
+      await vi.advanceTimersByTimeAsync(2000);
+      t.autosave.change(doc("grande 2"));
+      expect(t.statuses().at(-1)).toBe("invalid");
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(t.save).not.toHaveBeenCalled();
+
+      t.autosave.change(doc("pequeno"));
+      expect(t.statuses().at(-1)).toBe("dirty");
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(t.save).toHaveBeenCalledWith(doc("pequeno"));
+      await t.settle(true);
+      expect(t.statuses().at(-1)).toBe("saved");
     });
   });
 });

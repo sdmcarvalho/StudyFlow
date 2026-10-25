@@ -8,6 +8,17 @@ export const MAX_CELLS = 500;
 export const MAX_CELL_CHARS = 200_000;
 export const MAX_CONTENT_BYTES = 5 * 1024 * 1024;
 
+/** "200000" → "200 000" (separador de milhar com espaço, como no restante do texto). */
+function groupThousands(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+/** Aviso do editor quando o documento passa de algum limite (e por isso não é enviado). */
+export const CONTENT_LIMIT_MESSAGE =
+  `O documento passou do limite (${groupThousands(MAX_CELLS)} células, ` +
+  `${groupThousands(MAX_CELL_CHARS)} caracteres por célula, ${MAX_CONTENT_BYTES / (1024 * 1024)} MB). ` +
+  "Reduza o texto para salvar.";
+
 const cellSchema = z.object({
   id: z.string().min(1).max(64),
   texto: z.string().max(MAX_CELL_CHARS),

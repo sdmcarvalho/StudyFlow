@@ -14,7 +14,7 @@ import {
   type MouseEvent,
 } from "react";
 import { PlusIcon, TrashIcon } from "@/components/ui/icons";
-import type { Cell as CellData } from "../../content-schema";
+import { MAX_CELL_CHARS, type Cell as CellData } from "../../content-schema";
 import type { EditorMode } from "../editor-mode";
 import { imageMarkdown } from "../markdown-format";
 import { applyEditToTextarea } from "../textarea-edit";
@@ -45,6 +45,8 @@ export type CellProps = {
   onChange: (id: string, texto: string) => void;
   onAddBelow: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Falso no limite de células: o "+" fica desabilitado. */
+  canAddBelow?: boolean;
   onResizeImage?: (id: string, range: ImageRange, width: number) => void;
   registerTextarea: (id: string, element: HTMLTextAreaElement | null) => void;
   /** A textarea desta célula ganhou foco (a barra age sobre a última célula focada). */
@@ -76,6 +78,7 @@ export function Cell({
   onChange,
   onAddBelow,
   onDelete,
+  canAddBelow = true,
   onResizeImage,
   registerTextarea,
   onFocusCell,
@@ -271,6 +274,7 @@ export function Cell({
               className={styles.textarea}
               aria-label={`Markdown da célula ${number}`}
               spellCheck
+              maxLength={MAX_CELL_CHARS}
               value={texto}
               onChange={(event) => onChange(id, event.target.value)}
               onKeyDown={handleTextareaKeyDown}
@@ -315,6 +319,7 @@ export function Cell({
             className={styles.add}
             title="Adicionar célula abaixo"
             aria-label="Adicionar célula abaixo"
+            disabled={!canAddBelow}
             onClick={() => onAddBelow(id)}
           >
             <PlusIcon />

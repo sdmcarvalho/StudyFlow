@@ -2,7 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { Toolbar } from "@/features/estudo/editor/components/Toolbar";
+import { CONTENT_LIMIT_MESSAGE } from "@/features/estudo/content-schema";
+import { saveStatusText, Toolbar } from "@/features/estudo/editor/components/Toolbar";
 
 type Props = ComponentProps<typeof Toolbar>;
 
@@ -132,6 +133,15 @@ describe("Toolbar — botões", () => {
     for (const name of [...FORMAT_BUTTONS, ...OTHER_BUTTONS]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute("title");
     }
+  });
+});
+
+describe("saveStatusText — fora do limite", () => {
+  it("invalid mostra a mensagem de limite", () => {
+    expect(saveStatusText({ status: "invalid", savedAt: null })).toBe(CONTENT_LIMIT_MESSAGE);
+    expect(CONTENT_LIMIT_MESSAGE).toBe(
+      "O documento passou do limite (500 células, 200 000 caracteres por célula, 5 MB). Reduza o texto para salvar.",
+    );
   });
 });
 

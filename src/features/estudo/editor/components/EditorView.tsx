@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toast, useToast } from "@/components/ui/Toast";
-import type { Cell } from "../../content-schema";
+import { CONTENT_LIMIT_MESSAGE, MAX_CELLS, type Cell } from "../../content-schema";
 import { normalizeFolderPath } from "../../folder-path";
 import type { EditorMode } from "../editor-mode";
 import { applyFormat, type FormatAction } from "../markdown-format";
@@ -67,7 +67,9 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
   );
 
   const handleSave = useCallback(async () => {
-    if (await saveNow()) show("Documento salvo.");
+    const result = await saveNow();
+    if (result === "saved") show("Documento salvo.");
+    else if (result === "invalid") show(CONTENT_LIMIT_MESSAGE);
   }, [saveNow, show]);
 
   // Atalhos: Ctrl+S em qualquer lugar; Ctrl+B / Ctrl+I na textarea de uma célula.
@@ -116,7 +118,8 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
 
   const handleAddBelow = useCallback(
     (id: string) => {
-      setEditingId(addBelow(id));
+      const newId = addBelow(id);
+      if (newId !== null) setEditingId(newId);
     },
     [addBelow],
   );
@@ -203,6 +206,7 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
           editingId={activeEditingId}
           studyId={studyId}
           onReorder={reorder}
+          canAddBelow={cells.length < MAX_CELLS}
           onEdit={handleEdit}
           onStopEditing={handleStopEditing}
           onChange={changeText}

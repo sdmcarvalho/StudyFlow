@@ -6,12 +6,16 @@ export type SaveStatus =
   | "saving"
   | "saved"
   | "retrying"
-  | "failed";
+  | "failed"
+  /** O documento passou de um limite: não é enviado até voltar ao limite. */
+  | "invalid";
 
 export type AutosaveState = { status: SaveStatus; savedAt: Date | null };
 
 export type AutosaveOptions = {
   save: (cells: Cell[]) => Promise<boolean>;
+  /** Documento que não passa aqui não vai ao servidor nem é tentado de novo. */
+  validate?: (cells: Cell[]) => boolean;
   onState: (state: AutosaveState) => void;
   delayMs?: number;
   retryDelaysMs?: number[];
@@ -31,6 +35,7 @@ const DEFAULT_RETRY_DELAYS_MS = [5000, 10000, 20000];
 export function createAutosave(options: AutosaveOptions): Autosave {
   const {
     save,
+    validate = () => true,
     onState,
     delayMs = DEFAULT_DELAY_MS,
     retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
@@ -75,6 +80,10 @@ export function createAutosave(options: AutosaveOptions): Autosave {
   }
 
   function send(manual: boolean): Promise<boolean> {
+    if (!validate(latest)) {
+      setStatus("invalid");
+      return Promise.resolve(false);
+    }
     const sentVersion = version;
     setStatus("saving");
     const run = (async () => {
@@ -123,6 +132,11 @@ export function createAutosave(options: AutosaveOptions): Autosave {
     version += 1;
     retryCount = 0;
     clearTimer();
+    // Ainda fora do limite: o aviso continua na hora, sem piscar "não salvas" a cada tecla.
+    if (status === "invalid" && inFlight === null && !validate(cells)) {
+      setStatus("invalid");
+      return;
+    }
     setStatus("dirty");
     if (inFlight === null) schedule(delayMs);
   }

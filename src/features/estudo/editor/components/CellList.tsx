@@ -33,6 +33,7 @@ type CellCallbacks = Pick<
   | "onChange"
   | "onAddBelow"
   | "onDelete"
+  | "canAddBelow"
   | "onResizeImage"
   | "registerTextarea"
   | "onFocusCell"

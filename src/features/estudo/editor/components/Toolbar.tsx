@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { CONTENT_LIMIT_MESSAGE } from "../../content-schema";
 import type { AutosaveState } from "../autosave";
 import type { EditorMode } from "../editor-mode";
 import type { FormatAction } from "../markdown-format";
@@ -81,6 +82,8 @@ export function saveStatusText(state: AutosaveState): string {
       return "Falha ao salvar. Tentando de novo…";
     case "failed":
       return "Não salvo";
+    case "invalid":
+      return CONTENT_LIMIT_MESSAGE;
   }
 }
 
@@ -112,7 +115,7 @@ export function Toolbar({
 
   const statusText = saveStatusText(state);
   const statusClass =
-    state.status === "failed" || state.status === "retrying"
+    state.status === "failed" || state.status === "retrying" || state.status === "invalid"
       ? styles.statusError
       : state.status === "dirty"
         ? styles.statusDirty

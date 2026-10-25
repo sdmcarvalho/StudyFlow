@@ -11,7 +11,7 @@ vi.mock("@/features/estudo/editor/upload", () => ({
 }));
 
 import { saveStudyContent } from "@/features/estudo/actions";
-import type { Cell } from "@/features/estudo/content-schema";
+import { CONTENT_LIMIT_MESSAGE, MAX_CELL_CHARS, MAX_CELLS, type Cell } from "@/features/estudo/content-schema";
 import { EditorView } from "@/features/estudo/editor/components/EditorView";
 import { uploadImage } from "@/features/estudo/editor/upload";
 
@@ -259,6 +259,112 @@ describe("EditorView — salvamento", () => {
     expect(saveMock).toHaveBeenCalledTimes(2);
     expect(screen.getByText("Salvo às 10:15")).toBeInTheDocument();
     expect(within(cell(1)).getByRole("textbox")).toHaveValue("texto digitado");
+  });
+});
+
+const emptyCells = (n: number): Cell[] => Array.from({ length: n }, (_, i) => ({ id: `c${i}`, texto: "" }));
+
+describe("EditorView — limites do documento", () => {
+  it("célula com mais de 200 000 caracteres: não chama o servidor, mostra o limite e protege a saída", async () => {
+    const { user } = setup(TWO);
+    const textarea = await edit(user, 1);
+    type(textarea, "x".repeat(MAX_CELL_CHARS + 1));
+    await flush(2000);
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(screen.getByText(CONTENT_LIMIT_MESSAGE)).toBeInTheDocument();
+    await flush(60000);
+    expect(saveMock).not.toHaveBeenCalled();
+
+    // Salvar mostra o mesmo aviso também no toast, sem chamar o servidor.
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await flush();
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(screen.getAllByText(CONTENT_LIMIT_MESSAGE)).toHaveLength(2);
+    expect(screen.queryByText("Documento salvo.")).not.toBeInTheDocument();
+
+    // O aviso de sair continua ativo.
+    const unblock = blockNavigation();
+    try {
+      await user.click(screen.getByRole("link", { name: "← Estudo" }));
+    } finally {
+      unblock();
+    }
+    expect(screen.getByRole("alertdialog", { name: "Sair sem salvar?" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continuar editando" }));
+
+    // Voltando ao limite, o aviso some e o salvamento volta sozinho.
+    // Clicar no link encerrou a edição: abre de novo para corrigir o texto.
+    type(await edit(user, 1), "curto");
+    await flush(2000);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(saveMock).toHaveBeenCalledWith("S1", [
+      { id: "a", texto: "curto" },
+      { id: "b", texto: "segunda" },
+    ]);
+    // O indicador da barra sai do aviso (o toast do Salvar some sozinho).
+    expect(within(screen.getByRole("toolbar")).queryByText(CONTENT_LIMIT_MESSAGE)).not.toBeInTheDocument();
+    expect(screen.getByText(/^Salvo às \d\d:\d\d$/)).toBeInTheDocument();
+  });
+
+  it("Ctrl+S com documento fora do limite mostra o aviso no toast", async () => {
+    const { user } = setup(TWO);
+    type(await edit(user, 1), "x".repeat(MAX_CELL_CHARS + 1));
+    fireEvent.keyDown(document.body, { key: "s", ctrlKey: true });
+    await flush();
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(screen.getAllByText(CONTENT_LIMIT_MESSAGE)).toHaveLength(2);
+  });
+
+  it("501 células: não salva e mostra o limite; excluir uma volta a salvar", async () => {
+    const { user } = setup(emptyCells(MAX_CELLS + 1));
+    type(await edit(user, 1), "a");
+    await flush(2000);
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(screen.getByText(CONTENT_LIMIT_MESSAGE)).toBeInTheDocument();
+
+    await user.click(within(cell(2)).getByRole("button", { name: "Excluir célula" }));
+    await flush(2000);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(saveMock.mock.calls[0]![1]).toHaveLength(MAX_CELLS);
+    expect(screen.queryByText(CONTENT_LIMIT_MESSAGE)).not.toBeInTheDocument();
+    // 501 células no jsdom demoram a renderizar.
+  }, 30_000);
+
+  it("com 500 células o + fica desabilitado; abaixo disso, habilitado", async () => {
+    const { user } = setup(emptyCells(MAX_CELLS));
+    const adds = screen.getAllByRole("button", { name: "Adicionar célula abaixo" });
+    expect(adds).toHaveLength(MAX_CELLS);
+    for (const add of adds) expect(add).toBeDisabled();
+
+    await user.click(within(cell(1)).getByRole("button", { name: "Excluir célula" }));
+    expect(within(cell(1)).getByRole("button", { name: "Adicionar célula abaixo" })).toBeEnabled();
+  }, 30_000);
+
+  it("a textarea limita o texto a 200 000 caracteres", async () => {
+    const { user } = setup(TWO);
+    const textarea = await edit(user, 1);
+    expect(textarea).toHaveAttribute("maxLength", String(MAX_CELL_CHARS));
+  });
+
+  it("sair da tela antes dos 2 s salva o que estava pendente", async () => {
+    const { user, unmount } = setup(TWO);
+    type(await edit(user, 1), "editada");
+    unmount();
+    await flush();
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    expect(saveMock).toHaveBeenCalledWith("S1", [
+      { id: "a", texto: "editada" },
+      { id: "b", texto: "segunda" },
+    ]);
+    await flush(10000);
+    expect(saveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sair sem nada pendente não salva", async () => {
+    const { unmount } = setup(TWO);
+    unmount();
+    await flush(5000);
+    expect(saveMock).not.toHaveBeenCalled();
   });
 });
 
