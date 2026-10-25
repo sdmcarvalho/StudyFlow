@@ -10,10 +10,15 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "@prisma/adapter-libsql": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "dotenv": "^18.0.9",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",

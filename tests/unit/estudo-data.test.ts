@@ -1,0 +1,171 @@
+// @vitest-environment node
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+import {
+  createStudyRecord,
+  deleteStudyRecord,
+  restoreStudyRecord,
+  updateStudyRecord,
+} from "@/features/estudo/actions";
+import { listStudyRecords } from "@/features/estudo/queries";
+import { getCurrentUserId } from "@/lib/current-user";
+import { db } from "@/lib/db";
+import { toIsoDate } from "@/lib/dates";
+
+const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
+const input = { descricao: "Cálculo I", pasta: "Matemática", dataInicial: "2026-08-04" };
+
+async function insert(userId: string, descricao: string, updatedAt: Date, pasta = "Geral") {
+  return db.studyRecord.create({
+    data: { userId, descricao, pasta, dataInicial: "2026-08-04", updatedAt },
+  });
+}
+
+async function insertMany(userId: string, count: number) {
+  for (let i = 1; i <= count; i++) {
+    await insert(userId, `Tema ${i}`, new Date(2026, 0, i, 12));
+  }
+}
+
+beforeEach(async () => {
+  await db.studyRecord.deleteMany();
+  await db.user.deleteMany();
+});
+
+describe("createStudyRecord", () => {
+  it("grava e aparece na lista com a data de atualização de hoje", async () => {
+    const result = await createStudyRecord(input);
+    expect(result.ok).toBe(true);
+
+    const page = await listStudyRecords({});
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({ ...input, dataAtualizacao: toIsoDate(new Date()) });
+  });
+
+  it("com entrada inválida devolve fieldErrors e não grava nada", async () => {
+    const result = await createStudyRecord({ ...input, descricao: "   " });
+    expect(result).toEqual({ ok: false, fieldErrors: { descricao: "Informe uma descrição." } });
+    expect(await db.studyRecord.count()).toBe(0);
+  });
+
+  it("guarda HTML na descrição sem alterar (o escape é da renderização)", async () => {
+    const descricao = "<img src=x onerror=alert(1)>";
+    await createStudyRecord({ ...input, descricao });
+    const page = await listStudyRecords({});
+    expect(page.items[0].descricao).toBe(descricao);
+  });
+});
+
+describe("updateStudyRecord", () => {
+  it("altera os campos", async () => {
+    const created = await createStudyRecord(input);
+    if (!created.ok) throw new Error("create falhou");
+
+    const result = await updateStudyRecord(created.data.id, {
+      descricao: "Cálculo II",
+      pasta: "Exatas",
+      dataInicial: "2026-09-01",
+    });
+    expect(result.ok).toBe(true);
+
+    const [item] = (await listStudyRecords({})).items;
+    expect(item).toMatchObject({ descricao: "Cálculo II", pasta: "Exatas", dataInicial: "2026-09-01" });
+  });
+
+  it("com dados inválidos devolve fieldErrors e mantém o registro", async () => {
+    const created = await createStudyRecord(input);
+    if (!created.ok) throw new Error("create falhou");
+
+    const result = await updateStudyRecord(created.data.id, { ...input, dataInicial: "2026-02-30" });
+    expect(result).toEqual({ ok: false, fieldErrors: { dataInicial: "Informe uma data válida." } });
+    expect((await listStudyRecords({})).items[0].dataInicial).toBe("2026-08-04");
+  });
+});
+
+describe("deleteStudyRecord e restoreStudyRecord", () => {
+  it("exclui da lista e restaura na mesma posição, com a mesma data de atualização", async () => {
+    const userId = await getCurrentUserId();
+    const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
+    await insert(userId, "B", new Date(2026, 1, 1, 12));
+    const before = (await listStudyRecords({})).items.map((r) => r.descricao);
+    expect(before).toEqual(["B", "A"]);
+
+    expect((await deleteStudyRecord(a.id)).ok).toBe(true);
+    expect((await listStudyRecords({})).items.map((r) => r.descricao)).toEqual(["B"]);
+
+    expect((await restoreStudyRecord(a.id)).ok).toBe(true);
+    const after = (await listStudyRecords({})).items;
+    expect(after.map((r) => r.descricao)).toEqual(before);
+    expect(after[1].dataAtualizacao).toBe("2026-01-01");
+  });
+
+  it("excluir um registro já excluído devolve 'Registro não encontrado.'", async () => {
+    const userId = await getCurrentUserId();
+    const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
+    await deleteStudyRecord(a.id);
+    expect(await deleteStudyRecord(a.id)).toEqual(NOT_FOUND);
+  });
+
+  it("restaurar um registro que não está excluído devolve 'Registro não encontrado.'", async () => {
+    const userId = await getCurrentUserId();
+    const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
+    expect(await restoreStudyRecord(a.id)).toEqual(NOT_FOUND);
+  });
+});
+
+describe("ids inexistentes ou de outro usuário", () => {
+  it("update, delete e restore com id inexistente devolvem 'Registro não encontrado.'", async () => {
+    expect(await updateStudyRecord("nao-existe", input)).toEqual(NOT_FOUND);
+    expect(await deleteStudyRecord("nao-existe")).toEqual(NOT_FOUND);
+    expect(await restoreStudyRecord("nao-existe")).toEqual(NOT_FOUND);
+  });
+
+  it("registro de outro usuário não aparece na lista nem pode ser alterado", async () => {
+    await getCurrentUserId();
+    const other = await db.user.create({ data: { name: "Outro" } });
+    const foreign = await insert(other.id, "Alheio", new Date(2026, 0, 1, 12));
+    await db.studyRecord.update({ where: { id: foreign.id }, data: { deletedAt: new Date() } });
+    const visible = await insert(other.id, "Alheio visível", new Date(2026, 0, 2, 12));
+
+    expect((await listStudyRecords({})).totalAll).toBe(0);
+    expect(await updateStudyRecord(visible.id, input)).toEqual(NOT_FOUND);
+    expect(await deleteStudyRecord(visible.id)).toEqual(NOT_FOUND);
+    expect(await restoreStudyRecord(foreign.id)).toEqual(NOT_FOUND);
+  });
+});
+
+describe("listStudyRecords", () => {
+  it("pagina de 5 em 5: com 7 registros a página 2 tem 2 itens", async () => {
+    await insertMany(await getCurrentUserId(), 7);
+    const page = await listStudyRecords({ page: 2 });
+    expect(page.items).toHaveLength(2);
+    expect(page).toMatchObject({ total: 7, totalAll: 7, totalPages: 2, start: 5 });
+  });
+
+  it("ordena por atualização mais recente primeiro", async () => {
+    await insertMany(await getCurrentUserId(), 3);
+    const names = (await listStudyRecords({})).items.map((r) => r.descricao);
+    expect(names).toEqual(["Tema 3", "Tema 2", "Tema 1"]);
+  });
+
+  it("busca sem diferenciar acento", async () => {
+    const userId = await getCurrentUserId();
+    await insert(userId, "Cálculo I", new Date(2026, 0, 1, 12));
+    await insert(userId, "Anatomia", new Date(2026, 0, 2, 12));
+    const page = await listStudyRecords({ q: "calculo" });
+    expect(page.items.map((r) => r.descricao)).toEqual(["Cálculo I"]);
+    expect(page.totalAll).toBe(2);
+  });
+
+  it("depois de excluir o único item da página 2, listar a página 2 devolve a página 1", async () => {
+    const userId = await getCurrentUserId();
+    await insertMany(userId, 6);
+    const lastOnPage2 = (await listStudyRecords({ page: 2 })).items[0];
+    await deleteStudyRecord(lastOnPage2.id);
+    const page = await listStudyRecords({ page: 2 });
+    expect(page.page).toBe(1);
+    expect(page.items).toHaveLength(5);
+  });
+});

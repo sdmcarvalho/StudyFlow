@@ -8,3 +8,4 @@ playwright-report
 .superpowers
 next-env.d.ts
 *.tsbuildinfo
+src/generated

@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id      String        @id @default(cuid())
+  name    String
+  records StudyRecord[]
+}
+
+model StudyRecord {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  descricao   String // máx. 80 caracteres
+  pasta       String // máx. 40 caracteres
+  dataInicial String // YYYY-MM-DD (SQLite não tem tipo date; evita problema de fuso)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt // exibido como "Data atualização"
+  deletedAt   DateTime? // exclusão lógica, suporta o "Desfazer"
+
+  @@index([userId, updatedAt])
+}

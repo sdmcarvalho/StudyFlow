@@ -11,5 +11,9 @@ export default defineConfig({
     environment: "jsdom",
     include: ["tests/unit/**/*.test.{ts,tsx}"],
     setupFiles: ["tests/unit/setup-dom.ts"],
+    globalSetup: ["tests/unit/global-setup.ts"],
+    env: { DATABASE_URL: "file:./prisma/test.db" },
+    // Os testes de dados compartilham um único arquivo SQLite.
+    fileParallelism: false,
   },
 });
