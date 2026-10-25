@@ -1,0 +1,146 @@
+import { expect, test, type Page } from "@playwright/test";
+import { resetData, tableRows } from "./helpers";
+
+test.beforeEach(async ({ page }) => {
+  resetData();
+  await page.goto("/estudo");
+});
+
+const toast = (page: Page) => page.getByRole("status");
+
+async function createRecord(page: Page, descricao: string, pasta: string) {
+  await page.getByRole("button", { name: "Novo" }).first().click();
+  await page.getByLabel("Descrição").fill(descricao);
+  await page.getByLabel("Pasta").fill(pasta);
+  await page.getByRole("button", { name: "Salvar" }).click();
+}
+
+async function deleteRow(page: Page, row = tableRows(page).first()) {
+  await row.getByRole("button", { name: "Excluir registro" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Excluir" }).click();
+  await expect(toast(page)).toContainText("Registro excluído.");
+}
+
+test("a raiz redireciona para /estudo e a primeira página mostra 5 de 8 registros", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/estudo$/);
+  await expect(tableRows(page)).toHaveCount(5);
+  await expect(page.getByText("Mostrando 1–5 de 8 registros")).toBeVisible();
+  await expect(tableRows(page).first()).toContainText("Programação — Estruturas de dados");
+});
+
+test("cria um registro: aparece no topo com o toast de confirmação", async ({ page }) => {
+  await createRecord(page, "Estatística — Probabilidade", "Matemática");
+  await expect(toast(page)).toContainText("Registro criado.");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(tableRows(page).first()).toContainText("Estatística — Probabilidade");
+  await expect(page.getByText("Mostrando 1–5 de 9 registros")).toBeVisible();
+});
+
+test("edita a descrição: o registro vai para o topo com o toast de atualização", async ({ page }) => {
+  const row = tableRows(page).filter({ hasText: "Anatomia — Sistema nervoso" });
+  await row.getByRole("button", { name: "Editar registro" }).click();
+  await expect(page.getByRole("dialog", { name: "Editar registro" })).toBeVisible();
+  await page.getByLabel("Descrição").fill("Anatomia — Sistema cardiovascular");
+  await page.getByRole("button", { name: "Salvar" }).click();
+
+  await expect(toast(page)).toContainText("Registro atualizado.");
+  await expect(tableRows(page).first()).toContainText("Anatomia — Sistema cardiovascular");
+  await expect(page.getByText("Anatomia — Sistema nervoso")).toHaveCount(0);
+});
+
+test("modal com campos vazios mostra as três mensagens e não fecha", async ({ page }) => {
+  await page.getByRole("button", { name: "Novo" }).first().click();
+  await page.getByLabel("Data inicial").fill("");
+  await page.getByRole("button", { name: "Salvar" }).click();
+
+  await expect(page.getByText("Informe uma descrição.")).toBeVisible();
+  await expect(page.getByText("Informe uma pasta.")).toBeVisible();
+  await expect(page.getByText("Informe uma data válida.")).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("excluir e desfazer devolve o registro à mesma posição", async ({ page }) => {
+  const names = await tableRows(page).allInnerTexts();
+  expect(names[2]).toContain("Física II — Eletromagnetismo");
+
+  await deleteRow(page, tableRows(page).nth(2));
+  await expect(page.getByText("Física II — Eletromagnetismo")).toHaveCount(0);
+
+  await toast(page).getByRole("button", { name: "Desfazer" }).click();
+  await expect(tableRows(page).nth(2)).toContainText("Física II — Eletromagnetismo");
+  await expect(tableRows(page)).toHaveCount(5);
+});
+
+test("excluir sem desfazer: o registro não volta ao recarregar", async ({ page }) => {
+  await deleteRow(page, tableRows(page).nth(2));
+  await page.reload();
+  await expect(page.getByText("Física II — Eletromagnetismo")).toHaveCount(0);
+  await expect(page.getByText("Mostrando 1–5 de 7 registros")).toBeVisible();
+});
+
+test("busca sem acento, limpa pelo campo e pelo estado vazio, e mantém a busca na URL", async ({ page }) => {
+  const search = page.getByRole("searchbox", { name: "Pesquisar registros de estudo" });
+
+  await search.fill("calculo");
+  await expect(page).toHaveURL(/[?&]q=calculo/);
+  await expect(page.getByText("1 resultado para “calculo”")).toBeVisible();
+  await expect(tableRows(page)).toHaveCount(1);
+
+  await page.getByRole("button", { name: "Limpar pesquisa" }).click();
+  await expect(page).toHaveURL(/\/estudo$/);
+  await expect(tableRows(page)).toHaveCount(5);
+
+  await search.fill("zzzz");
+  await expect(page.getByRole("heading", { name: "Nenhum resultado encontrado" })).toBeVisible();
+  await page.locator("section").getByRole("button", { name: "Limpar pesquisa" }).click();
+  await expect(tableRows(page)).toHaveCount(5);
+  await expect(search).toHaveValue("");
+});
+
+test("pagina para a segunda página e volta", async ({ page }) => {
+  await page.getByRole("button", { name: "Próxima página" }).click();
+  await expect(page).toHaveURL(/[?&]page=2/);
+  await expect(page.getByText("Mostrando 6–8 de 8 registros")).toBeVisible();
+  await expect(tableRows(page)).toHaveCount(3);
+
+  await page.getByRole("button", { name: "Página anterior" }).click();
+  await expect(page.getByText("Mostrando 1–5 de 8 registros")).toBeVisible();
+});
+
+test("page=999 e page=abc carregam sem erro (última e primeira página)", async ({ page }) => {
+  await page.goto("/estudo?page=999");
+  await expect(page.getByText("Página 2 de 2")).toBeVisible();
+  await expect(tableRows(page)).toHaveCount(3);
+
+  await page.goto("/estudo?page=abc");
+  await expect(page.getByText("Página 1 de 2")).toBeVisible();
+  await expect(tableRows(page)).toHaveCount(5);
+});
+
+test("HTML na descrição aparece como texto e nenhum diálogo é disparado", async ({ page }) => {
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+
+  const html = "<img src=x onerror=alert(1)>";
+  await createRecord(page, html, "Teste");
+  await expect(tableRows(page).first()).toContainText(html);
+  await expect(page.locator("tbody img")).toHaveCount(0);
+  expect(dialogs).toEqual([]);
+});
+
+test("excluir o único item da última página leva a tela para a página 1", async ({ page }) => {
+  await page.goto("/estudo?page=2");
+  await expect(tableRows(page)).toHaveCount(3);
+
+  await deleteRow(page);
+  await deleteRow(page);
+  await expect(tableRows(page)).toHaveCount(1);
+  await deleteRow(page);
+
+  await expect(page.getByText("Mostrando 1–5 de 5 registros")).toBeVisible();
+  await expect(tableRows(page)).toHaveCount(5);
+});
