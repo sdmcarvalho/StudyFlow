@@ -11,6 +11,7 @@ const invalid = (message: string): FolderPathResult => ({ ok: false, message });
 
 const DRIVE_PREFIX = /^[A-Za-z]:\\/;
 const UNC_PREFIX = /^\\\\[^\\]+\\[^\\]+/;
+const RESERVED_UNC_NAMES = new Set([".", "..", "?"]);
 
 function hasValidSegments(rest: string): boolean {
   if (rest === "") return true;
@@ -33,6 +34,9 @@ export function normalizeFolderPath(input: string): FolderPathResult {
     rest = path.slice(3);
   } else if (unc) {
     prefix = unc[0];
+    // servidor e compartilhamento também não podem ser ".", ".." ou "?" (namespaces \\.\ e \\?\ do Win32)
+    const [server, share] = prefix.slice(2).split("\\");
+    if (RESERVED_UNC_NAMES.has(server) || RESERVED_UNC_NAMES.has(share)) return invalid(ABSOLUTE_PATH_MESSAGE);
     rest = path.slice(prefix.length + 1); // pula a barra que separa o compartilhamento do resto
   } else {
     return invalid(ABSOLUTE_PATH_MESSAGE);

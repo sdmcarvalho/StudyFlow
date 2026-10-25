@@ -26,6 +26,16 @@ describe("normalizeFolderPath", () => {
     "\\\\servidor",
     "\\\\\\\\",
     "C:\\a\\\\b",
+    "C:\\a\\.",
+    "C:\\.",
+    "\\\\server\\..\\x",
+    "\\\\server\\.\\x",
+    "\\\\.\\C:\\x",
+    "\\\\?\\C:\\x",
+    "\\\\?\\x\\y",
+    "\\\\.\\.",
+    "\\\\..\\share\\x",
+    "//server/../x",
   ])("rejeita %j como caminho não absoluto", (input) => {
     expect(normalizeFolderPath(input)).toEqual({ ok: false, message: ABSOLUTE_MESSAGE });
   });
