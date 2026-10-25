@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { todayIso } from "@/lib/dates";
 import { createStudyRecord, updateStudyRecord } from "../actions";
 import type { StudyRecordRow } from "../list";
-import { MAX_FOLDER_CHARS } from "../folder-path";
+import { MAX_FOLDER_CHARS, normalizeFolderPath } from "../folder-path";
 import { parseStudyRecordInput, type FieldErrors } from "../schema";
+import { FolderPicker } from "./FolderPicker";
 import styles from "./StudyFormModal.module.css";
 
 const SAVE_FAILED = "Não foi possível salvar. Tente novamente.";
@@ -50,6 +51,33 @@ function StudyForm({ record, baseDir, onCancel, onSaved, onError }: StudyFormPro
   const [dataInicial, setDataInicial] = useState(record?.dataInicial ?? todayIso());
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
+  // O seletor de pastas aparece no lugar do formulário; o estado dos campos fica aqui e não se perde.
+  const [browsing, setBrowsing] = useState(false);
+  const [focusAfterBrowse, setFocusAfterBrowse] = useState<"pasta" | "procurar" | null>(null);
+  const pastaRef = useRef<HTMLInputElement>(null);
+  const browseRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (focusAfterBrowse === "pasta") pastaRef.current?.focus();
+    else if (focusAfterBrowse === "procurar") browseRef.current?.focus();
+  }, [focusAfterBrowse]);
+
+  function closeBrowser(selected: string | null) {
+    if (selected !== null) setPasta(selected);
+    setBrowsing(false);
+    setFocusAfterBrowse(selected !== null ? "pasta" : "procurar");
+  }
+
+  if (browsing) {
+    const current = normalizeFolderPath(pasta);
+    return (
+      <FolderPicker
+        initialPath={current.ok ? current.path : baseDir}
+        onSelect={(path) => closeBrowser(path)}
+        onCancel={() => closeBrowser(null)}
+      />
+    );
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,15 +117,28 @@ function StudyForm({ record, baseDir, onCancel, onSaved, onError }: StudyFormPro
         />
       </Field>
       <Field id="field-pasta" label="Pasta" error={errors.pasta}>
-        <input
-          id="field-pasta"
-          value={pasta}
-          maxLength={MAX_FOLDER_CHARS}
-          required
-          aria-invalid={errors.pasta ? true : undefined}
-          aria-describedby={errors.pasta ? "field-pasta-error" : undefined}
-          onChange={(event) => setPasta(event.target.value)}
-        />
+        <div className={styles.withButton}>
+          <input
+            ref={pastaRef}
+            id="field-pasta"
+            value={pasta}
+            maxLength={MAX_FOLDER_CHARS}
+            required
+            aria-invalid={errors.pasta ? true : undefined}
+            aria-describedby={errors.pasta ? "field-pasta-error" : undefined}
+            onChange={(event) => setPasta(event.target.value)}
+          />
+          <Button
+            ref={browseRef}
+            variant="secondary"
+            onClick={() => {
+              setFocusAfterBrowse(null);
+              setBrowsing(true);
+            }}
+          >
+            Procurar…
+          </Button>
+        </div>
       </Field>
       <Field id="field-data" label="Data inicial" error={errors.dataInicial}>
         <input

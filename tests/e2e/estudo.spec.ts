@@ -45,6 +45,47 @@ test("o modal de novo registro começa com a pasta base no campo Pasta", async (
   await expect(page.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\`);
 });
 
+test("Procurar… navega no disco, cria uma pasta e preenche o campo Pasta", async ({ page }) => {
+  await page.getByRole("button", { name: "Novo" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Novo registro" });
+  await dialog.getByLabel("Descrição").fill("Geografia — Climas");
+  await dialog.getByRole("button", { name: "Procurar…" }).click();
+
+  // Abre na pasta base e2e, que tem as pastas do seed.
+  await expect(dialog.locator("output")).toHaveText(E2E_BASE_DIR);
+  const list = dialog.getByRole("list", { name: "Subpastas" });
+  await expect(list.getByRole("button", { name: "Matemática" })).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Nova pasta" }).click();
+  await dialog.getByLabel("Nome da nova pasta").fill("Geografia");
+  await dialog.getByRole("button", { name: "Criar" }).click();
+  await expect(dialog.locator("output")).toHaveText(`${E2E_BASE_DIR}\\Geografia`);
+  expect(fs.statSync(path.join(E2E_BASE_DIR, "Geografia")).isDirectory()).toBe(true);
+
+  // Sobe um nível e volta a entrar pela lista.
+  await dialog.getByRole("button", { name: "Pasta acima" }).click();
+  await expect(dialog.locator("output")).toHaveText(E2E_BASE_DIR);
+  await list.getByRole("button", { name: "Geografia" }).click();
+  await expect(dialog.locator("output")).toHaveText(`${E2E_BASE_DIR}\\Geografia`);
+  await dialog.getByRole("button", { name: "Selecionar esta pasta" }).click();
+
+  await expect(dialog.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\Geografia`);
+  await expect(dialog.getByLabel("Descrição")).toHaveValue("Geografia — Climas");
+  await dialog.getByRole("button", { name: "Salvar" }).click();
+  await expect(toast(page)).toContainText("Registro criado.");
+  await expect(tableRows(page).first()).toContainText(`${E2E_BASE_DIR}\\Geografia`);
+});
+
+test("Esc no seletor de pastas volta ao formulário sem fechar o modal", async ({ page }) => {
+  await page.getByRole("button", { name: "Novo" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Novo registro" });
+  await dialog.getByRole("button", { name: "Procurar…" }).click();
+  await expect(dialog.getByRole("list", { name: "Subpastas" }).getByRole("button", { name: "Matemática" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\`);
+  await expect(dialog.getByRole("button", { name: "Procurar…" })).toBeFocused();
+});
+
 test("Pasta relativa mostra a mensagem de caminho absoluto no modal", async ({ page }) => {
   await page.getByRole("button", { name: "Novo" }).first().click();
   await page.getByLabel("Descrição").fill("Relativo");

@@ -117,6 +117,65 @@ describe("StudyView: campo Pasta do modal", () => {
     expect(createStudyRecord).toHaveBeenCalledWith(expect.objectContaining({ pasta: "D:\\Base\\Estatística" }));
   });
 
+  describe("Procurar…", () => {
+    const fetchMock = vi.fn((url: string) => {
+      const caminho = new URL(url, "http://localhost").searchParams.get("caminho");
+      const body =
+        caminho === "C:\\Estudos\\Física"
+          ? { path: caminho, parent: "C:\\Estudos", folders: ["Ondas"], drives: ["C:\\"] }
+          : { path: "C:\\Estudos\\Física\\Ondas", parent: "C:\\Estudos\\Física", folders: [], drives: ["C:\\"] };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    beforeEach(() => {
+      fetchMock.mockClear();
+      vi.stubGlobal("fetch", fetchMock);
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("abre o seletor na pasta do campo; selecionar preenche o campo, mantém a Descrição e volta o foco", async () => {
+      render(view(""));
+      await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
+      const dialog = screen.getByRole("dialog", { name: "Editar registro" });
+      await userEvent.clear(within(dialog).getByLabelText("Descrição"));
+      await userEvent.type(within(dialog).getByLabelText("Descrição"), "Física III");
+
+      await userEvent.click(within(dialog).getByRole("button", { name: "Procurar…" }));
+      expect(fetchMock).toHaveBeenCalledWith(`/api/pastas?caminho=${encodeURIComponent("C:\\Estudos\\Física")}`);
+      await userEvent.click(await within(dialog).findByRole("button", { name: "Ondas" }));
+      await within(dialog).findByText("C:\\Estudos\\Física\\Ondas", { selector: "output" });
+      await userEvent.click(within(dialog).getByRole("button", { name: "Selecionar esta pasta" }));
+
+      const pasta = within(dialog).getByLabelText("Pasta") as HTMLInputElement;
+      expect(pasta.value).toBe("C:\\Estudos\\Física\\Ondas");
+      expect(pasta).toHaveFocus();
+      expect((within(dialog).getByLabelText("Descrição") as HTMLInputElement).value).toBe("Física III");
+    });
+
+    it("Esc no seletor volta ao formulário sem fechar o modal nem mudar o campo", async () => {
+      render(view(""));
+      await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
+      const dialog = screen.getByRole("dialog", { name: "Editar registro" });
+      await userEvent.click(within(dialog).getByRole("button", { name: "Procurar…" }));
+      await within(dialog).findByRole("button", { name: "Ondas" });
+      await userEvent.keyboard("{Escape}");
+
+      expect(screen.getByRole("dialog", { name: "Editar registro" })).toBeInTheDocument();
+      const pasta = within(dialog).getByLabelText("Pasta") as HTMLInputElement;
+      expect(pasta.value).toBe("C:\\Estudos\\Física");
+      expect(within(dialog).getByRole("button", { name: "Procurar…" })).toHaveFocus();
+    });
+
+    it("com o campo inválido, o seletor abre na pasta base", async () => {
+      render(view(""));
+      await userEvent.click(screen.getAllByRole("button", { name: "Novo" })[0]);
+      const dialog = screen.getByRole("dialog", { name: "Novo registro" });
+      await userEvent.clear(within(dialog).getByLabelText("Pasta"));
+      await userEvent.type(within(dialog).getByLabelText("Pasta"), "Matemática");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Procurar…" }));
+      expect(fetchMock).toHaveBeenCalledWith(`/api/pastas?caminho=${encodeURIComponent("D:\\Base")}`);
+    });
+  });
+
   it("editar mostra a pasta do próprio registro", async () => {
     render(view(""));
     await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
