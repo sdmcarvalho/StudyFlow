@@ -83,4 +83,19 @@ describe("uploadImage", () => {
     mockFetch(async () => jsonResponse(200, { alt: "x" }));
     await expect(uploadImage("ID", png())).resolves.toEqual({ ok: false, message: FAILED });
   });
+
+  it.each(["imagens/..", "imagens/.", "imagens/.png", "imagens/a.svg", "imagens/a"])(
+    "200 com caminho sem nome de imagem de verdade (%s) vira a mensagem padrão",
+    async (path) => {
+      mockFetch(async () => jsonResponse(200, { path, alt: "x" }));
+      await expect(uploadImage("ID", png())).resolves.toEqual({ ok: false, message: FAILED });
+    },
+  );
+
+  it("aceita jpg, jpeg, gif e webp", async () => {
+    for (const path of ["imagens/a-1.jpg", "imagens/a.jpeg", "imagens/_b.gif", "imagens/c.d.webp"]) {
+      mockFetch(async () => jsonResponse(200, { path, alt: "a" }));
+      await expect(uploadImage("ID", png())).resolves.toEqual({ ok: true, path, alt: "a" });
+    }
+  });
 });

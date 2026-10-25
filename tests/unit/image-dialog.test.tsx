@@ -91,6 +91,13 @@ describe("ImageDialog — aba URL", () => {
     expect(onInsert).toHaveBeenCalledWith("![a b](https://x.com/a%20%281%29.png)");
   });
 
+  it("codifica a barra invertida do endereço", async () => {
+    const { user, onInsert } = setup();
+    await user.type(screen.getByLabelText("Endereço da imagem"), "https://x.com/a.png?x=\\");
+    await user.click(screen.getByRole("button", { name: "Inserir" }));
+    expect(onInsert).toHaveBeenCalledWith("![](https://x.com/a.png?x=%5C)");
+  });
+
   it("Cancelar fecha sem inserir", async () => {
     const { user, onInsert, onClose } = setup();
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -149,6 +156,17 @@ describe("ImageDialog — aba Enviar do computador", () => {
     expect(onInsert).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("depois de uma falha, o mesmo arquivo pode ser escolhido de novo", async () => {
+    uploadMock.mockResolvedValue({ ok: false, message: "Não foi possível salvar a imagem." });
+    const { user } = setup();
+    await user.click(screen.getByRole("tab", { name: "Enviar do computador" }));
+    const input = screen.getByLabelText("Arquivo de imagem") as HTMLInputElement;
+    await user.upload(input, png("foto.png"));
+    await screen.findByRole("alert");
+    // O valor limpo faz o navegador disparar `change` mesmo com o mesmo arquivo.
+    expect(input.value).toBe("");
   });
 
   it("Inserir sem arquivo pede para escolher a imagem", async () => {

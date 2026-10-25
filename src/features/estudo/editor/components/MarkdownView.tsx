@@ -37,7 +37,7 @@ import rehypeHighlight, { type Options as RehypeHighlightOptions } from "rehype-
 import rehypeKatex, { type Options as RehypeKatexOptions } from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { clampWidth, parseImageAlt } from "../image-width";
+import { clampWidth, MAX_WIDTH, MIN_WIDTH, parseImageAlt } from "../image-width";
 import { resolveImageSrc } from "../resolve-image-src";
 import { ImageResizer, keyResizeDelta } from "./ImageResizer";
 import styles from "./MarkdownView.module.css";
@@ -229,6 +229,7 @@ function SelectableImage({ src, alt, title, width, range, onResizeImage }: Selec
     const onPointerDown = (event: PointerEvent) => {
       if (groupRef.current?.contains(event.target as Node)) return;
       setSelection(null);
+      setLive(null);
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
@@ -326,8 +327,9 @@ function WidthField({ initial, committedWidth, onCommit, onCancel }: WidthFieldP
   // Só focar e sair do campo não grava nada: precisa ter digitado.
   const edited = useRef(false);
 
-  function commit() {
-    if (!edited.current) return;
+  /** `explicit`: Enter. Sem `|N` no texto, Enter grava o valor exibido mesmo sem edição. */
+  function commit(explicit = false) {
+    if (!edited.current && !(explicit && committed.current === null)) return;
     edited.current = false;
     const value = Number(draft);
     if (draft.trim() === "" || !Number.isFinite(value)) {
@@ -345,7 +347,7 @@ function WidthField({ initial, committedWidth, onCommit, onCancel }: WidthFieldP
     event.stopPropagation();
     if (event.key === "Enter") {
       event.preventDefault();
-      commit();
+      commit(true);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onCancel();
@@ -359,8 +361,8 @@ function WidthField({ initial, committedWidth, onCommit, onCancel }: WidthFieldP
         id={id}
         type="number"
         inputMode="numeric"
-        min={32}
-        max={2000}
+        min={MIN_WIDTH}
+        max={MAX_WIDTH}
         step={1}
         value={draft}
         onChange={(event) => {
@@ -368,7 +370,7 @@ function WidthField({ initial, committedWidth, onCommit, onCancel }: WidthFieldP
           setDraft(event.target.value);
         }}
         onKeyDown={handleKeyDown}
-        onBlur={commit}
+        onBlur={() => commit()}
       />
       <span aria-hidden="true">px</span>
     </span>

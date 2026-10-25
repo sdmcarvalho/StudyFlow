@@ -36,7 +36,7 @@ export function ImageDialog({ open, studyId, onClose, onInsert }: ImageDialogPro
   );
 }
 
-/** Endereço `http(s)` normalizado, sem parênteses que fechariam o token; `null` para o resto. */
+/** Endereço `http(s)` normalizado, sem parênteses nem barra invertida que quebrariam o token; `null` para o resto. */
 function normalizeHttpUrl(value: string): string | null {
   let url: URL;
   try {
@@ -45,7 +45,7 @@ function normalizeHttpUrl(value: string): string | null {
     return null;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-  return url.href.replace(/\(/g, "%28").replace(/\)/g, "%29");
+  return url.href.replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\\/g, "%5C");
 }
 
 type Upload =
@@ -99,6 +99,8 @@ function ImageForm({ studyId, onClose, onInsert }: Omit<ImageDialogProps, "open"
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    // Limpa a escolha: o mesmo arquivo pode ser escolhido de novo (por exemplo, depois de uma falha).
+    event.target.value = "";
     if (!file) return;
     setFileError(null);
     setAlt(cleanImageStem(file.name));

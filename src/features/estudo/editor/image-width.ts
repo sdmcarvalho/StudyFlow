@@ -1,5 +1,5 @@
-const MIN_WIDTH = 32;
-const MAX_WIDTH = 2000;
+export const MIN_WIDTH = 32;
+export const MAX_WIDTH = 2000;
 const WIDTH_SUFFIX = /^([\s\S]*)\|(\d+)$/;
 const IMAGE_TOKEN = /^!\[([\s\S]*)\]\(([\s\S]*)\)$/;
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { clampWidth } from "../image-width";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { clampWidth, MAX_WIDTH, MIN_WIDTH } from "../image-width";
 import styles from "./ImageResizer.module.css";
 
 const KEY_STEP = 10;
@@ -29,6 +29,19 @@ export function ImageResizer({ width, onResize, onLiveWidth }: ImageResizerProps
   const dragRef = useRef<DragState | null>(null);
   const [live, setLive] = useState<number | null>(null);
   const shown = live ?? width;
+  const onLiveWidthRef = useRef(onLiveWidth);
+
+  useEffect(() => {
+    onLiveWidthRef.current = onLiveWidth;
+  });
+
+  // Desmontar no meio do arrasto (seleção desfeita, texto trocado) não deixa a imagem presa na largura ao vivo.
+  useEffect(() => {
+    return () => {
+      if (dragRef.current?.current != null) onLiveWidthRef.current?.(null);
+      dragRef.current = null;
+    };
+  }, []);
 
   function updateLive(next: number | null) {
     setLive(next);
@@ -83,8 +96,8 @@ export function ImageResizer({ width, onResize, onLiveWidth }: ImageResizerProps
         role="slider"
         tabIndex={0}
         aria-label="Redimensionar imagem"
-        aria-valuemin={32}
-        aria-valuemax={2000}
+        aria-valuemin={MIN_WIDTH}
+        aria-valuemax={MAX_WIDTH}
         aria-valuenow={shown}
         aria-valuetext={`${shown} px`}
         title="Arraste para mudar a largura"

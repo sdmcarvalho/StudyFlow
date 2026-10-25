@@ -285,6 +285,28 @@ describe("MarkdownView — imagens", () => {
     expect(onResizeImage).toHaveBeenCalledWith({ start: 0, end: "![foto](imagens/a.png)".length }, 300);
   });
 
+  it("sem largura no texto, Enter no valor exibido grava a largura mesmo sem editar", async () => {
+    const user = userEvent.setup();
+    const onResizeImage = vi.fn();
+    view("![foto](imagens/a.png)", onResizeImage);
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    await user.click(screen.getByLabelText("Largura"));
+    await user.keyboard("{Enter}");
+    expect(onResizeImage).toHaveBeenCalledTimes(1);
+    expect(onResizeImage).toHaveBeenCalledWith({ start: 0, end: "![foto](imagens/a.png)".length }, 300);
+  });
+
+  it("com largura no texto, Enter sem editar não reescreve", async () => {
+    const user = userEvent.setup();
+    const onResizeImage = vi.fn();
+    view("![foto|300](imagens/a.png)", onResizeImage);
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    await user.click(screen.getByLabelText("Largura"));
+    await user.keyboard("{Enter}");
+    await user.tab();
+    expect(onResizeImage).not.toHaveBeenCalled();
+  });
+
   it("com largura no texto, confirmar o mesmo valor não reescreve", async () => {
     const user = userEvent.setup();
     const onResizeImage = vi.fn();

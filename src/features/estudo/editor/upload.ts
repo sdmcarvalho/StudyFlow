@@ -3,7 +3,7 @@ export const UPLOAD_FAILED = "Não foi possível salvar a imagem.";
 export type UploadResult = { ok: true; path: string; alt: string } | { ok: false; message: string };
 
 // Só aceita o caminho relativo que a rota gera: `imagens/<nome-seguro>`.
-const SAVED_PATH = /^imagens\/[A-Za-z0-9._-]+$/;
+const SAVED_PATH = /^imagens\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(png|jpe?g|gif|webp)$/;
 
 /**
  * Envia a imagem para `POST /estudo/<id>/imagens`. Nunca lança: rede fora, corpo que não é

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ImageResizer } from "@/features/estudo/editor/components/ImageResizer";
 import { MarkdownView } from "@/features/estudo/editor/components/MarkdownView";
-import { setImageWidth } from "@/features/estudo/editor/image-width";
+import { MAX_WIDTH, MIN_WIDTH, setImageWidth } from "@/features/estudo/editor/image-width";
 
 const HANDLE = "Redimensionar imagem";
 
@@ -63,6 +63,26 @@ describe("ImageResizer — sozinho", () => {
     const handle = screen.getByRole("slider", { name: HANDLE });
     fireEvent.pointerMove(handle, { pointerId: 1, clientX: 400 });
     fireEvent.pointerUp(handle, { pointerId: 1, clientX: 400 });
+    expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("usa os limites de largura exportados por image-width", () => {
+    render(<ImageResizer width={300} onResize={vi.fn()} />);
+    const handle = screen.getByRole("slider", { name: HANDLE });
+    expect(MIN_WIDTH).toBe(32);
+    expect(MAX_WIDTH).toBe(2000);
+    expect(handle).toHaveAttribute("aria-valuemin", String(MIN_WIDTH));
+    expect(handle).toHaveAttribute("aria-valuemax", String(MAX_WIDTH));
+  });
+
+  it("desmontar no meio do arrasto zera a largura ao vivo", () => {
+    const onLiveWidth = vi.fn();
+    const onResize = vi.fn();
+    const { unmount } = render(<ImageResizer width={300} onResize={onResize} onLiveWidth={onLiveWidth} />);
+    drag(screen.getByRole("slider", { name: HANDLE }), 100, 220, null);
+    expect(onLiveWidth).toHaveBeenLastCalledWith(420);
+    unmount();
+    expect(onLiveWidth).toHaveBeenLastCalledWith(null);
     expect(onResize).not.toHaveBeenCalled();
   });
 
@@ -133,6 +153,25 @@ describe("ImageResizer — no MarkdownView", () => {
     expect(onResize).toHaveBeenCalledWith(420);
     expect(screen.getByTestId("texto")).toHaveTextContent("Antes ![foto|420](imagens/a.png) depois");
     expect(screen.getByRole("img", { name: "foto" })).toHaveAttribute("width", "420");
+  });
+
+  it("clicar fora no meio do arrasto volta a imagem à largura do texto", async () => {
+    const user = userEvent.setup();
+    const onResize = vi.fn();
+    render(
+      <div>
+        <p>fora</p>
+        <Harness initial="![foto](imagens/a.png)" onResize={onResize} />
+      </div>,
+    );
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    drag(screen.getByRole("slider", { name: HANDLE }), 100, 220, null);
+    expect(screen.getByRole("img", { name: "foto" })).toHaveAttribute("width", "420");
+
+    fireEvent.pointerDown(screen.getByText("fora"), { pointerId: 2 });
+    expect(screen.queryByRole("slider", { name: HANDLE })).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "foto" })).not.toHaveAttribute("width");
+    expect(onResize).not.toHaveBeenCalled();
   });
 
   it("o campo Largura com 450 + Enter chama onResize(450)", async () => {
