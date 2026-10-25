@@ -1,0 +1,174 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w-expanded);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-3);
+  gap: var(--space-5);
+  z-index: 40;
+  transition: transform var(--transition-base), width var(--transition-base);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  min-height: 40px;
+}
+
+.brandMark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.brandMark :global(.icon) {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.25;
+}
+
+.brandName {
+  font-weight: 400;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 44px;
+  border-left: 3px solid transparent;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.item:hover {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.active,
+.active:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-text-primary);
+  border-left-color: var(--color-primary);
+}
+.active .icon {
+  color: var(--color-primary-pressed);
+}
+
+.icon {
+  flex: none;
+  display: flex;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  background: var(--color-text-primary);
+  color: var(--color-bg);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  z-index: 50;
+}
+
+/* Tablet: a sidebar vira uma barra de ícones. */
+@media (max-width: 1023.98px) {
+  .sidebar {
+    width: var(--sidebar-w-collapsed);
+    padding: var(--space-4) var(--space-2);
+    align-items: center;
+  }
+  .brand {
+    justify-content: center;
+    padding: var(--space-2) 0;
+  }
+  .brandName,
+  .label {
+    display: none;
+  }
+  .item {
+    justify-content: center;
+  }
+  .item:hover .tooltip,
+  .item:focus-visible .tooltip {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  .tooltip {
+    display: none;
+  }
+}
+
+/* Mobile: a sidebar vira um drawer fora da tela. */
+@media (max-width: 767.98px) {
+  .sidebar {
+    width: min(304px, 84vw);
+    transform: translateX(-100%);
+    padding: var(--space-4) var(--space-3);
+    align-items: stretch;
+    z-index: 50;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .brand {
+    justify-content: flex-start;
+  }
+  .brandName {
+    display: block;
+  }
+  .item {
+    justify-content: flex-start;
+  }
+  .label {
+    display: inline;
+  }
+  .tooltip {
+    display: none;
+  }
+}
