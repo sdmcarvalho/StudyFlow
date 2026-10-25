@@ -20,8 +20,10 @@ const rows: StudyRecordRow[] = [
   { id: "2", descricao: "Anatomia", pasta: "C:\\Estudos\\Medicina", dataInicial: "2026-08-11", dataAtualizacao: "2026-10-20" },
 ];
 
+const BASE_DIR = "D:\\Base";
+
 function view(q: string) {
-  return <StudyView page={buildListPage(rows, { q, page: 1 })} q={q} />;
+  return <StudyView page={buildListPage(rows, { q, page: 1 })} q={q} baseDir={BASE_DIR} />;
 }
 
 const searchbox = () => screen.getByRole("searchbox") as HTMLInputElement;
@@ -69,6 +71,30 @@ describe("StudyView: busca sincronizada com a URL", () => {
   });
 });
 
+describe("StudyView: campo Pasta do modal", () => {
+  it("novo Estudo começa com <baseDir>\\ e o que o usuário digita completa o caminho", async () => {
+    vi.mocked(createStudyRecord).mockResolvedValue({ ok: true, data: { id: "3" } });
+    render(view(""));
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Novo" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Novo registro" });
+    const pasta = within(dialog).getByLabelText("Pasta") as HTMLInputElement;
+    expect(pasta.value).toBe("D:\\Base\\");
+
+    await userEvent.type(within(dialog).getByLabelText("Descrição"), "Estatística");
+    await userEvent.type(pasta, "Estatística");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    expect(createStudyRecord).toHaveBeenCalledWith(expect.objectContaining({ pasta: "D:\\Base\\Estatística" }));
+  });
+
+  it("editar mostra a pasta do próprio registro", async () => {
+    render(view(""));
+    await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Editar registro" });
+    expect((within(dialog).getByLabelText("Pasta") as HTMLInputElement).value).toBe("C:\\Estudos\\Física");
+  });
+});
+
 describe("StudyView: falha na chamada da server action", () => {
   it("salvar: o toast de erro aparece, o modal continua aberto e Salvar volta a ficar ativo", async () => {
     vi.mocked(createStudyRecord).mockRejectedValue(new Error("network"));
@@ -77,7 +103,7 @@ describe("StudyView: falha na chamada da server action", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "Novo" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Novo registro" });
     await userEvent.type(within(dialog).getByLabelText("Descrição"), "Estatística");
-    await userEvent.type(within(dialog).getByLabelText("Pasta"), "C:\\Estudos\\Matemática");
+    await userEvent.type(within(dialog).getByLabelText("Pasta"), "Matemática");
     await userEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(GENERIC_ERROR);

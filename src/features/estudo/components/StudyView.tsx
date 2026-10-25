@@ -20,9 +20,10 @@ import styles from "./StudyView.module.css";
 const SEARCH_DEBOUNCE_MS = 250;
 const GENERIC_ERROR = "Não foi possível salvar. Tente novamente.";
 
-type StudyViewProps = { page: ListPage; q: string };
+/** `baseDir`: pasta base dos Estudos (STUDYFLOW_BASE_DIR), lida no servidor e sugerida no modal. */
+type StudyViewProps = { page: ListPage; q: string; baseDir: string };
 
-export function StudyView({ page, q }: StudyViewProps) {
+export function StudyView({ page, q, baseDir }: StudyViewProps) {
   const router = useRouter();
   const { toast, show, hide } = useToast();
   const [search, setSearch] = useState(q);
@@ -164,6 +165,7 @@ export function StudyView({ page, q }: StudyViewProps) {
       <StudyFormModal
         open={formOpen}
         record={editing}
+        baseDir={baseDir}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
         onError={show}

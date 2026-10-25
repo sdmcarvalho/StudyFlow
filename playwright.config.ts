@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_BASE_DIR } from "./tests/e2e/helpers";
 
 const PORT = 3200;
 const DATABASE_URL = "file:./prisma/e2e.db";
@@ -21,6 +22,7 @@ export default defineConfig({
     url: `http://localhost:${PORT}/testes`,
     timeout: 240_000,
     reuseExistingServer: false,
-    env: { DATABASE_URL },
+    // Pastas dos Estudos criadas pelo app ficam na pasta temporária e2e (ver resetData).
+    env: { DATABASE_URL, STUDYFLOW_BASE_DIR: E2E_BASE_DIR },
   },
 });

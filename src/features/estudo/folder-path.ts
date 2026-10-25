@@ -11,13 +11,30 @@ const invalid = (message: string): FolderPathResult => ({ ok: false, message });
 
 const DRIVE_PREFIX = /^[A-Za-z]:\\/;
 const UNC_PREFIX = /^\\\\[^\\]+\\[^\\]+/;
-const RESERVED_UNC_NAMES = new Set([".", "..", "?"]);
+// Caracteres proibidos em nomes do Windows, incluindo os de controle (U+0000 a U+001F).
+const FORBIDDEN_CHARS = /[<>:"|?*\u0000-\u001f]/;
+const DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+
+/**
+ * Nome que o Windows aceita como pasta, sem ambiguidade: "a." e "a " viram "a" no disco (chaves de
+ * unicidade diferentes para a mesma pasta), e nomes de dispositivo (CON, NUL.txt…) não são pastas.
+ * Também cobre ".", ".." e "?" (namespaces \\.\ e \\?\ do Win32 no servidor/compartilhamento UNC).
+ */
+function isValidSegment(segment: string): boolean {
+  return (
+    segment !== "" &&
+    !segment.endsWith(".") &&
+    !segment.endsWith(" ") &&
+    !FORBIDDEN_CHARS.test(segment) &&
+    !DEVICE_NAME.test(segment)
+  );
+}
 
 function hasValidSegments(rest: string): boolean {
   if (rest === "") return true;
   const segments = rest.split("\\");
   if (segments[segments.length - 1] === "") segments.pop(); // barra final
-  return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
+  return segments.every(isValidSegment);
 }
 
 export function normalizeFolderPath(input: string): FolderPathResult {
@@ -34,9 +51,9 @@ export function normalizeFolderPath(input: string): FolderPathResult {
     rest = path.slice(3);
   } else if (unc) {
     prefix = unc[0];
-    // servidor e compartilhamento também não podem ser ".", ".." ou "?" (namespaces \\.\ e \\?\ do Win32)
+    // servidor e compartilhamento seguem as mesmas regras de nome (inclui ".", ".." e "?")
     const [server, share] = prefix.slice(2).split("\\");
-    if (RESERVED_UNC_NAMES.has(server) || RESERVED_UNC_NAMES.has(share)) return invalid(ABSOLUTE_PATH_MESSAGE);
+    if (!isValidSegment(server) || !isValidSegment(share)) return invalid(ABSOLUTE_PATH_MESSAGE);
     rest = path.slice(prefix.length + 1); // pula a barra que separa o compartilhamento do resto
   } else {
     return invalid(ABSOLUTE_PATH_MESSAGE);

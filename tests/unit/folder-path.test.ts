@@ -40,6 +40,43 @@ describe("normalizeFolderPath", () => {
     expect(normalizeFolderPath(input)).toEqual({ ok: false, message: ABSOLUTE_MESSAGE });
   });
 
+  it.each([
+    "C:\\a.",
+    "C:\\a.\\b",
+    "C:\\a \\b",
+    "C:\\a\\b \\",
+    "C:\\a<b",
+    "C:\\a>b",
+    "C:\\a:b",
+    "C:\\a\"b",
+    "C:\\a|b",
+    "C:\\a?b",
+    "C:\\a*b",
+    "C:\\a\u0001b",
+    "C:\\a\tb",
+    "C:\\x\\CON",
+    "C:\\con",
+    "C:\\Nul.txt",
+    "C:\\aux\\x",
+    "C:\\PRN",
+    "C:\\com1",
+    "C:\\COM9.log",
+    "C:\\lpt1",
+    "C:\\LPT9",
+    "\\\\servidor\\pasta\\CON",
+    "\\\\servidor\\pa:sta\\x",
+    "\\\\servi*dor\\pasta",
+  ])("rejeita %j por nome inválido no Windows", (input) => {
+    expect(normalizeFolderPath(input)).toEqual({ ok: false, message: ABSOLUTE_MESSAGE });
+  });
+
+  it.each(["C:\\a.b", "C:\\.git", "C:\\a b", "C:\\console", "C:\\COM10", "C:\\LPT0", "C:\\com", "C:\\connection.txt"])(
+    "aceita o nome válido %j",
+    (input) => {
+      expect(normalizeFolderPath(input)).toEqual({ ok: true, path: input });
+    },
+  );
+
   it("aceita 260 caracteres e rejeita 261", () => {
     expect(MAX_FOLDER_CHARS).toBe(260);
     const prefix = "C:\\";

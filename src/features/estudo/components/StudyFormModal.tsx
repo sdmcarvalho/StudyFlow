@@ -15,30 +15,38 @@ const SAVE_FAILED = "Não foi possível salvar. Tente novamente.";
 type StudyFormModalProps = {
   open: boolean;
   record: StudyRecordRow | null;
+  /** Pasta base; um novo Estudo começa com `<baseDir>\` no campo Pasta. */
+  baseDir: string;
   onClose: () => void;
   onSaved: (kind: "created" | "updated") => void;
   onError: (message: string) => void;
 };
 
-export function StudyFormModal({ open, record, onClose, onSaved, onError }: StudyFormModalProps) {
+export function StudyFormModal({ open, record, baseDir, onClose, onSaved, onError }: StudyFormModalProps) {
   return (
     <Modal open={open} title={record ? "Editar registro" : "Novo registro"} onClose={onClose}>
-      <StudyForm record={record} onCancel={onClose} onSaved={onSaved} onError={onError} />
+      <StudyForm record={record} baseDir={baseDir} onCancel={onClose} onSaved={onSaved} onError={onError} />
     </Modal>
   );
 }
 
 type StudyFormProps = {
   record: StudyRecordRow | null;
+  baseDir: string;
   onCancel: () => void;
   onSaved: (kind: "created" | "updated") => void;
   onError: (message: string) => void;
 };
 
+/** `<baseDir>\`, sem duplicar a barra quando a base já termina com ela (ex.: D:\). */
+function newFolderPrefix(baseDir: string): string {
+  return baseDir.endsWith("\\") ? baseDir : `${baseDir}\\`;
+}
+
 // Montado só enquanto o modal está aberto, então o estado reinicia a cada abertura.
-function StudyForm({ record, onCancel, onSaved, onError }: StudyFormProps) {
+function StudyForm({ record, baseDir, onCancel, onSaved, onError }: StudyFormProps) {
   const [descricao, setDescricao] = useState(record?.descricao ?? "");
-  const [pasta, setPasta] = useState(record?.pasta ?? "");
+  const [pasta, setPasta] = useState(record?.pasta ?? newFolderPrefix(baseDir));
   const [dataInicial, setDataInicial] = useState(record?.dataInicial ?? todayIso());
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
