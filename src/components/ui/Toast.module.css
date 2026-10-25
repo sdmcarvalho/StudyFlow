@@ -1,0 +1,39 @@
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-6);
+  transform: translateX(-50%) translateY(8px);
+  background: var(--color-text-primary);
+  color: var(--color-bg);
+  font-size: 14px;
+  font-weight: 500;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-base), transform var(--transition-base);
+  z-index: 80;
+  max-width: calc(100vw - var(--space-6) * 2);
+}
+
+.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.undo {
+  background: none;
+  border: none;
+  color: var(--color-primary-soft);
+  font-weight: 600;
+  font-size: 14px;
+  flex: none;
+  padding: 0;
+}
+.undo:hover {
+  color: var(--color-on-primary);
+}

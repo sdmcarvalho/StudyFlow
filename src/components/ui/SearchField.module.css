@@ -1,0 +1,59 @@
+.field {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 360px;
+  margin-left: auto;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+.field:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+.field > :global(.icon) {
+  color: var(--color-text-tertiary);
+}
+.field input {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+.field input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-surface-strong);
+  color: var(--color-text-secondary);
+  flex: none;
+  padding: 0;
+}
+.clear :global(.icon) {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.25;
+}
+
+@media (max-width: 767.98px) {
+  .field {
+    max-width: none;
+    margin-left: 0;
+    flex: none;
+  }
+}
