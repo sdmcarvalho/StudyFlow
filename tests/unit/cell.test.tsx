@@ -1,8 +1,13 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ComponentProps } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Cell } from "@/features/estudo/editor/components/Cell";
+import { uploadImage } from "@/features/estudo/editor/upload";
+
+vi.mock("@/features/estudo/editor/upload", () => ({ uploadImage: vi.fn() }));
+
+const uploadMock = vi.mocked(uploadImage);
 
 type Props = ComponentProps<typeof Cell>;
 
@@ -210,5 +215,114 @@ describe("Cell — foco da textarea", () => {
     expect(textarea).toHaveFocus();
     expect(textarea.selectionStart).toBe(2);
     expect(textarea.selectionEnd).toBe(2);
+  });
+});
+
+describe("Cell — colar e soltar imagem", () => {
+  const ok = { ok: true as const, path: "imagens/foto-20261025-101530.png", alt: "foto" };
+
+  function png(name = "foto.png"): File {
+    return new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], name, { type: "image/png" });
+  }
+
+  function editor(texto: string, caret: number, overrides: Partial<Props> = {}) {
+    const props = makeProps({ mode: "split", cell: { id: "c1", texto }, ...overrides });
+    render(<Cell {...props} />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(caret, caret);
+    return { props, textarea };
+  }
+
+  beforeEach(() => {
+    uploadMock.mockReset();
+  });
+
+  it("colar um arquivo de imagem envia e insere o Markdown na posição do cursor", async () => {
+    uploadMock.mockResolvedValue(ok);
+    const { props, textarea } = editor("abcd", 2);
+    const file = png();
+    const notCanceled = fireEvent.paste(textarea, { clipboardData: { files: [file], types: ["Files"] } });
+
+    expect(notCanceled).toBe(false);
+    expect(uploadMock).toHaveBeenCalledWith("S1", file);
+    const md = "![foto](imagens/foto-20261025-101530.png)";
+    await waitFor(() => expect(props.onChange).toHaveBeenCalledWith("c1", `ab${md}cd`));
+    expect(textarea.selectionStart).toBe(2 + md.length);
+    expect(textarea.selectionEnd).toBe(2 + md.length);
+  });
+
+  it("colar troca o trecho selecionado pela imagem", async () => {
+    uploadMock.mockResolvedValue(ok);
+    const { props, textarea } = editor("abcd", 0);
+    textarea.setSelectionRange(1, 3);
+    fireEvent.paste(textarea, { clipboardData: { files: [png()], types: ["Files"] } });
+    await waitFor(() =>
+      expect(props.onChange).toHaveBeenCalledWith("c1", "a![foto](imagens/foto-20261025-101530.png)d"),
+    );
+  });
+
+  it("colar texto ou arquivo que não é imagem segue o padrão do navegador", () => {
+    const { textarea } = editor("abcd", 2);
+    expect(fireEvent.paste(textarea, { clipboardData: { files: [], types: ["text/plain"] } })).toBe(true);
+    const pdf = new File(["%PDF"], "a.pdf", { type: "application/pdf" });
+    expect(fireEvent.paste(textarea, { clipboardData: { files: [pdf], types: ["Files"] } })).toBe(true);
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("soltar um arquivo de imagem envia e insere", async () => {
+    uploadMock.mockResolvedValue(ok);
+    const { props, textarea } = editor("abcd", 4);
+    const file = png();
+    expect(fireEvent.dragOver(textarea, { dataTransfer: { files: [file], types: ["Files"] } })).toBe(false);
+    expect(fireEvent.drop(textarea, { dataTransfer: { files: [file], types: ["Files"] } })).toBe(false);
+    expect(uploadMock).toHaveBeenCalledWith("S1", file);
+    await waitFor(() =>
+      expect(props.onChange).toHaveBeenCalledWith("c1", "abcd![foto](imagens/foto-20261025-101530.png)"),
+    );
+  });
+
+  it("arrastar texto para a textarea segue o padrão do navegador", () => {
+    const { textarea } = editor("abcd", 4);
+    expect(fireEvent.dragOver(textarea, { dataTransfer: { files: [], types: ["text/plain"] } })).toBe(true);
+    expect(fireEvent.drop(textarea, { dataTransfer: { files: [], types: ["text/plain"] } })).toBe(true);
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("soltar arquivo que não é imagem não envia nem deixa o navegador abrir o arquivo", () => {
+    const { textarea } = editor("abcd", 4);
+    const pdf = new File(["%PDF"], "a.pdf", { type: "application/pdf" });
+    expect(fireEvent.drop(textarea, { dataTransfer: { files: [pdf], types: ["Files"] } })).toBe(false);
+    expect(uploadMock).not.toHaveBeenCalled();
+  });
+
+  it("se a edição terminar durante o envio, a imagem entra no fim da célula", async () => {
+    let resolve!: (value: typeof ok) => void;
+    uploadMock.mockReturnValue(new Promise((r) => (resolve = r)));
+    const props = makeProps({ editing: true, cell: { id: "c1", texto: "abcd" } });
+    const { rerender } = render(<Cell {...props} />);
+    fireEvent.paste(screen.getByRole("textbox"), { clipboardData: { files: [png()], types: ["Files"] } });
+    rerender(<Cell {...props} editing={false} />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    resolve(ok);
+    await waitFor(() =>
+      expect(props.onChange).toHaveBeenCalledWith("c1", "abcd\n\n![foto](imagens/foto-20261025-101530.png)"),
+    );
+  });
+
+  it("falha no envio chama onImageError com a mensagem e não insere", async () => {
+    uploadMock.mockResolvedValue({ ok: false, message: "Não foi possível salvar a imagem." });
+    const onImageError = vi.fn();
+    const { props, textarea } = editor("abcd", 2, { onImageError });
+    fireEvent.paste(textarea, { clipboardData: { files: [png()], types: ["Files"] } });
+    await waitFor(() => expect(onImageError).toHaveBeenCalledWith("Não foi possível salvar a imagem."));
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+
+  it("o alt vindo do servidor não quebra o Markdown", async () => {
+    uploadMock.mockResolvedValue({ ok: true, path: "imagens/x.png", alt: "a]b|c\nd" });
+    const { props, textarea } = editor("", 0);
+    fireEvent.paste(textarea, { clipboardData: { files: [png()], types: ["Files"] } });
+    await waitFor(() => expect(props.onChange).toHaveBeenCalledWith("c1", "![a b c d](imagens/x.png)"));
   });
 });

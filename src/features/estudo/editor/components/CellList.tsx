@@ -36,6 +36,7 @@ type CellCallbacks = Pick<
   | "onResizeImage"
   | "registerTextarea"
   | "onFocusCell"
+  | "onImageError"
 >;
 
 type CellListProps = CellCallbacks & {

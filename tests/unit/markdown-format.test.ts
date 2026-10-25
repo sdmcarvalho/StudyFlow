@@ -354,6 +354,12 @@ describe("imageMarkdown", () => {
   it("monta a sintaxe de imagem", () => {
     expect(imageMarkdown("foto", "imagens/a.png")).toBe("![foto](imagens/a.png)");
   });
+
+  it("troca colchetes, barra vertical, barra invertida e quebras de linha do alt por espaço", () => {
+    expect(imageMarkdown(" [a]|b\r\nc\\ ", "imagens/a.png")).toBe("![a b c](imagens/a.png)");
+    expect(imageMarkdown("foto|300", "imagens/a.png")).toBe("![foto 300](imagens/a.png)");
+    expect(imageMarkdown("]]", "imagens/a.png")).toBe("![](imagens/a.png)");
+  });
 });
 
 function cursor(edit: Edit): number {

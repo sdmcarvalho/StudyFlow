@@ -22,8 +22,13 @@ const HEADING_LEVELS = { h1: 1, h2: 2, h3: 3 } as const;
 const TABLE =
   "| Coluna 1 | Coluna 2 | Coluna 3 |\n| --- | --- | --- |\n|  |  |  |";
 
+// Caracteres que fechariam o token, virariam a largura (`|N`) ou escapariam o `]`.
+const UNSAFE_ALT = /[[\]|\\\r\n]+/g;
+
+/** `![alt](src)`. O alt vem do usuário ou do nome do arquivo: só sobra texto que não quebra o token. */
 export function imageMarkdown(alt: string, src: string): string {
-  return `![${alt}](${src})`;
+  const safeAlt = alt.replace(UNSAFE_ALT, " ").replace(/\s+/g, " ").trim();
+  return `![${safeAlt}](${src})`;
 }
 
 export function applyFormat(

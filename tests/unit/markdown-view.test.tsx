@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { MarkdownView } from "@/features/estudo/editor/components/MarkdownView";
@@ -133,7 +133,8 @@ describe("MarkdownView — imagens", () => {
     const user = userEvent.setup();
     const { container } = view("![foto|300](imagens/a.png)");
     await user.click(screen.getByRole("img", { name: "foto" }));
-    expect(container.querySelector("[aria-selected]")).toBeNull();
+    expect(container.querySelector("[aria-pressed]")).toBeNull();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(container.querySelector("[tabindex]")).toBeNull();
     expect(screen.queryByLabelText("Largura")).not.toBeInTheDocument();
   });
@@ -156,7 +157,8 @@ describe("MarkdownView — imagens", () => {
     await user.click(screen.getByRole("img", { name: "foto" }));
 
     const wrapper = screen.getByRole("img", { name: "foto" }).parentElement;
-    expect(wrapper).toHaveAttribute("aria-selected", "true");
+    expect(wrapper).toHaveAttribute("aria-pressed", "true");
+    expect(wrapper).toHaveAttribute("role", "button");
     expect(onParentClick).not.toHaveBeenCalled();
     const input = screen.getByLabelText("Largura");
     expect(input).toHaveValue(300);
@@ -191,10 +193,119 @@ describe("MarkdownView — imagens", () => {
     view("![foto|120](imagens/a.png)", vi.fn());
     const wrapper = screen.getByRole("img", { name: "foto" }).parentElement as HTMLElement;
     expect(wrapper).toHaveAttribute("tabindex", "0");
-    expect(wrapper).toHaveAttribute("aria-selected", "false");
+    expect(wrapper).toHaveAttribute("aria-pressed", "false");
     wrapper.focus();
     await user.keyboard(" ");
-    expect(wrapper).toHaveAttribute("aria-selected", "true");
+    expect(wrapper).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Largura")).toHaveValue(120);
+  });
+
+  it("a imagem selecionável é um botão com nome Imagem: <alt> e estado pressionado", async () => {
+    const user = userEvent.setup();
+    view("![foto|120](imagens/a.png)", vi.fn());
+    const button = screen.getByRole("button", { name: "Imagem: foto" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(button).not.toHaveAttribute("aria-selected");
+    await user.keyboard("{Tab}{Enter}");
+    expect(button).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("imagem em estilo de referência não é selecionável", async () => {
+    const user = userEvent.setup();
+    const onResizeImage = vi.fn();
+    view("Veja ![r][q]\n\n[q]: https://x.com/a.png", onResizeImage);
+    const img = screen.getByRole("img", { name: "r" });
+    expect(img).toHaveAttribute("src", "https://x.com/a.png");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    await user.click(img);
+    expect(screen.queryByLabelText("Largura")).not.toBeInTheDocument();
+    expect(onResizeImage).not.toHaveBeenCalled();
+  });
+
+  it("imagem dentro de link seleciona em vez de navegar", () => {
+    view("[![foto](imagens/a.png)](https://x.com)", vi.fn());
+    const img = screen.getByRole("img", { name: "foto" });
+    expect(img.closest("a")).toHaveAttribute("href", "https://x.com");
+    // `fireEvent` devolve false quando o clique teve o padrão cancelado.
+    expect(fireEvent.click(img)).toBe(false);
+    expect(screen.getByRole("button", { name: "Imagem: foto" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("Esc tira a seleção e devolve o foco para a imagem", async () => {
+    const user = userEvent.setup();
+    view("![foto|120](imagens/a.png)", vi.fn());
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    await user.click(screen.getByLabelText("Largura"));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByLabelText("Largura")).not.toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Imagem: foto" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(button).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("{Escape}");
+    expect(button).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clicar fora tira a seleção; clicar no campo ou na alça, não", async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <p>fora</p>
+        <MarkdownView texto="![foto|120](imagens/a.png)" studyId={ID} onResizeImage={vi.fn()} />
+      </div>,
+    );
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    await user.click(screen.getByLabelText("Largura"));
+    fireEvent.pointerDown(screen.getByRole("slider", { name: "Redimensionar imagem" }), { pointerId: 1 });
+    fireEvent.pointerUp(screen.getByRole("slider", { name: "Redimensionar imagem" }), { pointerId: 1 });
+    expect(screen.getByLabelText("Largura")).toBeInTheDocument();
+
+    await user.click(screen.getByText("fora"));
+    expect(screen.queryByLabelText("Largura")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Imagem: foto" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("sem largura no texto, digitar o mesmo valor exibido e confirmar grava a largura", async () => {
+    const user = userEvent.setup();
+    const onResizeImage = vi.fn();
+    view("![foto](imagens/a.png)", onResizeImage);
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    const input = screen.getByLabelText("Largura");
+    expect(input).toHaveValue(300);
+    // Só focar e sair do campo não muda o texto.
+    await user.click(input);
+    await user.tab();
+    expect(onResizeImage).not.toHaveBeenCalled();
+
+    await user.clear(input);
+    await user.type(input, "300{Enter}");
+    expect(onResizeImage).toHaveBeenCalledTimes(1);
+    expect(onResizeImage).toHaveBeenCalledWith({ start: 0, end: "![foto](imagens/a.png)".length }, 300);
+  });
+
+  it("com largura no texto, confirmar o mesmo valor não reescreve", async () => {
+    const user = userEvent.setup();
+    const onResizeImage = vi.fn();
+    view("![foto|300](imagens/a.png)", onResizeImage);
+    await user.click(screen.getByRole("img", { name: "foto" }));
+    const input = screen.getByLabelText("Largura");
+    await user.clear(input);
+    await user.type(input, "300{Enter}");
+    expect(onResizeImage).not.toHaveBeenCalled();
+  });
+});
+
+describe("MarkdownView — KaTeX sem avisos", () => {
+  it("texto acentuado em fórmula não gera aviso no console", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { container } = view("Fórmula $ação = 1$ e $$\\text{função}$$");
+      expect(container.querySelectorAll(".katex").length).toBeGreaterThanOrEqual(2);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

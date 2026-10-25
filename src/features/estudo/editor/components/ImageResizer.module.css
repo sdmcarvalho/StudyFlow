@@ -1,0 +1,42 @@
+/* Área de toque de 24 px; o quadrado visível fica no canto. */
+.handle {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: nwse-resize;
+  touch-action: none;
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.handle::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface);
+}
+
+.handle:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.badge {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-text-primary);
+  color: var(--color-surface);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  white-space: nowrap;
+}

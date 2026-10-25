@@ -147,6 +147,14 @@
   max-width: 100%;
 }
 
+/* Imagem + alça de redimensionar (no canto inferior direito). */
+.frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
 .selectable {
   display: inline-block;
   max-width: 100%;

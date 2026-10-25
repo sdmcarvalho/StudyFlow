@@ -6,7 +6,9 @@ import {
   useEffect,
   useId,
   useRef,
+  type ClipboardEvent,
   type CSSProperties,
+  type DragEvent,
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -14,6 +16,9 @@ import {
 import { PlusIcon, TrashIcon } from "@/components/ui/icons";
 import type { Cell as CellData } from "../../content-schema";
 import type { EditorMode } from "../editor-mode";
+import { imageMarkdown } from "../markdown-format";
+import { applyEditToTextarea } from "../textarea-edit";
+import { uploadImage } from "../upload";
 import { MarkdownView, type ImageRange } from "./MarkdownView";
 import { DragHandleIcon } from "./toolbar-icons";
 import styles from "./Cell.module.css";
@@ -44,8 +49,20 @@ export type CellProps = {
   registerTextarea: (id: string, element: HTMLTextAreaElement | null) => void;
   /** A textarea desta célula ganhou foco (a barra age sobre a última célula focada). */
   onFocusCell?: (id: string) => void;
+  /** Colar ou soltar uma imagem falhou no envio (o editor mostra o toast). */
+  onImageError?: (message: string) => void;
   drag?: CellDrag;
 };
+
+/** Arquivos de imagem de um colar/soltar; o servidor valida o conteúdo de verdade. */
+function imageFiles(data: DataTransfer | null): File[] {
+  if (!data?.files) return [];
+  return Array.from(data.files).filter((file) => file.type.startsWith("image/"));
+}
+
+function hasFiles(data: DataTransfer | null): boolean {
+  return Array.from(data?.types ?? []).includes("Files");
+}
 
 export function Cell({
   cell,
@@ -62,6 +79,7 @@ export function Cell({
   onResizeImage,
   registerTextarea,
   onFocusCell,
+  onImageError,
   drag,
 }: CellProps) {
   const { id, texto } = cell;
@@ -70,6 +88,11 @@ export function Cell({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const viewRef = useRef<HTMLDivElement | null>(null);
   const restoreFocusRef = useRef(false);
+  const textoRef = useRef(texto);
+
+  useEffect(() => {
+    textoRef.current = texto;
+  });
 
   const readOnly = mode === "preview";
   const showEditor = mode === "split" || (mode === "default" && editing);
@@ -130,6 +153,53 @@ export function Cell({
       restoreFocusRef.current = mode === "default";
       onStopEditing();
     }
+  }
+
+  /** Envia cada imagem e insere `![alt](imagens/…)` no cursor (ou no lugar da seleção). */
+  async function insertImages(files: File[]) {
+    for (const file of files) {
+      const result = await uploadImage(studyId, file);
+      if (!result.ok) {
+        onImageError?.(result.message);
+        continue;
+      }
+      const markdown = imageMarkdown(result.alt, result.path);
+      const textarea = textareaRef.current;
+      if (textarea && textarea.isConnected) {
+        const { value, selectionStart, selectionEnd } = textarea;
+        const caret = selectionStart + markdown.length;
+        applyEditToTextarea(
+          textarea,
+          { text: value.slice(0, selectionStart) + markdown + value.slice(selectionEnd), selStart: caret, selEnd: caret },
+          (next) => onChange(id, next),
+        );
+      } else {
+        // A edição terminou durante o envio: a imagem entra no fim da célula.
+        const current = textoRef.current;
+        onChange(id, current === "" ? markdown : `${current}\n\n${markdown}`);
+      }
+    }
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = imageFiles(event.clipboardData);
+    if (files.length === 0) return;
+    event.preventDefault();
+    void insertImages(files);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLTextAreaElement>) {
+    if (!hasFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function handleDrop(event: DragEvent<HTMLTextAreaElement>) {
+    if (!hasFiles(event.dataTransfer)) return;
+    // Arquivo solto sem tratamento faria o navegador abrir o arquivo no lugar do editor.
+    event.preventDefault();
+    const files = imageFiles(event.dataTransfer);
+    if (files.length > 0) void insertImages(files);
   }
 
   function handleViewClick(event: MouseEvent<HTMLDivElement>) {
@@ -203,6 +273,9 @@ export function Cell({
               onChange={(event) => onChange(id, event.target.value)}
               onKeyDown={handleTextareaKeyDown}
               onFocus={() => onFocusCell?.(id)}
+              onPaste={handlePaste}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
             />
             <div className={styles.live}>
               <MarkdownView texto={texto} studyId={studyId} onResizeImage={resize} />
