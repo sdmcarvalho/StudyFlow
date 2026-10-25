@@ -71,6 +71,10 @@ export function StudyView({ page, q, baseDir }: StudyViewProps) {
     setFormOpen(true);
   }
 
+  function openEditor(record: StudyRecordRow) {
+    router.push(`/estudo/${encodeURIComponent(record.id)}`);
+  }
+
   function handleSaved(kind: "created" | "updated") {
     setFormOpen(false);
     router.push(buildStudyHref(q, 1));
@@ -144,8 +148,8 @@ export function StudyView({ page, q, baseDir }: StudyViewProps) {
           />
         ) : (
           <>
-            <StudyTable items={page.items} onEdit={openEdit} onDelete={setDeleting} />
-            <StudyCardList items={page.items} onEdit={openEdit} onDelete={setDeleting} />
+            <StudyTable items={page.items} onOpen={openEditor} onEdit={openEdit} onDelete={setDeleting} />
+            <StudyCardList items={page.items} onOpen={openEditor} onEdit={openEdit} onDelete={setDeleting} />
             <footer className={styles.footer}>
               <span className={styles.count}>
                 {q

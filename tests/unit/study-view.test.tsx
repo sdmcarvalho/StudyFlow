@@ -52,6 +52,20 @@ describe("StudyView: desfazer exclusão", () => {
   });
 });
 
+describe("StudyView: grade abre o editor", () => {
+  it("clicar numa linha navega para /estudo/<id>", async () => {
+    render(view(""));
+    await userEvent.click(screen.getAllByText("C:\\Estudos\\Física")[0]);
+    expect(router.push).toHaveBeenCalledWith("/estudo/1");
+  });
+
+  it("Editar não navega", async () => {
+    render(view(""));
+    await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+});
+
 describe("StudyView: busca sincronizada com a URL", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
