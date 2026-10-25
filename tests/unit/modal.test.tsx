@@ -41,6 +41,16 @@ describe("Modal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("não fecha com um Escape que um componente de dentro já tratou (preventDefault)", () => {
+    const { ui, onClose } = setup();
+    render(ui(true));
+    // No Next a raiz do React é o document: stopPropagation não basta, o Modal olha defaultPrevented.
+    const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    event.preventDefault();
+    document.dispatchEvent(event);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("chama onClose ao clicar no overlay, mas não ao clicar dentro do painel", async () => {
     const { ui, onClose } = setup();
     render(ui(true));

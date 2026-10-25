@@ -1,0 +1,172 @@
+.picker {
+  display: grid;
+  gap: var(--space-3);
+  outline: none;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.drive {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.drive select {
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: 13px;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+.crumb button {
+  padding: 2px var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+.crumb button[aria-current] {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.current {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.current output {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-error);
+}
+
+.list {
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.list[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.list button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list button:hover,
+.crumb button:hover {
+  background: var(--color-bg);
+}
+
+.list button:focus-visible,
+.crumb button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.create {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.create label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.createRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.createRow input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.createRow input:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.newFolder {
+  margin-right: auto;
+}

@@ -20,7 +20,7 @@ const DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
  * unicidade diferentes para a mesma pasta), e nomes de dispositivo (CON, NUL.txt…) não são pastas.
  * Também cobre ".", ".." e "?" (namespaces \\.\ e \\?\ do Win32 no servidor/compartilhamento UNC).
  */
-function isValidSegment(segment: string): boolean {
+export function isValidSegment(segment: string): boolean {
   return (
     segment !== "" &&
     !segment.endsWith(".") &&

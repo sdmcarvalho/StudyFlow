@@ -30,7 +30,8 @@ export function Modal({ open, title, onClose, role = "dialog", initialFocusRef, 
     target?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCloseRef.current();
+      // Um Escape já tratado por um componente de dentro (ex.: seletor de pastas) não fecha o modal.
+      if (event.key === "Escape" && !event.defaultPrevented) onCloseRef.current();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
