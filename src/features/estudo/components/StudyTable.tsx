@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatDateBR } from "@/lib/dates";
 import type { StudyRecordRow } from "../list";
 import { RowActions } from "./RowActions";
@@ -5,11 +6,12 @@ import styles from "./StudyTable.module.css";
 
 type StudyTableProps = {
   items: StudyRecordRow[];
+  onOpen: (record: StudyRecordRow) => void;
   onEdit: (record: StudyRecordRow) => void;
   onDelete: (record: StudyRecordRow) => void;
 };
 
-export function StudyTable({ items, onEdit, onDelete }: StudyTableProps) {
+export function StudyTable({ items, onOpen, onEdit, onDelete }: StudyTableProps) {
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
@@ -26,11 +28,24 @@ export function StudyTable({ items, onEdit, onDelete }: StudyTableProps) {
         </thead>
         <tbody>
           {items.map((record) => (
-            <tr key={record.id}>
+            <tr
+              key={record.id}
+              className={styles.row}
+              tabIndex={0}
+              onClick={() => onOpen(record)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && event.target === event.currentTarget) onOpen(record);
+              }}
+            >
               <td className={styles.descricao}>
-                <span className={styles.truncate} title={record.descricao}>
+                <Link
+                  href={`/estudo/${encodeURIComponent(record.id)}`}
+                  className={`${styles.truncate} ${styles.link}`}
+                  title={record.descricao}
+                  onClick={(event) => event.stopPropagation()}
+                >
                   {record.descricao}
-                </span>
+                </Link>
               </td>
               <td className={styles.pasta}>
                 <span className={styles.truncate} title={record.pasta}>

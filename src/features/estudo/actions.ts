@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { parseContent, serializeContent } from "./content-schema";
+import { folderKey, normalizeFolderPath } from "./folder-path";
+import { copyImages, ensureFolder } from "./folders";
 import { parseStudyRecordInput, type FieldErrors } from "./schema";
 
 export type ActionResult<T = undefined> =
@@ -22,12 +25,29 @@ function done(): ActionResult {
   return { ok: true, data: undefined };
 }
 
+const folderError = (pasta: string) => ({ ok: false, fieldErrors: { pasta } }) as const;
+const DUPLICATE_FOLDER = folderError("Já existe um Estudo usando esta pasta.");
+const MKDIR_FAILED = folderError("Não foi possível criar a pasta.");
+
+/** Outro Estudo ativo do usuário (exceto `exceptId`) já usa a pasta? Ignora caixa e barra final. */
+async function isFolderInUse(userId: string, pasta: string, exceptId?: string): Promise<boolean> {
+  const key = folderKey(pasta);
+  const active = await db.studyRecord.findMany({
+    where: { userId, deletedAt: null, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    select: { pasta: true },
+  });
+  return active.some((record) => folderKey(record.pasta) === key);
+}
+
 export async function createStudyRecord(input: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = parseStudyRecordInput(input);
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
 
   try {
     const userId = await getCurrentUserId();
+    if (await isFolderInUse(userId, parsed.data.pasta)) return DUPLICATE_FOLDER;
+    // A pasta existe no disco antes de o registro existir no banco.
+    if (!(await ensureFolder(parsed.data.pasta))) return MKDIR_FAILED;
     const record = await db.studyRecord.create({ data: { userId, ...parsed.data } });
     revalidatePath("/estudo");
     return { ok: true, data: { id: record.id } };
@@ -43,11 +63,46 @@ export async function updateStudyRecord(id: string, input: unknown): Promise<Act
 
   try {
     const userId = await getCurrentUserId();
+    // Busca antes de mexer no disco: id inexistente ou alheio não cria pasta nenhuma.
+    const current = await db.studyRecord.findFirst({ where: { id, userId, deletedAt: null } });
+    if (!current) return NOT_FOUND;
+    if (await isFolderInUse(userId, parsed.data.pasta, id)) return DUPLICATE_FOLDER;
+    if (!(await ensureFolder(parsed.data.pasta))) return MKDIR_FAILED;
+    // Mudou de pasta: as imagens vão junto (cópia; a pasta antiga fica intacta). O Markdown usa
+    // caminhos relativos (imagens/...), então continua válido. Pasta legada (não absoluta) não é
+    // lida: um caminho relativo seria resolvido a partir do diretório do servidor.
+    const previous = normalizeFolderPath(current.pasta);
+    if (previous.ok && folderKey(previous.path) !== folderKey(parsed.data.pasta)) {
+      await copyImages(previous.path, parsed.data.pasta);
+    }
     const { count } = await db.studyRecord.updateMany({
       where: { id, userId, deletedAt: null },
       data: parsed.data,
     });
     return count === 0 ? NOT_FOUND : done();
+  } catch {
+    return SAVE_FAILED;
+  }
+}
+
+export async function saveStudyContent(
+  id: string,
+  cells: unknown,
+): Promise<ActionResult<{ savedAt: string }>> {
+  if (!isValidId(id)) return NOT_FOUND;
+  const parsed = parseContent(cells);
+  if (!parsed.ok) return SAVE_FAILED;
+
+  try {
+    const userId = await getCurrentUserId();
+    // updateMany com { id, userId, deletedAt: null }: o @updatedAt também muda a "Data atualização".
+    const { count } = await db.studyRecord.updateMany({
+      where: { id, userId, deletedAt: null },
+      data: { conteudo: serializeContent(parsed.cells) },
+    });
+    if (count === 0) return NOT_FOUND;
+    revalidatePath("/estudo");
+    return { ok: true, data: { savedAt: new Date().toISOString() } };
   } catch {
     return SAVE_FAILED;
   }
@@ -76,6 +131,8 @@ export async function restoreStudyRecord(id: string): Promise<ActionResult> {
     const userId = await getCurrentUserId();
     const record = await db.studyRecord.findFirst({ where: { id, userId, deletedAt: { not: null } } });
     if (!record) return NOT_FOUND;
+    // Enquanto estava excluído, outro Estudo pode ter passado a usar a pasta: continua excluído.
+    if (await isFolderInUse(userId, record.pasta, id)) return { ok: false, message: DUPLICATE_FOLDER.fieldErrors.pasta };
     await db.studyRecord.updateMany({
       where: { id, userId, deletedAt: { not: null } },
       data: { deletedAt: null, updatedAt: record.updatedAt },

@@ -1,4 +1,6 @@
 import "dotenv/config";
+import path from "node:path";
+import { baseFolder, ensureFolder } from "../src/features/estudo/folders";
 import { db } from "../src/lib/db";
 
 const USER_ID = "local-user";
@@ -27,12 +29,16 @@ async function main() {
     create: { id: USER_ID, name: "Usuário local" },
   });
   await db.studyRecord.deleteMany({ where: { userId: USER_ID } });
-  for (const { atualizado, ...record } of records) {
+  // Pastas reais em <STUDYFLOW_BASE_DIR>\<nome>; as que já existem ficam como estão (nada é apagado).
+  const base = baseFolder();
+  for (const { atualizado, pasta: nome, ...record } of records) {
+    const pasta = path.win32.join(base, nome);
+    if (!(await ensureFolder(pasta))) throw new Error(`Não foi possível criar a pasta ${pasta}.`);
     await db.studyRecord.create({
-      data: { userId: USER_ID, ...record, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },
+      data: { userId: USER_ID, ...record, pasta, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },
     });
   }
-  console.log(`Seed concluído: ${records.length} registros para ${USER_ID}.`);
+  console.log(`Seed concluído: ${records.length} registros para ${USER_ID} em ${base}.`);
 }
 
 main()

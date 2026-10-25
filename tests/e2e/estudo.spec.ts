@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { resetData, tableRows } from "./helpers";
+import { E2E_BASE_DIR, resetData, tableRows } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   resetData();
@@ -11,7 +13,7 @@ const toast = (page: Page) => page.getByRole("status");
 async function createRecord(page: Page, descricao: string, pasta: string) {
   await page.getByRole("button", { name: "Novo" }).first().click();
   await page.getByLabel("Descrição").fill(descricao);
-  await page.getByLabel("Pasta").fill(pasta);
+  await page.getByLabel("Pasta").fill(`${E2E_BASE_DIR}\\${pasta}`);
   await page.getByRole("button", { name: "Salvar" }).click();
 }
 
@@ -30,11 +32,33 @@ test("a raiz redireciona para /estudo e a primeira página mostra 5 de 8 registr
 });
 
 test("cria um registro: aparece no topo com o toast de confirmação", async ({ page }) => {
-  await createRecord(page, "Estatística — Probabilidade", "Matemática");
+  await createRecord(page, "Estatística — Probabilidade", "Estatística");
   await expect(toast(page)).toContainText("Registro criado.");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(tableRows(page).first()).toContainText("Estatística — Probabilidade");
   await expect(page.getByText("Mostrando 1–5 de 9 registros")).toBeVisible();
+  expect(fs.statSync(path.join(E2E_BASE_DIR, "Estatística")).isDirectory()).toBe(true);
+});
+
+test("o modal de novo registro começa com a pasta base no campo Pasta", async ({ page }) => {
+  await page.getByRole("button", { name: "Novo" }).first().click();
+  await expect(page.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\`);
+});
+
+test("Pasta relativa mostra a mensagem de caminho absoluto no modal", async ({ page }) => {
+  await page.getByRole("button", { name: "Novo" }).first().click();
+  await page.getByLabel("Descrição").fill("Relativo");
+  await page.getByLabel("Pasta").fill("Matemática");
+  await page.getByRole("button", { name: "Salvar" }).click();
+
+  await expect(page.getByText("Informe um caminho absoluto, como C:\\Estudos\\Cálculo.")).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
+test("Pasta já usada por outro Estudo mostra a mensagem de duplicidade no modal", async ({ page }) => {
+  await createRecord(page, "Outra Matemática", "matemática\\");
+  await expect(page.getByText("Já existe um Estudo usando esta pasta.")).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeVisible();
 });
 
 test("edita a descrição: o registro vai para o topo com o toast de atualização", async ({ page }) => {
@@ -51,6 +75,7 @@ test("edita a descrição: o registro vai para o topo com o toast de atualizaç�
 
 test("modal com campos vazios mostra as três mensagens e não fecha", async ({ page }) => {
   await page.getByRole("button", { name: "Novo" }).first().click();
+  await page.getByLabel("Pasta").fill(""); // começa com a pasta base
   await page.getByLabel("Data inicial").fill("");
   await page.getByRole("button", { name: "Salvar" }).click();
 

@@ -23,6 +23,7 @@ model StudyRecord {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt // exibido como "Data atualização"
   deletedAt   DateTime? // exclusão lógica, suporta o "Desfazer"
+  conteudo    String    @default("[]") // JSON [{ id, texto }]: células de Markdown do documento
 
   @@index([userId, updatedAt])
 }

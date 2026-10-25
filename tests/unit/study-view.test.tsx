@@ -11,17 +11,19 @@ vi.mock("@/features/estudo/actions", () => ({
   restoreStudyRecord: vi.fn(),
 }));
 
-import { createStudyRecord, deleteStudyRecord } from "@/features/estudo/actions";
+import { createStudyRecord, deleteStudyRecord, restoreStudyRecord } from "@/features/estudo/actions";
 import { StudyView } from "@/features/estudo/components/StudyView";
 import { buildListPage, type StudyRecordRow } from "@/features/estudo/list";
 
 const rows: StudyRecordRow[] = [
-  { id: "1", descricao: "Física II", pasta: "Física", dataInicial: "2026-09-01", dataAtualizacao: "2026-10-14" },
-  { id: "2", descricao: "Anatomia", pasta: "Medicina", dataInicial: "2026-08-11", dataAtualizacao: "2026-10-20" },
+  { id: "1", descricao: "Física II", pasta: "C:\\Estudos\\Física", dataInicial: "2026-09-01", dataAtualizacao: "2026-10-14" },
+  { id: "2", descricao: "Anatomia", pasta: "C:\\Estudos\\Medicina", dataInicial: "2026-08-11", dataAtualizacao: "2026-10-20" },
 ];
 
+const BASE_DIR = "D:\\Base";
+
 function view(q: string) {
-  return <StudyView page={buildListPage(rows, { q, page: 1 })} q={q} />;
+  return <StudyView page={buildListPage(rows, { q, page: 1 })} q={q} baseDir={BASE_DIR} />;
 }
 
 const searchbox = () => screen.getByRole("searchbox") as HTMLInputElement;
@@ -32,6 +34,36 @@ beforeEach(() => {
   router.push.mockReset();
   vi.mocked(createStudyRecord).mockReset();
   vi.mocked(deleteStudyRecord).mockReset();
+  vi.mocked(restoreStudyRecord).mockReset();
+});
+
+describe("StudyView: desfazer exclusão", () => {
+  it("quando a pasta já está em uso, o toast mostra a mensagem da restauração", async () => {
+    vi.mocked(deleteStudyRecord).mockResolvedValue({ ok: true, data: undefined });
+    vi.mocked(restoreStudyRecord).mockResolvedValue({ ok: false, message: "Já existe um Estudo usando esta pasta." });
+    render(view(""));
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Excluir registro" })[0]);
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Excluir" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Desfazer" }));
+
+    expect(restoreStudyRecord).toHaveBeenCalledWith("1");
+    expect(await screen.findByRole("status")).toHaveTextContent("Já existe um Estudo usando esta pasta.");
+  });
+});
+
+describe("StudyView: grade abre o editor", () => {
+  it("clicar numa linha navega para /estudo/<id>", async () => {
+    render(view(""));
+    await userEvent.click(screen.getAllByText("C:\\Estudos\\Física")[0]);
+    expect(router.push).toHaveBeenCalledWith("/estudo/1");
+  });
+
+  it("Editar não navega", async () => {
+    render(view(""));
+    await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
+    expect(router.push).not.toHaveBeenCalled();
+  });
 });
 
 describe("StudyView: busca sincronizada com a URL", () => {
@@ -66,6 +98,30 @@ describe("StudyView: busca sincronizada com a URL", () => {
     fireEvent.change(searchbox(), { target: { value: "fis" } });
     rerender(view("fi"));
     expect(searchbox().value).toBe("fis");
+  });
+});
+
+describe("StudyView: campo Pasta do modal", () => {
+  it("novo Estudo começa com <baseDir>\\ e o que o usuário digita completa o caminho", async () => {
+    vi.mocked(createStudyRecord).mockResolvedValue({ ok: true, data: { id: "3" } });
+    render(view(""));
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Novo" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Novo registro" });
+    const pasta = within(dialog).getByLabelText("Pasta") as HTMLInputElement;
+    expect(pasta.value).toBe("D:\\Base\\");
+
+    await userEvent.type(within(dialog).getByLabelText("Descrição"), "Estatística");
+    await userEvent.type(pasta, "Estatística");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Salvar" }));
+    expect(createStudyRecord).toHaveBeenCalledWith(expect.objectContaining({ pasta: "D:\\Base\\Estatística" }));
+  });
+
+  it("editar mostra a pasta do próprio registro", async () => {
+    render(view(""));
+    await userEvent.click(screen.getAllByRole("button", { name: "Editar registro" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Editar registro" });
+    expect((within(dialog).getByLabelText("Pasta") as HTMLInputElement).value).toBe("C:\\Estudos\\Física");
   });
 });
 

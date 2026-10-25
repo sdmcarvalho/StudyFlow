@@ -1,5 +1,8 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
@@ -15,12 +18,33 @@ import { db } from "@/lib/db";
 import { toIsoDate } from "@/lib/dates";
 
 const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
-const input = { descricao: "Cálculo I", pasta: "Matemática", dataInicial: "2026-08-04" };
+const DUPLICATE = { ok: false, fieldErrors: { pasta: "Já existe um Estudo usando esta pasta." } };
+const MKDIR_FAILED = { ok: false, fieldErrors: { pasta: "Não foi possível criar a pasta." } };
 
-async function insert(userId: string, descricao: string, updatedAt: Date, pasta = "Geral") {
+// Pastas reais, sempre dentro de uma pasta temporária deste arquivo (apagada no fim).
+let base: string;
+let input: { descricao: string; pasta: string; dataInicial: string };
+
+beforeAll(async () => {
+  base = await fs.mkdtemp(path.join(os.tmpdir(), "studyflow-data-"));
+  input = { descricao: "Cálculo I", pasta: path.join(base, "Calculo"), dataInicial: "2026-08-04" };
+});
+
+afterAll(async () => {
+  await fs.rm(base, { recursive: true, force: true });
+});
+
+async function insert(userId: string, descricao: string, updatedAt: Date, pasta = path.join(base, "Geral")) {
   return db.studyRecord.create({
     data: { userId, descricao, pasta, dataInicial: "2026-08-04", updatedAt },
   });
+}
+
+async function isDirectory(target: string) {
+  return fs.stat(target).then(
+    (stat) => stat.isDirectory(),
+    () => false,
+  );
 }
 
 async function insertMany(userId: string, count: number) {
@@ -63,15 +87,16 @@ describe("updateStudyRecord", () => {
     const created = await createStudyRecord(input);
     if (!created.ok) throw new Error("create falhou");
 
+    const exatas = path.join(base, "Exatas");
     const result = await updateStudyRecord(created.data.id, {
       descricao: "Cálculo II",
-      pasta: "Exatas",
+      pasta: exatas,
       dataInicial: "2026-09-01",
     });
     expect(result.ok).toBe(true);
 
     const [item] = (await listStudyRecords({})).items;
-    expect(item).toMatchObject({ descricao: "Cálculo II", pasta: "Exatas", dataInicial: "2026-09-01" });
+    expect(item).toMatchObject({ descricao: "Cálculo II", pasta: exatas, dataInicial: "2026-09-01" });
   });
 
   it("com dados inválidos devolve fieldErrors e mantém o registro", async () => {
@@ -84,11 +109,105 @@ describe("updateStudyRecord", () => {
   });
 });
 
+describe("pasta física", () => {
+  it("criar com uma pasta inexistente cria a pasta no disco", async () => {
+    const pasta = path.join(base, "Nova", "Sub");
+    expect(await isDirectory(pasta)).toBe(false);
+    const result = await createStudyRecord({ ...input, pasta });
+    expect(result.ok).toBe(true);
+    expect(await isDirectory(pasta)).toBe(true);
+  });
+
+  it("criar com caminho relativo devolve a mensagem de caminho absoluto e não grava", async () => {
+    const result = await createStudyRecord({ ...input, pasta: "Matemática" });
+    expect(result).toEqual({
+      ok: false,
+      fieldErrors: { pasta: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo." },
+    });
+    expect(await db.studyRecord.count()).toBe(0);
+  });
+
+  it("criar com a pasta de um Estudo ativo (mesmo com caixa e barra final diferentes) é recusado", async () => {
+    expect((await createStudyRecord(input)).ok).toBe(true);
+    expect(await createStudyRecord({ ...input, descricao: "Outro" })).toEqual(DUPLICATE);
+    expect(await createStudyRecord({ ...input, pasta: `${input.pasta.toUpperCase()}\\` })).toEqual(DUPLICATE);
+    expect(await db.studyRecord.count()).toBe(1);
+  });
+
+  it("a pasta de um Estudo excluído pode ser reutilizada", async () => {
+    const created = await createStudyRecord(input);
+    if (!created.ok) throw new Error("create falhou");
+    await deleteStudyRecord(created.data.id);
+    expect((await createStudyRecord({ ...input, descricao: "Cálculo I (de novo)" })).ok).toBe(true);
+  });
+
+  it("a pasta de um Estudo de outro usuário não conta como duplicada", async () => {
+    await getCurrentUserId();
+    const other = await db.user.create({ data: { name: "Outro" } });
+    await insert(other.id, "Alheio", new Date(2026, 0, 1, 12), input.pasta);
+    expect((await createStudyRecord(input)).ok).toBe(true);
+  });
+
+  it("criar com uma pasta impossível devolve 'Não foi possível criar a pasta.' e não grava", async () => {
+    const file = path.join(base, "arquivo.txt");
+    await fs.writeFile(file, "x");
+    const result = await createStudyRecord({ ...input, pasta: path.join(file, "sub") });
+    expect(result).toEqual(MKDIR_FAILED);
+    expect(await db.studyRecord.count()).toBe(0);
+  });
+
+  it("editar sem mudar a pasta não acusa o próprio Estudo como duplicado", async () => {
+    const created = await createStudyRecord(input);
+    if (!created.ok) throw new Error("create falhou");
+    expect((await updateStudyRecord(created.data.id, { ...input, descricao: "Cálculo II" })).ok).toBe(true);
+    expect((await updateStudyRecord(created.data.id, { ...input, pasta: `${input.pasta}\\` })).ok).toBe(true);
+  });
+
+  it("editar para a pasta de outro Estudo ativo é recusado e mantém o registro", async () => {
+    const a = await createStudyRecord(input);
+    const b = await createStudyRecord({ ...input, descricao: "B", pasta: path.join(base, "B") });
+    if (!a.ok || !b.ok) throw new Error("create falhou");
+    expect(await updateStudyRecord(b.data.id, { ...input, descricao: "B" })).toEqual(DUPLICATE);
+    const pastas = (await listStudyRecords({})).items.map((r) => r.pasta).sort();
+    expect(pastas).toEqual([input.pasta, path.join(base, "B")].sort());
+  });
+
+  it("editar para outra pasta copia imagens\\ para a nova e deixa a antiga intacta", async () => {
+    const created = await createStudyRecord(input);
+    if (!created.ok) throw new Error("create falhou");
+    const oldImages = path.join(input.pasta, "imagens");
+    await fs.mkdir(oldImages, { recursive: true });
+    await fs.writeFile(path.join(oldImages, "foto.png"), "png");
+
+    const nova = path.join(base, "Movida");
+    expect((await updateStudyRecord(created.data.id, { ...input, pasta: nova })).ok).toBe(true);
+
+    expect(await fs.readFile(path.join(nova, "imagens", "foto.png"), "utf8")).toBe("png");
+    expect(await fs.readFile(path.join(oldImages, "foto.png"), "utf8")).toBe("png");
+  });
+
+  it("registros legados com pasta fora do padrão continuam aparecendo na listagem", async () => {
+    const userId = await getCurrentUserId();
+    await insert(userId, "Legado", new Date(2026, 0, 1, 12), "Matemática");
+    const [item] = (await listStudyRecords({})).items;
+    expect(item).toMatchObject({ descricao: "Legado", pasta: "Matemática" });
+  });
+
+  it("editar um registro legado para uma pasta válida cria a pasta e grava", async () => {
+    const userId = await getCurrentUserId();
+    const legado = await insert(userId, "Legado", new Date(2026, 0, 1, 12), "Matemática");
+    const pasta = path.join(base, "Corrigida");
+    expect((await updateStudyRecord(legado.id, { ...input, pasta })).ok).toBe(true);
+    expect(await isDirectory(pasta)).toBe(true);
+    expect((await listStudyRecords({})).items[0].pasta).toBe(pasta);
+  });
+});
+
 describe("deleteStudyRecord e restoreStudyRecord", () => {
   it("exclui da lista e restaura na mesma posição, com a mesma data de atualização", async () => {
     const userId = await getCurrentUserId();
     const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
-    await insert(userId, "B", new Date(2026, 1, 1, 12));
+    await insert(userId, "B", new Date(2026, 1, 1, 12), path.join(base, "B")); // pasta própria: restaurar exige pasta livre
     const before = (await listStudyRecords({})).items.map((r) => r.descricao);
     expect(before).toEqual(["B", "A"]);
 
@@ -106,6 +225,29 @@ describe("deleteStudyRecord e restoreStudyRecord", () => {
     const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
     await deleteStudyRecord(a.id);
     expect(await deleteStudyRecord(a.id)).toEqual(NOT_FOUND);
+  });
+
+  it("restaurar quando outro Estudo ativo passou a usar a pasta é recusado e o registro continua excluído", async () => {
+    const a = await createStudyRecord(input);
+    if (!a.ok) throw new Error("create falhou");
+    await deleteStudyRecord(a.data.id);
+    expect((await createStudyRecord({ ...input, descricao: "B", pasta: `${input.pasta.toUpperCase()}\\` })).ok).toBe(true);
+
+    expect(await restoreStudyRecord(a.data.id)).toEqual({ ok: false, message: "Já existe um Estudo usando esta pasta." });
+    expect((await listStudyRecords({})).items.map((r) => r.descricao)).toEqual(["B"]);
+  });
+
+  it("restaurar quando só um Estudo excluído ou de outro usuário usa a pasta funciona", async () => {
+    const userId = await getCurrentUserId();
+    const a = await insert(userId, "A", new Date(2026, 0, 1, 12), input.pasta);
+    const c = await insert(userId, "C", new Date(2026, 0, 2, 12), input.pasta);
+    const other = await db.user.create({ data: { name: "Outro" } });
+    await insert(other.id, "Alheio", new Date(2026, 0, 3, 12), input.pasta);
+    await deleteStudyRecord(a.id);
+    await deleteStudyRecord(c.id);
+
+    expect((await restoreStudyRecord(a.id)).ok).toBe(true);
+    expect((await listStudyRecords({})).items.map((r) => r.descricao)).toEqual(["A"]);
   });
 
   it("restaurar um registro que não está excluído devolve 'Registro não encontrado.'", async () => {

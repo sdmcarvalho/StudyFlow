@@ -77,7 +77,11 @@ describe("AppShell", () => {
   it("clicar num item do menu fecha o drawer", async () => {
     const { toggle } = setup();
     await userEvent.click(toggle());
+    // jsdom não implementa navegação: cancela o clique no link depois dos handlers do React.
+    const cancel = (event: Event) => event.preventDefault();
+    document.addEventListener("click", cancel);
     await userEvent.click(screen.getByRole("link", { name: /Testes/ }));
+    document.removeEventListener("click", cancel);
     expect(toggle()).toHaveAttribute("aria-expanded", "false");
   });
 

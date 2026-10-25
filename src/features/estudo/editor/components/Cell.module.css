@@ -1,0 +1,239 @@
+.cell {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-lg);
+  outline: none;
+}
+
+.readOnly {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dragging {
+  position: relative;
+  z-index: 10;
+  opacity: 0.85;
+}
+.dragging .body {
+  border-color: var(--color-primary);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.cell:hover .controls,
+.cell:focus-within .controls,
+.dragging .controls {
+  opacity: 1;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.control :global(.icon) {
+  width: 18px;
+  height: 18px;
+}
+.control:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+.control:focus-visible,
+.add:focus-visible,
+.clickable:focus-visible,
+.textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.handle {
+  cursor: grab;
+  touch-action: none;
+}
+.dragging .handle {
+  cursor: grabbing;
+}
+
+.trash:hover {
+  background: var(--color-error-soft);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.body {
+  position: relative;
+  min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast);
+}
+.cell:hover .body {
+  border-color: var(--color-border-strong);
+}
+.editing .body,
+.cell.editing:hover .body {
+  border-color: var(--color-primary);
+}
+.readOnly .body,
+.readOnly:hover .body {
+  border-color: transparent;
+  background: transparent;
+}
+
+.rendered {
+  min-height: 48px;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  overflow-wrap: anywhere;
+}
+.clickable {
+  cursor: text;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  field-sizing: content;
+  padding: var(--space-4) var(--space-5);
+  border: none;
+  border-right: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.live {
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  overflow-wrap: anywhere;
+}
+
+.add {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-tertiary);
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.add :global(.icon) {
+  width: 16px;
+  height: 16px;
+}
+.cell:hover .add,
+.cell:focus-within .add,
+.add:focus-visible {
+  opacity: 1;
+}
+.add:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+/* No limite de células o "+" continua visível, mas apagado. */
+.add:disabled,
+.add:disabled:hover {
+  border-color: var(--color-border);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Toque: sem hover, os controles ficam sempre visíveis e maiores. */
+@media (hover: none) {
+  .cell {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .readOnly {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .controls,
+  .add {
+    opacity: 1;
+  }
+  .control {
+    width: 40px;
+    height: 40px;
+  }
+  .add {
+    width: 36px;
+    height: 36px;
+    bottom: -18px;
+  }
+}
+
+/* Mobile: Markdown em cima, resultado embaixo. */
+@media (max-width: 767.98px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .textarea {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    font-size: 16px;
+  }
+  .rendered,
+  .live,
+  .textarea {
+    padding: var(--space-3) var(--space-4);
+  }
+}
