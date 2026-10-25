@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estudo · StudyFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell" id="appShell">
+
+  <aside class="sidebar" id="sidebar" aria-label="Navegação principal">
+    <div class="sidebar__brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg class="icon" viewBox="0 0 20 20"><path d="M4 3h9l3 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M13 3v3h3"/></svg>
+      </span>
+      <span class="brand-name">StudyFlow</span>
+    </div>
+
+    <nav class="sidebar__nav">
+      <a class="nav-item is-active" href="#" aria-current="page" data-tooltip="Estudo">
+        <span class="nav-item__icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3H9v14H4.5A1.5 1.5 0 0 1 3 15.5v-11Z"/><path d="M17 4.5A1.5 1.5 0 0 0 15.5 3H11v14h4.5a1.5 1.5 0 0 0 1.5-1.5v-11Z"/></svg>
+        </span>
+        <span class="nav-item__label">Estudo</span>
+        <span class="nav-item__tooltip" role="tooltip">Estudo</span>
+      </a>
+      <a class="nav-item" href="#" data-tooltip="Testes">
+        <span class="nav-item__icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M6 2.5h8a1 1 0 0 1 1 1V17l-5-2.5L5 17V3.5a1 1 0 0 1 1-1Z"/><path d="M7.5 7.5l1.5 1.5 3-3"/></svg>
+        </span>
+        <span class="nav-item__label">Testes</span>
+        <span class="nav-item__tooltip" role="tooltip">Testes</span>
+      </a>
+      <a class="nav-item" href="#" data-tooltip="Agenda">
+        <span class="nav-item__icon" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg>
+        </span>
+        <span class="nav-item__label">Agenda</span>
+        <span class="nav-item__tooltip" role="tooltip">Agenda</span>
+      </a>
+    </nav>
+  </aside>
+
+  <button class="sidebar-overlay" id="sidebarOverlay" aria-label="Fechar menu" tabindex="-1"></button>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="menuToggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">
+        <svg class="icon" viewBox="0 0 20 20" id="menuIcon"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+      </button>
+      <div class="topbar__brand-mobile">
+        <span class="brand-mark" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M4 3h9l3 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M13 3v3h3"/></svg>
+        </span>
+        <span>StudyFlow</span>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="page-header">
+        <h1 class="page-title">Estudo</h1>
+        <p class="page-subtitle">Organize seus temas de estudo, acompanhe datas e mantenha tudo em um só lugar.</p>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btnNovo" type="button">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg>
+          Novo
+        </button>
+        <div class="search-field" id="searchField">
+          <svg class="icon" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M16.5 16.5 13 13"/></svg>
+          <input type="search" id="searchInput" placeholder="Pesquisar..." aria-label="Pesquisar registros de estudo" autocomplete="off">
+          <button class="search-field__clear" id="searchClear" type="button" aria-label="Limpar pesquisa">
+            <svg class="icon" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5 5 15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <section class="data-panel" aria-live="polite">
+        <div class="table-wrap" id="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Descrição</th>
+                <th scope="col">Pasta</th>
+                <th scope="col">Data inicial</th>
+                <th scope="col">Data atualização</th>
+                <th scope="col" class="col-actions">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+
+        <ul class="card-list" id="cardList"></ul>
+
+        <div class="empty-state" id="emptyState" hidden></div>
+
+        <footer class="data-panel__footer" id="dataFooter">
+          <span class="record-count" id="recordCount"></span>
+          <div class="pagination" id="pagination"></div>
+        </footer>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 class="modal__title" id="modalTitle">Novo registro</h2>
+    <form id="recordForm" novalidate>
+      <div class="field" id="fieldDescricaoWrap">
+        <label for="fieldDescricao">Descrição</label>
+        <input id="fieldDescricao" required maxlength="80">
+        <span class="field__error">Informe uma descrição.</span>
+      </div>
+      <div class="field" id="fieldPastaWrap">
+        <label for="fieldPasta">Pasta</label>
+        <input id="fieldPasta" required maxlength="40">
+        <span class="field__error">Informe uma pasta.</span>
+      </div>
+      <div class="field" id="fieldDataWrap">
+        <label for="fieldData">Data inicial</label>
+        <input id="fieldData" type="date" required>
+        <span class="field__error">Informe uma data válida.</span>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn-secondary" id="btnCancelModal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveModal">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirmOverlay" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 class="modal__title" id="confirmTitle">Excluir registro</h2>
+    <p class="modal__desc" id="confirmDesc"></p>
+    <div class="modal__actions">
+      <button type="button" class="btn btn-secondary" id="btnCancelConfirm">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="btnConfirmDelete">
+        <svg class="icon" viewBox="0 0 20 20"><path d="M4 6h12M8 6V4.5A1 1 0 0 1 9 3.5h2a1 1 0 0 1 1 1V6M6 6l.7 10a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1L14 6"/></svg>
+        Excluir
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toastMessage"></span>
+  <button type="button" class="toast__undo" id="toastUndo" hidden>Desfazer</button>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

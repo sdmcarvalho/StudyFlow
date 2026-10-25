@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design System · StudyFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="design-system.css">
+</head>
+<body>
+
+<header class="ds-header">
+  <a class="ds-back" href="index.html">
+    <svg class="icon" viewBox="0 0 20 20"><path d="M12 5l-5 5 5 5"/></svg>
+    Voltar ao protótipo
+  </a>
+  <p class="ds-header__eyebrow">Design System</p>
+  <h1 class="ds-header__title">StudyFlow</h1>
+  <p class="ds-header__desc">Tokens e componentes adaptados de <code>DESIGN-cursor.md</code> para um app de estudos — não para um site de marketing. Toda cor, tipografia, espaçamento e raio aqui vem das mesmas variáveis CSS usadas em <code>index.html</code>; nada nesta página é redesenhado à parte.</p>
+</header>
+
+<div class="ds-shell">
+  <nav class="ds-nav" aria-label="Seções do design system">
+    <a href="#cores">Cores</a>
+    <a href="#tipografia">Tipografia</a>
+    <a href="#espacamento">Espaçamento</a>
+    <a href="#raios">Raios de borda</a>
+    <a href="#bordas">Bordas &amp; profundidade</a>
+    <a href="#botoes">Botões</a>
+    <a href="#campos">Campos &amp; busca</a>
+    <a href="#badges">Badges</a>
+    <a href="#cards">Cards</a>
+    <a href="#tabela">Tabela</a>
+    <a href="#overlays">Modal &amp; toast</a>
+    <a href="#icones">Ícones</a>
+    <a href="#acessibilidade">Acessibilidade</a>
+  </nav>
+
+  <main class="ds-main">
+
+    <section class="ds-section" id="cores">
+      <h2 class="ds-section__title">Cores</h2>
+      <p class="ds-section__desc">Laranja é a única cor de marca e aparece com moderação: botão "Novo" e destaque do item ativo do menu. Profundidade vem de bordas finas, nunca de sombra.</p>
+
+      <h3 class="ds-section__title" style="font-size:14px;margin-top:var(--space-2)">Superfícies</h3>
+      <div class="ds-swatch-grid" style="margin-bottom:var(--space-6)">
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-bg)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Fundo</span>
+            <span class="ds-swatch__hex">#f7f7f4</span>
+            <span class="ds-swatch__use">Plano de fundo da página</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-surface)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Superfície</span>
+            <span class="ds-swatch__hex">#ffffff</span>
+            <span class="ds-swatch__use">Cards, tabela, modais</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-surface-strong)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Superfície reforçada</span>
+            <span class="ds-swatch__hex">#e6e5e0</span>
+            <span class="ds-swatch__use">Fundo de badge neutro</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="ds-section__title" style="font-size:14px">Bordas</h3>
+      <div class="ds-swatch-grid" style="margin-bottom:var(--space-6)">
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-border)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Borda</span>
+            <span class="ds-swatch__hex">#e6e5e0</span>
+            <span class="ds-swatch__use">Divisórias, contorno de cards/tabela</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-border-strong)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Borda forte</span>
+            <span class="ds-swatch__hex">#807d72</span>
+            <span class="ds-swatch__use">Contorno de inputs/botões — ajustada para ≥3:1 de contraste (ver Acessibilidade)</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="ds-section__title" style="font-size:14px">Texto</h3>
+      <div class="ds-swatch-grid" style="margin-bottom:var(--space-6)">
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-text-primary)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Texto principal</span>
+            <span class="ds-swatch__hex">#26251e</span>
+            <span class="ds-swatch__use">Títulos, corpo, valores de tabela</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-text-secondary)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Texto secundário</span>
+            <span class="ds-swatch__hex">#5a5852</span>
+            <span class="ds-swatch__use">Subtítulos, rótulos de cabeçalho, legendas</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-text-tertiary)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Texto terciário</span>
+            <span class="ds-swatch__hex">#807d72</span>
+            <span class="ds-swatch__use">Somente decorativo: ícones, placeholder — nunca texto essencial (não atinge 4,5:1)</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-text-disabled)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Desabilitado</span>
+            <span class="ds-swatch__hex">#a09c92</span>
+            <span class="ds-swatch__use">Controles desabilitados</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="ds-section__title" style="font-size:14px">Marca</h3>
+      <div class="ds-swatch-grid" style="margin-bottom:var(--space-6)">
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-primary)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Primária</span>
+            <span class="ds-swatch__hex">#f54e00</span>
+            <span class="ds-swatch__use">Botão "Novo", destaque do item ativo</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-primary-pressed)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Primária pressionada</span>
+            <span class="ds-swatch__hex">#d04200</span>
+            <span class="ds-swatch__use">Estado :active do botão primário</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-primary-soft)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Primária suave</span>
+            <span class="ds-swatch__hex">#fde4d8</span>
+            <span class="ds-swatch__use">Fundo do item ativo do menu</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="ds-section__title" style="font-size:14px">Semânticas</h3>
+      <div class="ds-swatch-grid">
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-error)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Erro</span>
+            <span class="ds-swatch__hex">#cf2d56</span>
+            <span class="ds-swatch__use">Botão/texto "Excluir", validação</span>
+          </div>
+        </div>
+        <div class="ds-swatch">
+          <div class="ds-swatch__block" style="background:var(--color-success)"></div>
+          <div class="ds-swatch__body">
+            <span class="ds-swatch__name">Sucesso</span>
+            <span class="ds-swatch__hex">#1f8a65</span>
+            <span class="ds-swatch__use">Indicadores de confirmação</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="tipografia">
+      <h2 class="ds-section__title">Tipografia</h2>
+      <p class="ds-section__desc">Inter substitui a CursorGothic licenciada. Títulos ficam no peso 400 com tracking levemente negativo (voz editorial); botões e itens de menu em 500; títulos de componente em 600. Corpo em 16px, tabela em 14px.</p>
+
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample"><p class="page-title" style="margin:0">Estudo</p></div>
+        <div class="ds-type-row__meta"><b>Título de página</b><br>28px · 400 · -0.02em</div>
+      </div>
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample"><p class="page-subtitle" style="margin:0">Organize seus temas de estudo e acompanhe datas.</p></div>
+        <div class="ds-type-row__meta"><b>Subtítulo / corpo</b><br>16px · 400 · 0</div>
+      </div>
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample"><p class="modal__title" style="margin:0">Título de componente</p></div>
+        <div class="ds-type-row__meta"><b>Título de componente</b><br>18px · 600 · 0</div>
+      </div>
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample"><button type="button" class="btn btn-secondary" style="pointer-events:none">Rótulo de botão</button></div>
+        <div class="ds-type-row__meta"><b>Botões e itens de menu</b><br>14px · 500 · 0</div>
+      </div>
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample"><span style="font-size:14px">Cálculo I — Limites e derivadas</span></div>
+        <div class="ds-type-row__meta"><b>Corpo de tabela</b><br>14px · 400 · 0</div>
+      </div>
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample">
+          <div class="ds-table-demo" style="display:inline-block;max-width:none">
+            <table><thead><tr><th scope="col">Rótulo de coluna</th></tr></thead></table>
+          </div>
+        </div>
+        <div class="ds-type-row__meta"><b>Cabeçalho de tabela</b><br>11px · 600 · 0,06em · caixa alta</div>
+      </div>
+      <div class="ds-type-row">
+        <div class="ds-type-row__sample"><span class="record-count">Mostrando 1–5 de 8 registros</span></div>
+        <div class="ds-type-row__meta"><b>Legenda</b><br>13px · 400 · 0</div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="espacamento">
+      <h2 class="ds-section__title">Espaçamento</h2>
+      <p class="ds-section__desc">Toda a malha de espaçamento segue múltiplos de 4px — nunca valores arbitrários.</p>
+      <div class="ds-stack-demo" style="max-width:420px">
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-1</span><div class="ds-scale-row__bar" style="width:var(--space-1)"></div><span class="ds-scale-row__value">4px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-2</span><div class="ds-scale-row__bar" style="width:var(--space-2)"></div><span class="ds-scale-row__value">8px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-3</span><div class="ds-scale-row__bar" style="width:var(--space-3)"></div><span class="ds-scale-row__value">12px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-4</span><div class="ds-scale-row__bar" style="width:var(--space-4)"></div><span class="ds-scale-row__value">16px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-5</span><div class="ds-scale-row__bar" style="width:var(--space-5)"></div><span class="ds-scale-row__value">20px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-6</span><div class="ds-scale-row__bar" style="width:var(--space-6)"></div><span class="ds-scale-row__value">24px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-8</span><div class="ds-scale-row__bar" style="width:var(--space-8)"></div><span class="ds-scale-row__value">32px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-10</span><div class="ds-scale-row__bar" style="width:var(--space-10)"></div><span class="ds-scale-row__value">40px</span></div>
+        <div class="ds-scale-row"><span class="ds-scale-row__label">space-12</span><div class="ds-scale-row__bar" style="width:var(--space-12)"></div><span class="ds-scale-row__value">48px</span></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="raios">
+      <h2 class="ds-section__title">Raios de borda</h2>
+      <p class="ds-section__desc">8px em botões e campos de texto; 12px em cards e na área da tabela; pill em badges.</p>
+      <div class="ds-radius-grid">
+        <div class="ds-radius-item"><div class="ds-radius-item__box" style="border-radius:var(--radius-sm)"></div><span class="ds-radius-item__label">sm · 6px</span></div>
+        <div class="ds-radius-item"><div class="ds-radius-item__box" style="border-radius:var(--radius-md)"></div><span class="ds-radius-item__label">md · 8px — botões/campos</span></div>
+        <div class="ds-radius-item"><div class="ds-radius-item__box" style="border-radius:var(--radius-lg)"></div><span class="ds-radius-item__label">lg · 12px — cards/tabela</span></div>
+        <div class="ds-radius-item"><div class="ds-radius-item__box" style="border-radius:var(--radius-pill)"></div><span class="ds-radius-item__label">pill — badges</span></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="bordas">
+      <h2 class="ds-section__title">Bordas &amp; profundidade</h2>
+      <p class="ds-section__desc">Sem sombras em nenhum componente. A separação entre superfícies vem só de bordas finas de 1px.</p>
+      <div class="ds-row">
+        <div class="ds-swatch" style="width:168px">
+          <div class="ds-swatch__block" style="background:var(--color-surface);border-bottom:1px solid var(--color-border)"></div>
+          <div class="ds-swatch__body"><span class="ds-swatch__name">Borda padrão</span><span class="ds-swatch__use">Cards, tabela, divisórias</span></div>
+        </div>
+        <div class="ds-swatch" style="width:168px">
+          <div class="ds-swatch__block" style="background:var(--color-surface);border-bottom:2px solid var(--color-border-strong)"></div>
+          <div class="ds-swatch__body"><span class="ds-swatch__name">Borda forte</span><span class="ds-swatch__use">Inputs, botões, paginação</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="botoes">
+      <h2 class="ds-section__title">Botões</h2>
+      <p class="ds-section__desc">Passe o mouse para ver o estado hover; use Tab para ver o foco. O laranja é reservado ao botão primário.</p>
+      <div class="ds-row">
+        <button type="button" class="btn btn-primary">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg>
+          Novo
+        </button>
+        <button type="button" class="btn btn-secondary">Editar</button>
+        <button type="button" class="btn btn-danger">
+          <svg class="icon" viewBox="0 0 20 20"><path d="M4 6h12M8 6V4.5A1 1 0 0 1 9 3.5h2a1 1 0 0 1 1 1V6M6 6l.7 10a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1L14 6"/></svg>
+          Excluir
+        </button>
+        <button type="button" class="btn btn-primary" disabled>Novo</button>
+      </div>
+    </section>
+
+    <section class="ds-section" id="campos">
+      <h2 class="ds-section__title">Campos &amp; busca</h2>
+      <p class="ds-section__desc">Rótulo sempre visível (nunca só placeholder) em campos de formulário; o campo de busca da barra de ações é a exceção — ícone + placeholder, com rótulo acessível via <code>aria-label</code>.</p>
+      <div class="ds-row" style="align-items:flex-start">
+        <div class="search-field" style="margin-left:0">
+          <svg class="icon" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M16.5 16.5 13 13"/></svg>
+          <input type="search" placeholder="Pesquisar..." aria-label="Pesquisar" readonly>
+        </div>
+        <div class="field" style="min-width:220px;margin-bottom:0">
+          <label for="dsFieldOk">Descrição</label>
+          <input id="dsFieldOk" value="Cálculo I — Limites e derivadas" readonly>
+        </div>
+        <div class="field has-error" style="min-width:220px;margin-bottom:0">
+          <label for="dsFieldErr">Pasta</label>
+          <input id="dsFieldErr" readonly>
+          <span class="field__error">Informe uma pasta.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="badges">
+      <h2 class="ds-section__title">Badges</h2>
+      <p class="ds-section__desc">O texto do badge nunca depende só da cor — o estado também é dito em palavras; a cor só reforça com um indicador.</p>
+      <div class="ds-row">
+        <span class="badge"><span class="badge__dot"></span>Pendente</span>
+        <span class="badge badge-success"><span class="badge__dot"></span>Em dia</span>
+        <span class="badge badge-error"><span class="badge__dot"></span>Atrasado</span>
+        <span class="badge badge-primary"><span class="badge__dot"></span>Novidade</span>
+      </div>
+    </section>
+
+    <section class="ds-section" id="cards">
+      <h2 class="ds-section__title">Cards</h2>
+      <p class="ds-section__desc">Fundo branco, borda fina, raio de 12px, sem sombra — a mesma receita usada na área da tabela.</p>
+      <div class="ds-card-demo">
+        <h3 class="ds-card-demo__title">Título do card</h3>
+        <p class="ds-card-demo__desc">Corpo em texto secundário, 14–16px, usado para cards de conteúdo genérico fora da grade.</p>
+      </div>
+    </section>
+
+    <section class="ds-section" id="tabela">
+      <h2 class="ds-section__title">Tabela</h2>
+      <p class="ds-section__desc">Cabeçalho em caixa alta 11px/600, hover suave nas linhas, ações com ícone + rótulo, datas em dd/mm/aaaa.</p>
+      <div class="ds-table-demo">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Descrição</th>
+              <th scope="col">Pasta</th>
+              <th scope="col">Data inicial</th>
+              <th scope="col" class="col-actions">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="col-descricao"><span class="od-truncate">Cálculo I — Limites e derivadas</span></td>
+              <td class="col-pasta"><span class="od-truncate">Matemática</span></td>
+              <td class="col-data"><span class="od-nowrap">04/08/2026</span></td>
+              <td>
+                <div class="row-actions">
+                  <button type="button" class="action-icon-btn" style="pointer-events:none">
+                    <svg class="icon" viewBox="0 0 20 20"><path d="M12.9 3.3a1.5 1.5 0 0 1 2.1 0l1.7 1.7a1.5 1.5 0 0 1 0 2.1L7 16.8l-4 .9.9-4L12.9 3.3Z"/><path d="M11.3 4.9l3.8 3.8"/></svg>
+                    <span>Editar</span>
+                  </button>
+                  <button type="button" class="action-icon-btn is-danger" style="pointer-events:none">
+                    <svg class="icon" viewBox="0 0 20 20"><path d="M4 6h12M8 6V4.5A1 1 0 0 1 9 3.5h2a1 1 0 0 1 1 1V6M6 6l.7 10a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1L14 6"/></svg>
+                    <span>Excluir</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <footer class="data-panel__footer">
+          <span class="record-count">Mostrando 1–5 de 8 registros</span>
+          <div class="pagination">
+            <button type="button" class="pagination__btn" disabled><svg class="icon" viewBox="0 0 20 20"><path d="M12 5l-5 5 5 5"/></svg></button>
+            <span class="pagination__page">Página 1 de 2</span>
+            <button type="button" class="pagination__btn"><svg class="icon" viewBox="0 0 20 20"><path d="M8 5l5 5-5 5"/></svg></button>
+          </div>
+        </footer>
+      </div>
+
+      <p class="ds-section__desc" style="margin-top:var(--space-5)">Estado vazio (sem registros, ou busca sem resultado):</p>
+      <div class="ds-table-demo">
+        <div class="empty-state">
+          <span class="empty-state__icon" aria-hidden="true"><svg class="icon" viewBox="0 0 20 20"><path d="M3 10.5 5.5 4h9L17 10.5"/><path d="M3 10.5V15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4.5"/><path d="M3 10.5h4.2a.5.5 0 0 1 .47.33L8.3 12.5h3.4l.63-1.67a.5.5 0 0 1 .47-.33H17"/></svg></span>
+          <h3 class="empty-state__title">Nenhum registro de estudo ainda</h3>
+          <p class="empty-state__desc">Crie o primeiro tema para começar a organizar seus estudos.</p>
+          <button class="btn btn-primary" type="button" style="pointer-events:none">
+            <svg class="icon" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg>
+            Novo
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="overlays">
+      <h2 class="ds-section__title">Modal &amp; toast</h2>
+      <p class="ds-section__desc">Pré-visualização estática fora da camada de overlay fixa — no protótipo eles aparecem centralizados com fundo escurecido.</p>
+      <div class="ds-row" style="align-items:flex-start">
+        <div class="ds-modal-preview">
+          <h3 class="modal__title">Novo registro</h3>
+          <div class="field">
+            <label for="dsModalDesc">Descrição</label>
+            <input id="dsModalDesc" readonly>
+          </div>
+          <div class="modal__actions">
+            <button type="button" class="btn btn-secondary" style="pointer-events:none">Cancelar</button>
+            <button type="button" class="btn btn-primary" style="pointer-events:none">Salvar</button>
+          </div>
+        </div>
+        <div class="ds-toast-preview">
+          <span>Registro excluído.</span>
+          <button type="button" class="toast__undo" style="pointer-events:none">Desfazer</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="icones">
+      <h2 class="ds-section__title">Ícones</h2>
+      <p class="ds-section__desc">Uma única família: traço 1.75px, pontas e junções arredondadas, sem ícones preenchidos misturados.</p>
+      <div class="ds-icon-grid">
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></svg><span class="ds-icon-item__label">Novo</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M12.9 3.3a1.5 1.5 0 0 1 2.1 0l1.7 1.7a1.5 1.5 0 0 1 0 2.1L7 16.8l-4 .9.9-4L12.9 3.3Z"/><path d="M11.3 4.9l3.8 3.8"/></svg><span class="ds-icon-item__label">Editar</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M4 6h12M8 6V4.5A1 1 0 0 1 9 3.5h2a1 1 0 0 1 1 1V6M6 6l.7 10a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1L14 6"/></svg><span class="ds-icon-item__label">Excluir</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M16.5 16.5 13 13"/></svg><span class="ds-icon-item__label">Pesquisar</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M3 5h14M3 10h14M3 15h14"/></svg><span class="ds-icon-item__label">Menu</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5 5 15"/></svg><span class="ds-icon-item__label">Fechar</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M12 5l-5 5 5 5"/></svg><span class="ds-icon-item__label">Anterior</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M8 5l5 5-5 5"/></svg><span class="ds-icon-item__label">Próximo</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3H9v14H4.5A1.5 1.5 0 0 1 3 15.5v-11Z"/><path d="M17 4.5A1.5 1.5 0 0 0 15.5 3H11v14h4.5a1.5 1.5 0 0 0 1.5-1.5v-11Z"/></svg><span class="ds-icon-item__label">Estudo</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><path d="M6 2.5h8a1 1 0 0 1 1 1V17l-5-2.5L5 17V3.5a1 1 0 0 1 1-1Z"/><path d="M7.5 7.5l1.5 1.5 3-3"/></svg><span class="ds-icon-item__label">Testes</span></div>
+        <div class="ds-icon-item"><svg class="icon" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg><span class="ds-icon-item__label">Agenda</span></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="acessibilidade">
+      <h2 class="ds-section__title">Acessibilidade</h2>
+      <div class="ds-note">
+        <svg class="icon ds-note__icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v4.5M10 6.5v.01"/></svg>
+        <ul>
+          <li>Rótulos de cabeçalho de tabela e legendas usam texto secundário (#5a5852), não o terciário (#807d72) — em branco o terciário só atinge ~4,1:1, abaixo do mínimo de 4,5:1 para texto pequeno.</li>
+          <li>A borda forte de inputs/botões foi escurecida de #cfcdc4 (valor original do hairline-strong) para #807d72, para manter ≥3:1 de contraste de componente contra fundo branco.</li>
+          <li>O laranja #f54e00 com texto branco no botão "Novo" fica em ~3,5:1 — abaixo do ideal de 4,5:1 para texto pequeno, mas é a cor de marca pedida explicitamente; o botão permanece grande (40px) e nunca é o único indicador de ação primária.</li>
+          <li>Estados de erro e sucesso nunca dependem só da cor: o texto da mensagem e o rótulo do badge já dizem o estado por extenso.</li>
+          <li>Todo elemento interativo tem foco visível (anel laranja) e nome acessível; animações respeitam <code>prefers-reduced-motion</code>.</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

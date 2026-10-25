@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "fileName": "design-system.html",
+  "currentVersionId": "8b8aa867-a300-4945-a56d-8b8814d99ee1",
+  "entries": [
+    {
+      "id": "8b8aa867-a300-4945-a56d-8b8814d99ee1",
+      "fileName": "design-system.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1792910773136,
+      "source": "ai",
+      "prompt": "crie o design system",
+      "size": 26248,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-8b8aa867-a300-4945-a56d-8b8814d99ee1.html",
+      "contentDigest": "ee65af2126789b0128974394a8127f6d86f0836ad010be544f6791c393b2a21d",
+      "promptSource": "message"
+    }
+  ]
+}
