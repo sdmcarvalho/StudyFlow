@@ -1,0 +1,175 @@
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.scroller {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.separator {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 var(--space-1);
+  background: var(--color-border);
+}
+
+.button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.button:hover {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+.button:active {
+  background: var(--color-surface-strong);
+}
+.button:focus-visible,
+.save:focus-visible,
+.menuItem:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.button:disabled {
+  color: var(--color-text-disabled);
+  background: transparent;
+  cursor: not-allowed;
+}
+.button[aria-pressed="true"],
+.button[aria-expanded="true"] {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary-pressed);
+}
+
+.end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-3);
+}
+
+.status {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+.statusDirty {
+  color: var(--color-text-secondary);
+}
+.statusError {
+  color: var(--color-error);
+}
+
+.save {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition-fast);
+}
+.save:hover {
+  background: #e24600;
+}
+.save:active {
+  background: var(--color-primary-pressed);
+}
+.save :global(.icon) {
+  width: 18px;
+  height: 18px;
+}
+
+.menu {
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  min-width: 120px;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  font-weight: 600;
+}
+.menuItem:hover,
+.menuItem:focus-visible {
+  background: var(--color-bg);
+}
+.h1 {
+  font-size: 18px;
+}
+.h2 {
+  font-size: 16px;
+}
+.h3 {
+  font-size: 14px;
+}
+
+/* A barra superior do mobile também é fixa: a barra de ferramentas fica logo abaixo dela. */
+@media (max-width: 767.98px) {
+  .toolbar {
+    top: var(--topbar-h);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  .saveText {
+    display: none;
+  }
+  .save {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+}
