@@ -8,7 +8,7 @@ function databaseUrl(): string {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL não definida. Copie .env.example para .env.");
   if (!url.startsWith("file:")) return url;
-  return pathToFileURL(path.resolve(process.cwd(), url.slice("file:".length))).href;
+  return pathToFileURL(path.resolve(/*turbopackIgnore: true*/ process.cwd(), url.slice("file:".length))).href;
 }
 
 const globalForDb = globalThis as unknown as { db?: PrismaClient };

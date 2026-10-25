@@ -1,0 +1,82 @@
+.wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table thead th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.table thead th.actionsHead {
+  text-align: right;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background var(--transition-fast);
+}
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+.table tbody tr:hover {
+  background: var(--color-bg);
+}
+
+.table tbody td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+.table td.descricao {
+  font-weight: 500;
+  max-width: 320px;
+}
+.table td.pasta {
+  color: var(--color-text-secondary);
+  max-width: 200px;
+}
+.table td.data {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.truncate {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767.98px) {
+  .wrap {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099.98px) {
+  .table thead th,
+  .table tbody td {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+  .table td.descricao {
+    max-width: 220px;
+  }
+  .table td.pasta {
+    max-width: 140px;
+  }
+}

@@ -30,6 +30,11 @@ export function parsePageParam(raw: string | string[] | undefined): number {
   return Number(value);
 }
 
+export function parseQueryParam(raw: string | string[] | undefined): string {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value?.trim() ?? "";
+}
+
 /** Filtra e pagina, mantendo a ordem recebida (a ordenação é feita na query). */
 export function buildListPage(rows: StudyRecordRow[], opts: { q: string; page: number }): ListPage {
   const query = normalize(opts.q.trim());

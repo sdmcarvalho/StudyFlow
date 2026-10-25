@@ -1,0 +1,40 @@
+.actionBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.count {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 767.98px) {
+  .actionBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+}

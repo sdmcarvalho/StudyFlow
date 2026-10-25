@@ -5,6 +5,7 @@ import {
   buildStudyHref,
   normalize,
   parsePageParam,
+  parseQueryParam,
   type StudyRecordRow,
 } from "@/features/estudo/list";
 
@@ -125,5 +126,17 @@ describe("buildStudyHref", () => {
 
   it("codifica espaços e mantém a ordem q, page", () => {
     expect(buildStudyHref("a b", 2)).toBe("/estudo?q=a+b&page=2");
+  });
+});
+
+describe("parseQueryParam", () => {
+  it.each([
+    [undefined, ""],
+    ["", ""],
+    ["  calc ", "calc"],
+    [["a", "b"], "a"],
+    [[], ""],
+  ])("%j -> %j", (raw, expected) => {
+    expect(parseQueryParam(raw)).toBe(expected);
   });
 });
