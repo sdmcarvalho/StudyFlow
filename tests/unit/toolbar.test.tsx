@@ -113,6 +113,14 @@ describe("Toolbar — botões", () => {
     }
   });
 
+  it("mousedown nos botões de modo e no fundo da barra também é cancelado", () => {
+    setup();
+    for (const name of ["Visualização dividida", "Visualização (preview)"]) {
+      expect(fireEvent.mouseDown(screen.getByRole("button", { name })), name).toBe(false);
+    }
+    expect(fireEvent.mouseDown(screen.getByRole("toolbar"))).toBe(false);
+  });
+
   it("Salvar chama onSave", async () => {
     const { props } = setup();
     await userEvent.click(screen.getByRole("button", { name: "Salvar" }));

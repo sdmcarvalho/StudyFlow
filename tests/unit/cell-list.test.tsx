@@ -64,6 +64,20 @@ describe("CellList", () => {
     expect(screen.queryByRole("button", { name: "Arrastar célula" })).not.toBeInTheDocument();
   });
 
+  it("trocar para o preview e voltar não remonta as células", () => {
+    const { props, rerender } = setup();
+    const before = screen.getByRole("group", { name: "Célula 2 de 3" });
+    rerender(<CellList {...props} mode="preview" />);
+    expect(screen.getByRole("group", { name: "Célula 2 de 3" })).toBe(before);
+    rerender(<CellList {...props} mode="split" />);
+    expect(screen.getByRole("group", { name: "Célula 2 de 3" })).toBe(before);
+  });
+
+  it("no preview nenhuma célula fica em edição, mesmo com editingId", () => {
+    setup({ mode: "preview", editingId: "b" });
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
   it("reordena pelo teclado: Espaço pega, seta para baixo move, Espaço solta", async () => {
     // O jsdom não tem layout: cada célula ganha uma caixa empilhada para o dnd-kit medir.
     const original = Element.prototype.getBoundingClientRect;

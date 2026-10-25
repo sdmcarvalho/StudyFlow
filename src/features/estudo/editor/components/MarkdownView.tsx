@@ -20,6 +20,7 @@ import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import {
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -109,7 +110,11 @@ const ImageContext = createContext<ImageContextValue>({
   setSelection: () => {},
 });
 
-export function MarkdownView({ texto, studyId, onResizeImage }: MarkdownViewProps) {
+/**
+ * Memorizado: digitar numa célula re-renderiza a lista, mas só a célula cujo texto mudou volta a
+ * processar o Markdown (o pai precisa passar `onResizeImage` estável).
+ */
+export const MarkdownView = memo(function MarkdownView({ texto, studyId, onResizeImage }: MarkdownViewProps) {
   const [selection, setSelection] = useState<Selection>(null);
 
   const urlTransform = useCallback<UrlTransform>(
@@ -141,7 +146,7 @@ export function MarkdownView({ texto, studyId, onResizeImage }: MarkdownViewProp
       </ImageContext.Provider>
     </div>
   );
-}
+});
 
 function MarkdownTable({ children }: ComponentProps<"table"> & ExtraProps) {
   return (

@@ -230,6 +230,8 @@ export function Cell({
       ref={setContainerRef}
       role="group"
       aria-label={`Célula ${number} de ${total}`}
+      // O editor usa o id para saber se um clique caiu dentro da célula em edição.
+      data-cell-id={id}
       className={classes}
       style={drag?.style}
       // Clicar numa área sem foco dentro da célula mantém o foco nela (não conta como "clicar fora").

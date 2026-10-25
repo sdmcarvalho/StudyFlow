@@ -120,7 +120,15 @@ export function Toolbar({
 
   return (
     // `data-keep-editing`: levar o foco da textarea para a barra não encerra a edição.
-    <div className={styles.toolbar} role="toolbar" aria-label="Barra de ferramentas" data-keep-editing="">
+    // `mousedown` cancelado em toda a barra (botões de modo e fundo também): clicar nela não tira o
+    // foco do texto; no Safari, que não foca botões no clique, o foco iria para o documento.
+    <div
+      className={styles.toolbar}
+      role="toolbar"
+      aria-label="Barra de ferramentas"
+      data-keep-editing=""
+      onMouseDown={keepFocus}
+    >
       <div className={styles.scroller}>
         <div className={styles.group}>{INLINE.map(formatButton)}</div>
         <span className={styles.separator} aria-hidden="true" />
@@ -141,7 +149,6 @@ export function Toolbar({
           <ToolButton
             label="Visualização dividida"
             pressed={mode === "split"}
-            keepFocusOnPress={false}
             onClick={() => onModeChange(mode === "split" ? "default" : "split")}
           >
             <SplitViewIcon />
@@ -149,7 +156,6 @@ export function Toolbar({
           <ToolButton
             label="Visualização (preview)"
             pressed={mode === "preview"}
-            keepFocusOnPress={false}
             onClick={() => onModeChange(mode === "preview" ? "default" : "preview")}
           >
             <PreviewIcon />
@@ -180,12 +186,11 @@ type ToolButtonProps = {
   label: string;
   disabled?: boolean;
   pressed?: boolean;
-  keepFocusOnPress?: boolean;
   onClick: () => void;
   children: ReactNode;
 };
 
-function ToolButton({ label, disabled, pressed, keepFocusOnPress = true, onClick, children }: ToolButtonProps) {
+function ToolButton({ label, disabled, pressed, onClick, children }: ToolButtonProps) {
   return (
     <button
       type="button"
@@ -194,7 +199,7 @@ function ToolButton({ label, disabled, pressed, keepFocusOnPress = true, onClick
       aria-label={label}
       aria-pressed={pressed}
       disabled={disabled}
-      onMouseDown={keepFocusOnPress ? keepFocus : undefined}
+      onMouseDown={keepFocus}
       onClick={onClick}
     >
       {children}

@@ -91,26 +91,9 @@ export function CellList({ cells, mode, editingId, studyId, onReorder, ...callba
     onReorder(from, to);
   }
 
+  // O preview usa a mesma árvore (só com o arrastar desligado): trocar de modo não remonta as
+  // células, então o foco e o estado de cada uma sobrevivem.
   const readOnly = mode === "preview";
-
-  if (readOnly) {
-    return (
-      <div className={styles.list}>
-        {cells.map((cell, index) => (
-          <Cell
-            key={cell.id}
-            cell={cell}
-            index={index}
-            total={total}
-            mode={mode}
-            editing={false}
-            studyId={studyId}
-            {...callbacks}
-          />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <DndContext
@@ -128,8 +111,9 @@ export function CellList({ cells, mode, editingId, studyId, onReorder, ...callba
               index={index}
               total={total}
               mode={mode}
-              editing={cell.id === editingId}
+              editing={!readOnly && cell.id === editingId}
               studyId={studyId}
+              dragDisabled={readOnly}
               {...callbacks}
             />
           ))}
@@ -139,10 +123,11 @@ export function CellList({ cells, mode, editingId, studyId, onReorder, ...callba
   );
 }
 
-function SortableCell(props: Omit<CellProps, "drag">) {
+function SortableCell({ dragDisabled, ...props }: Omit<CellProps, "drag"> & { dragDisabled: boolean }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: props.cell.id,
     attributes: { roleDescription: "célula arrastável" },
+    disabled: dragDisabled,
   });
 
   return (

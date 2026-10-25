@@ -1,0 +1,23 @@
+.notFound {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.back {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.back:hover,
+.back:focus-visible {
+  color: var(--color-text-primary);
+}
