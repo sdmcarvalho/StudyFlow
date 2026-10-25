@@ -24,6 +24,14 @@ function makeProps(overrides: Partial<Props> = {}): Props {
   };
 }
 
+/** A área focável da célula renderizada: a que é descrita pela dica de edição. */
+function getView(groupName: string): HTMLElement {
+  const group = screen.getByRole("group", { name: groupName });
+  const view = group.querySelector<HTMLElement>("[aria-describedby]");
+  if (!view) throw new Error("área focável não encontrada");
+  return view;
+}
+
 function setup(overrides: Partial<Props> = {}) {
   const props = makeProps(overrides);
   const utils = render(<Cell {...props} />);
@@ -44,7 +52,7 @@ describe("Cell — modo padrão", () => {
 
   it("clicar e Enter com a célula focada chamam onEdit(id)", async () => {
     const { props } = setup();
-    const view = screen.getByRole("button", { name: /editar célula/i });
+    const view = getView("Célula 1 de 3");
     await userEvent.click(view);
     expect(props.onEdit).toHaveBeenCalledWith("c1");
 
@@ -120,6 +128,34 @@ describe("Cell — modo padrão", () => {
     expect(screen.getByRole("button", { name: "Arrastar célula" })).toBeInTheDocument();
   });
 
+  it("a célula renderizada expõe o conteúdo e não é um botão", () => {
+    setup({ cell: { id: "c1", texto: "# Título\n\n- item\n\n[site](https://exemplo.com)" } });
+    const group = screen.getByRole("group", { name: "Célula 1 de 3" });
+    expect(within(group).getByRole("heading", { name: "Título" })).toBeInTheDocument();
+    expect(within(group).getByRole("listitem")).toHaveTextContent("item");
+    expect(within(group).getByRole("link", { name: "site" })).toBeInTheDocument();
+    expect(within(group).queryByRole("button", { name: /editar/i })).not.toBeInTheDocument();
+  });
+
+  it("a área focável tem a dica de edição como descrição", () => {
+    setup();
+    const view = getView("Célula 1 de 3");
+    expect(view).toHaveAttribute("tabindex", "0");
+    expect(view).not.toHaveAttribute("role");
+    expect(view).not.toHaveAttribute("aria-label");
+    expect(view).toHaveAccessibleDescription("Pressione Enter para editar");
+  });
+
+  it("Enter num link interno e clique no link não abrem a edição", async () => {
+    const { props } = setup({ cell: { id: "c1", texto: "[site](https://exemplo.com)" } });
+    const link = screen.getByRole("link", { name: "site" });
+    link.addEventListener("click", (event) => event.preventDefault());
+    await userEvent.click(link);
+    link.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(props.onEdit).not.toHaveBeenCalled();
+  });
+
   it("tem role group com nome Célula N de M", () => {
     setup({ index: 1, total: 4 });
     expect(screen.getByRole("group", { name: "Célula 2 de 4" })).toBeInTheDocument();
@@ -141,8 +177,38 @@ describe("Cell — modos dividida e preview", () => {
     expect(screen.queryByRole("button", { name: "Arrastar célula" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Excluir célula" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Adicionar célula abaixo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /editar célula/i })).not.toBeInTheDocument();
+    expect(group.querySelector("[aria-describedby]")).toBeNull();
+    expect(group.querySelector("[tabindex='0']")).toBeNull();
     await userEvent.click(container.querySelector("strong")!);
     expect(props.onEdit).not.toHaveBeenCalled();
+  });
+});
+
+describe("Cell — foco da textarea", () => {
+  it("no modo dividido, focar a textarea chama onFocusCell(id)", async () => {
+    const onFocusCell = vi.fn();
+    setup({ mode: "split", onFocusCell });
+    await userEvent.click(screen.getByRole("textbox"));
+    expect(onFocusCell).toHaveBeenCalledWith("c1");
+  });
+
+  it("no modo padrão em edição, focar a textarea chama onFocusCell(id)", () => {
+    const onFocusCell = vi.fn();
+    setup({ editing: true, onFocusCell });
+    // O efeito de entrada em edição já foca a textarea.
+    expect(onFocusCell).toHaveBeenCalledWith("c1");
+  });
+
+  it("entrar em edição com a textarea já focada não leva o cursor para o fim", () => {
+    const props = makeProps({ mode: "split", cell: { id: "c1", texto: "abcdef" } });
+    const { rerender } = render(<Cell {...props} />);
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(2, 2);
+
+    rerender(<Cell {...props} editing />);
+    expect(textarea).toHaveFocus();
+    expect(textarea.selectionStart).toBe(2);
+    expect(textarea.selectionEnd).toBe(2);
   });
 });

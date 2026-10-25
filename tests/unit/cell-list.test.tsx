@@ -50,6 +50,15 @@ describe("CellList", () => {
     expect(props.onAddBelow).toHaveBeenCalledWith("c");
   });
 
+  it("repassa onFocusCell com o id da célula focada", async () => {
+    const onFocusCell = vi.fn();
+    setup({ mode: "split", onFocusCell });
+    const textareas = screen.getAllByRole("textbox");
+    expect(textareas).toHaveLength(3);
+    await userEvent.click(textareas[1]!);
+    expect(onFocusCell).toHaveBeenLastCalledWith("b");
+  });
+
   it("no preview não há alças", () => {
     setup({ mode: "preview" });
     expect(screen.queryByRole("button", { name: "Arrastar célula" })).not.toBeInTheDocument();

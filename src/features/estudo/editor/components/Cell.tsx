@@ -4,6 +4,7 @@ import type { DraggableAttributes, DraggableSyntheticListeners } from "@dnd-kit/
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   type CSSProperties,
   type FocusEvent,
@@ -41,6 +42,8 @@ export type CellProps = {
   onDelete: (id: string) => void;
   onResizeImage?: (id: string, range: ImageRange, width: number) => void;
   registerTextarea: (id: string, element: HTMLTextAreaElement | null) => void;
+  /** A textarea desta célula ganhou foco (a barra age sobre a última célula focada). */
+  onFocusCell?: (id: string) => void;
   drag?: CellDrag;
 };
 
@@ -58,9 +61,11 @@ export function Cell({
   onDelete,
   onResizeImage,
   registerTextarea,
+  onFocusCell,
   drag,
 }: CellProps) {
   const { id, texto } = cell;
+  const hintId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const viewRef = useRef<HTMLDivElement | null>(null);
@@ -90,7 +95,8 @@ export function Cell({
   // Ao entrar em edição, o foco vai para o texto com o cursor no fim.
   useEffect(() => {
     const textarea = textareaRef.current;
-    if (!editing || !textarea) return;
+    // Já focada (o usuário clicou nela): mantém o cursor onde ele clicou.
+    if (!editing || !textarea || document.activeElement === textarea) return;
     textarea.focus();
     const end = textarea.value.length;
     textarea.setSelectionRange(end, end);
@@ -196,6 +202,7 @@ export function Cell({
               value={texto}
               onChange={(event) => onChange(id, event.target.value)}
               onKeyDown={handleTextareaKeyDown}
+              onFocus={() => onFocusCell?.(id)}
             />
             <div className={styles.live}>
               <MarkdownView texto={texto} studyId={studyId} onResizeImage={resize} />
@@ -206,11 +213,12 @@ export function Cell({
             <MarkdownView texto={texto} studyId={studyId} />
           </div>
         ) : (
+          // Região focável comum (não um botão): o leitor de tela continua lendo títulos,
+          // listas, links e imagens do conteúdo; a dica vai na descrição.
           <div
             ref={viewRef}
-            role="button"
             tabIndex={0}
-            aria-label={`Editar célula ${number}`}
+            aria-describedby={hintId}
             className={`${styles.rendered} ${styles.clickable}`}
             onClick={handleViewClick}
             onKeyDown={handleViewKeyDown}
@@ -220,6 +228,9 @@ export function Cell({
             ) : (
               <MarkdownView texto={texto} studyId={studyId} onResizeImage={resize} />
             )}
+            <span id={hintId} className={styles.srOnly}>
+              Pressione Enter para editar
+            </span>
           </div>
         )}
 

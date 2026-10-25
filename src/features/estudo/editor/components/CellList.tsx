@@ -28,7 +28,14 @@ import styles from "./CellList.module.css";
 
 type CellCallbacks = Pick<
   CellProps,
-  "onEdit" | "onStopEditing" | "onChange" | "onAddBelow" | "onDelete" | "onResizeImage" | "registerTextarea"
+  | "onEdit"
+  | "onStopEditing"
+  | "onChange"
+  | "onAddBelow"
+  | "onDelete"
+  | "onResizeImage"
+  | "registerTextarea"
+  | "onFocusCell"
 >;
 
 type CellListProps = CellCallbacks & {
