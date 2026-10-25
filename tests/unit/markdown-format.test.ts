@@ -103,7 +103,8 @@ describe("títulos", () => {
   it("h2 prefixa a linha", () => {
     const edit = run("Titulo", 0, 0, "h2");
     expect(edit.text).toBe("## Titulo");
-    expect(selected(edit)).toBe("## Titulo");
+    expect(edit.selStart).toBe(3);
+    expect(edit.selEnd).toBe(3);
   });
 
   it("h1 e h3 usam um e três #", () => {
@@ -114,7 +115,8 @@ describe("títulos", () => {
   it("repetir o mesmo nível tira o prefixo", () => {
     const edit = run("## Titulo", 0, 0, "h2");
     expect(edit.text).toBe("Titulo");
-    expect(selected(edit)).toBe("Titulo");
+    expect(edit.selStart).toBe(0);
+    expect(edit.selEnd).toBe(0);
   });
 
   it("outro nível troca o prefixo", () => {
@@ -351,5 +353,209 @@ describe("tabela", () => {
 describe("imageMarkdown", () => {
   it("monta a sintaxe de imagem", () => {
     expect(imageMarkdown("foto", "imagens/a.png")).toBe("![foto](imagens/a.png)");
+  });
+});
+
+function cursor(edit: Edit): number {
+  expect(edit.selEnd).toBe(edit.selStart);
+  return edit.selStart;
+}
+
+describe("primeira linha vazia (selStart 0)", () => {
+  it("cursor na linha vazia inicial recebe o prefixo nela", () => {
+    const edit = run("\nfoo", 0, 0, "ul");
+    expect(edit.text).toBe("- \nfoo");
+    expect(cursor(edit)).toBe(2);
+  });
+
+  it("seleção do início com linha vazia e outra linha mantém a vazia sem prefixo e o início da seleção", () => {
+    const edit = run("\nfoo", 0, 4, "h1");
+    expect(edit.text).toBe("\n# foo");
+    expect(edit.selStart).toBe(0);
+    expect(edit.selEnd).toBe(edit.text.length);
+  });
+
+  it("linha em branco inicial seguida de várias linhas selecionadas", () => {
+    const edit = run("\nfoo\nbar", 0, 8, "ul");
+    expect(edit.text).toBe("\n- foo\n- bar");
+    expect(edit.selStart).toBe(0);
+    expect(edit.selEnd).toBe(edit.text.length);
+  });
+
+  it("ol numera a partir de 1 pulando a vazia inicial", () => {
+    expect(run("\nfoo\nbar", 0, 8, "ol").text).toBe("\n1. foo\n2. bar");
+  });
+});
+
+describe("espaços fora dos marcadores", () => {
+  it.each([
+    ["bold", "**"],
+    ["italic", "*"],
+    ["strike", "~~"],
+  ] as const)("%s deixa a quebra de linha final da seleção fora", (action, m) => {
+    const edit = run("ab\ncd", 0, 3, action);
+    expect(edit.text).toBe(`${m}ab${m}\ncd`);
+    expect(selected(edit)).toBe("ab");
+  });
+
+  it.each([
+    ["bold", "**"],
+    ["italic", "*"],
+    ["strike", "~~"],
+  ] as const)("%s deixa o espaço final fora (duplo clique do Windows)", (action, m) => {
+    const edit = run("ola mundo", 0, 4, action);
+    expect(edit.text).toBe(`${m}ola${m} mundo`);
+    expect(selected(edit)).toBe("ola");
+  });
+
+  it("espaços iniciais ficam fora", () => {
+    const edit = run("  ola", 0, 5, "italic");
+    expect(edit.text).toBe("  *ola*");
+    expect(selected(edit)).toBe("ola");
+  });
+
+  it("seleção só de espaço insere o modelo sem destruir o espaço", () => {
+    const edit = run("a b", 1, 2, "bold");
+    expect(edit.text).toBe("a**texto** b");
+    expect(selected(edit)).toBe("texto");
+  });
+
+  it("seleção só de quebra de linha insere o modelo na linha em branco", () => {
+    const edit = run("a\n\nb", 2, 3, "bold");
+    expect(edit.text).toBe("a\n**texto**\nb");
+    expect(selected(edit)).toBe("texto");
+  });
+
+  it("desfaz mesmo com espaço final na seleção", () => {
+    const edit = run("**ola** mundo", 0, 8, "bold");
+    expect(edit.text).toBe("ola mundo");
+    expect(selected(edit)).toBe("ola");
+  });
+
+  it("link não inclui espaço final no texto do link", () => {
+    const edit = run("site ", 0, 5, "link");
+    expect(edit.text).toBe("[site](url) ");
+    expect(selected(edit)).toBe("url");
+  });
+
+  it("link com seleção só de espaço insere o modelo sem destruir o espaço", () => {
+    const edit = run("a b", 1, 2, "link");
+    expect(edit.text).toBe("a[texto](url) b");
+    expect(selected(edit)).toBe("texto");
+  });
+
+  it("link com espaço inicial deixa-o fora", () => {
+    const edit = run(" site", 0, 5, "link");
+    expect(edit.text).toBe(" [site](url)");
+    expect(selected(edit)).toBe("url");
+  });
+});
+
+describe("dois trechos separados não são um só trecho envolvido", () => {
+  it("*a* b *c* com itálico envolve em vez de desfazer", () => {
+    const edit = run("*a* b *c*", 0, 9, "italic");
+    expect(edit.text).toBe("**a* b *c**");
+    expect(selected(edit)).toBe("*a* b *c*");
+  });
+
+  it("**a** e **b** com negrito envolve em vez de desfazer", () => {
+    const edit = run("**a** e **b**", 0, 13, "bold");
+    expect(edit.text).toBe("****a** e **b****");
+    expect(selected(edit)).toBe("**a** e **b**");
+  });
+
+  it("~~a~~ e ~~b~~ com tachado envolve em vez de desfazer", () => {
+    const edit = run("~~a~~ e ~~b~~", 0, 13, "strike");
+    expect(edit.text).toBe("~~~~a~~ e ~~b~~~~");
+  });
+
+  it("*a*, **a** e ***a*** continuam desfazendo só a camada pedida", () => {
+    expect(run("*a*", 0, 3, "italic").text).toBe("a");
+    expect(run("**a**", 0, 5, "bold").text).toBe("a");
+    expect(run("***a***", 0, 7, "bold").text).toBe("*a*");
+    expect(run("***a***", 0, 7, "italic").text).toBe("**a**");
+  });
+
+  it("negrito com asterisco simples dentro continua desfazendo", () => {
+    expect(run("**a * b**", 0, 9, "bold").text).toBe("a * b");
+  });
+});
+
+describe("cursor recolhido após ação de prefixo", () => {
+  it("h2: cursor no meio da linha acompanha o prefixo adicionado", () => {
+    const edit = run("Titulo", 3, 3, "h2");
+    expect(edit.text).toBe("## Titulo");
+    expect(cursor(edit)).toBe(6);
+  });
+
+  it("h2: cursor no início da linha vai para depois do prefixo", () => {
+    expect(cursor(run("Titulo", 0, 0, "h2"))).toBe(3);
+  });
+
+  it("h2: remover o prefixo desloca o cursor para a esquerda", () => {
+    const edit = run("## Titulo", 5, 5, "h2");
+    expect(edit.text).toBe("Titulo");
+    expect(cursor(edit)).toBe(2);
+  });
+
+  it("h2: cursor dentro do prefixo removido fica no início da linha", () => {
+    const edit = run("abc\n## Titulo", 5, 5, "h2");
+    expect(edit.text).toBe("abc\nTitulo");
+    expect(cursor(edit)).toBe(4);
+  });
+
+  it("h3 sobre h2 desloca o cursor em 1", () => {
+    const edit = run("## Titulo", 5, 5, "h3");
+    expect(edit.text).toBe("### Titulo");
+    expect(cursor(edit)).toBe(6);
+  });
+
+  it("linha vazia: cursor fica depois do prefixo", () => {
+    const edit = run("", 0, 0, "h1");
+    expect(edit.text).toBe("# ");
+    expect(cursor(edit)).toBe(2);
+  });
+
+  it("ul no meio do texto: cursor acompanha a linha", () => {
+    const edit = run("a\nb\nc", 3, 3, "ul");
+    expect(edit.text).toBe("a\n- b\nc");
+    expect(cursor(edit)).toBe(5);
+  });
+
+  it("ul: remover o marcador com cursor no início da linha", () => {
+    const edit = run("- a", 0, 0, "ul");
+    expect(edit.text).toBe("a");
+    expect(cursor(edit)).toBe(0);
+  });
+
+  it("ol: cursor no fim da linha", () => {
+    const edit = run("x", 1, 1, "ol");
+    expect(edit.text).toBe("1. x");
+    expect(cursor(edit)).toBe(4);
+  });
+
+  it("task sobre '- x' desloca o cursor pela diferença de tamanho", () => {
+    const edit = run("- x", 3, 3, "task");
+    expect(edit.text).toBe("- [ ] x");
+    expect(cursor(edit)).toBe(7);
+  });
+
+  it("quote: adicionar e remover", () => {
+    const added = run("a", 1, 1, "quote");
+    expect(added.text).toBe("> a");
+    expect(cursor(added)).toBe(3);
+    const removed = run("> a", 3, 3, "quote");
+    expect(removed.text).toBe("a");
+    expect(cursor(removed)).toBe(1);
+  });
+
+  it("linha vazia isolada em lista: cursor depois do marcador", () => {
+    expect(cursor(run("", 0, 0, "ul"))).toBe(2);
+  });
+
+  it("seleção não recolhida continua cobrindo as linhas modificadas", () => {
+    const edit = run("a\nb", 0, 1, "ul");
+    expect(edit.text).toBe("- a\nb");
+    expect(selected(edit)).toBe("- a");
   });
 });

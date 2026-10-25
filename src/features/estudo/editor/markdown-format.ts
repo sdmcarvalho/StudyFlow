@@ -105,59 +105,82 @@ function toggleWrap(
 ): Edit {
   const n = marker.length;
   const char = marker[0];
+  const { start, end } = trimmedRange(text, selStart, selEnd);
 
-  if (selStart === selEnd) {
+  if (start === end) {
     return replaceRange(
       text,
-      selStart,
-      selEnd,
+      start,
+      end,
       `${marker}texto${marker}`,
-      selStart + n,
-      selStart + n + 5,
+      start + n,
+      start + n + 5,
     );
   }
 
-  const selection = text.slice(selStart, selEnd);
+  const selection = text.slice(start, end);
   const leading = runLength(selection, 0, 1, char);
   const trailing = runLength(selection, selection.length - 1, -1, char);
   if (
     leading + trailing < selection.length &&
-    isWrapped(marker, leading, trailing)
+    isWrapped(marker, leading, trailing) &&
+    isSingleSpan(marker, selection.slice(n, selection.length - n))
   ) {
     const inner = selection.slice(n, selection.length - n);
-    return replaceRange(text, selStart, selEnd, inner, selStart, selStart + inner.length);
+    return replaceRange(text, start, end, inner, start, start + inner.length);
   }
 
-  const before = runLength(text, selStart - 1, -1, char);
-  const after = runLength(text, selEnd, 1, char);
+  const before = runLength(text, start - 1, -1, char);
+  const after = runLength(text, end, 1, char);
   if (isWrapped(marker, before, after)) {
     return {
-      text: text.slice(0, selStart - n) + selection + text.slice(selEnd + n),
-      selStart: selStart - n,
-      selEnd: selEnd - n,
+      text: text.slice(0, start - n) + selection + text.slice(end + n),
+      selStart: start - n,
+      selEnd: end - n,
     };
   }
 
   return replaceRange(
     text,
-    selStart,
-    selEnd,
+    start,
+    end,
     `${marker}${selection}${marker}`,
-    selStart + n,
-    selEnd + n,
+    start + n,
+    end + n,
   );
 }
 
-function linkEdit(text: string, selStart: number, selEnd: number): Edit {
-  if (selStart === selEnd) {
-    return replaceRange(text, selStart, selEnd, "[texto](url)", selStart + 1, selStart + 6);
-  }
+function trimmedRange(
+  text: string,
+  selStart: number,
+  selEnd: number,
+): { start: number; end: number } {
   const selection = text.slice(selStart, selEnd);
-  const urlStart = selStart + selection.length + 3;
+  const core = selection.trim();
+  if (core === "") return { start: selStart, end: selStart };
+  const start = selStart + (selection.length - selection.trimStart().length);
+  return { start, end: start + core.length };
+}
+
+function isSingleSpan(marker: string, inner: string): boolean {
+  const char = marker[0];
+  const first = runLength(inner, 0, 1, char);
+  const last = runLength(inner, inner.length - 1, -1, char);
+  if (first + last >= inner.length) return true;
+  return !inner.slice(first, inner.length - last).includes(marker);
+}
+
+function linkEdit(text: string, selStart: number, selEnd: number): Edit {
+  const { start, end } = trimmedRange(text, selStart, selEnd);
+  if (start === end) {
+    return replaceRange(text, start, end, "[texto](url)", start + 1, start + 6);
+  }
+  const selection = text.slice(start, end);
+  const urlStart = start + selection.length + 3;
   return replaceRange(
     text,
-    selStart,
-    selEnd,
+    start,
+    end,
     `[${selection}](url)`,
     urlStart,
     urlStart + 3,
@@ -219,7 +242,7 @@ function insertBlock(
 type LineBlock = { start: number; end: number; lines: string[] };
 
 function selectedLines(text: string, selStart: number, selEnd: number): LineBlock {
-  const start = text.lastIndexOf("\n", selStart - 1) + 1;
+  const start = selStart === 0 ? 0 : text.lastIndexOf("\n", selStart - 1) + 1;
   const probe = selEnd > selStart && text[selEnd - 1] === "\n" ? selEnd - 1 : selEnd;
   const found = text.indexOf("\n", probe);
   const end = found === -1 ? text.length : found;
@@ -237,6 +260,14 @@ function transformLines(
   const result = transform(block.lines, (line) => skipEmpty && line.trim() === "");
   if (result === null) return { text, selStart, selEnd };
   const joined = result.join("\n");
+  if (selStart === selEnd) {
+    const shifted = selStart + joined.length - (block.end - block.start);
+    const cursor = Math.min(
+      Math.max(shifted, block.start),
+      block.start + joined.length,
+    );
+    return replaceRange(text, block.start, block.end, joined, cursor, cursor);
+  }
   return replaceRange(
     text,
     block.start,
