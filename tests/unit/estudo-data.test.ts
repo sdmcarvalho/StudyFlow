@@ -207,7 +207,7 @@ describe("deleteStudyRecord e restoreStudyRecord", () => {
   it("exclui da lista e restaura na mesma posição, com a mesma data de atualização", async () => {
     const userId = await getCurrentUserId();
     const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
-    await insert(userId, "B", new Date(2026, 1, 1, 12));
+    await insert(userId, "B", new Date(2026, 1, 1, 12), path.join(base, "B")); // pasta própria: restaurar exige pasta livre
     const before = (await listStudyRecords({})).items.map((r) => r.descricao);
     expect(before).toEqual(["B", "A"]);
 
@@ -225,6 +225,29 @@ describe("deleteStudyRecord e restoreStudyRecord", () => {
     const a = await insert(userId, "A", new Date(2026, 0, 1, 12));
     await deleteStudyRecord(a.id);
     expect(await deleteStudyRecord(a.id)).toEqual(NOT_FOUND);
+  });
+
+  it("restaurar quando outro Estudo ativo passou a usar a pasta é recusado e o registro continua excluído", async () => {
+    const a = await createStudyRecord(input);
+    if (!a.ok) throw new Error("create falhou");
+    await deleteStudyRecord(a.data.id);
+    expect((await createStudyRecord({ ...input, descricao: "B", pasta: `${input.pasta.toUpperCase()}\\` })).ok).toBe(true);
+
+    expect(await restoreStudyRecord(a.data.id)).toEqual({ ok: false, message: "Já existe um Estudo usando esta pasta." });
+    expect((await listStudyRecords({})).items.map((r) => r.descricao)).toEqual(["B"]);
+  });
+
+  it("restaurar quando só um Estudo excluído ou de outro usuário usa a pasta funciona", async () => {
+    const userId = await getCurrentUserId();
+    const a = await insert(userId, "A", new Date(2026, 0, 1, 12), input.pasta);
+    const c = await insert(userId, "C", new Date(2026, 0, 2, 12), input.pasta);
+    const other = await db.user.create({ data: { name: "Outro" } });
+    await insert(other.id, "Alheio", new Date(2026, 0, 3, 12), input.pasta);
+    await deleteStudyRecord(a.id);
+    await deleteStudyRecord(c.id);
+
+    expect((await restoreStudyRecord(a.id)).ok).toBe(true);
+    expect((await listStudyRecords({})).items.map((r) => r.descricao)).toEqual(["A"]);
   });
 
   it("restaurar um registro que não está excluído devolve 'Registro não encontrado.'", async () => {

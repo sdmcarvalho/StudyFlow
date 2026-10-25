@@ -11,7 +11,7 @@ vi.mock("@/features/estudo/actions", () => ({
   restoreStudyRecord: vi.fn(),
 }));
 
-import { createStudyRecord, deleteStudyRecord } from "@/features/estudo/actions";
+import { createStudyRecord, deleteStudyRecord, restoreStudyRecord } from "@/features/estudo/actions";
 import { StudyView } from "@/features/estudo/components/StudyView";
 import { buildListPage, type StudyRecordRow } from "@/features/estudo/list";
 
@@ -34,6 +34,22 @@ beforeEach(() => {
   router.push.mockReset();
   vi.mocked(createStudyRecord).mockReset();
   vi.mocked(deleteStudyRecord).mockReset();
+  vi.mocked(restoreStudyRecord).mockReset();
+});
+
+describe("StudyView: desfazer exclusão", () => {
+  it("quando a pasta já está em uso, o toast mostra a mensagem da restauração", async () => {
+    vi.mocked(deleteStudyRecord).mockResolvedValue({ ok: true, data: undefined });
+    vi.mocked(restoreStudyRecord).mockResolvedValue({ ok: false, message: "Já existe um Estudo usando esta pasta." });
+    render(view(""));
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Excluir registro" })[0]);
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Excluir" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Desfazer" }));
+
+    expect(restoreStudyRecord).toHaveBeenCalledWith("1");
+    expect(await screen.findByRole("status")).toHaveTextContent("Já existe um Estudo usando esta pasta.");
+  });
 });
 
 describe("StudyView: busca sincronizada com a URL", () => {

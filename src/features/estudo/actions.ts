@@ -131,6 +131,8 @@ export async function restoreStudyRecord(id: string): Promise<ActionResult> {
     const userId = await getCurrentUserId();
     const record = await db.studyRecord.findFirst({ where: { id, userId, deletedAt: { not: null } } });
     if (!record) return NOT_FOUND;
+    // Enquanto estava excluído, outro Estudo pode ter passado a usar a pasta: continua excluído.
+    if (await isFolderInUse(userId, record.pasta, id)) return { ok: false, message: DUPLICATE_FOLDER.fieldErrors.pasta };
     await db.studyRecord.updateMany({
       where: { id, userId, deletedAt: { not: null } },
       data: { deletedAt: null, updatedAt: record.updatedAt },
