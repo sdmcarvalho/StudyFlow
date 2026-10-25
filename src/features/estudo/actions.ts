@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { parseContent, serializeContent } from "./content-schema";
 import { parseStudyRecordInput, type FieldErrors } from "./schema";
 
 export type ActionResult<T = undefined> =
@@ -48,6 +49,29 @@ export async function updateStudyRecord(id: string, input: unknown): Promise<Act
       data: parsed.data,
     });
     return count === 0 ? NOT_FOUND : done();
+  } catch {
+    return SAVE_FAILED;
+  }
+}
+
+export async function saveStudyContent(
+  id: string,
+  cells: unknown,
+): Promise<ActionResult<{ savedAt: string }>> {
+  if (!isValidId(id)) return NOT_FOUND;
+  const parsed = parseContent(cells);
+  if (!parsed.ok) return SAVE_FAILED;
+
+  try {
+    const userId = await getCurrentUserId();
+    // updateMany com { id, userId, deletedAt: null }: o @updatedAt também muda a "Data atualização".
+    const { count } = await db.studyRecord.updateMany({
+      where: { id, userId, deletedAt: null },
+      data: { conteudo: serializeContent(parsed.cells) },
+    });
+    if (count === 0) return NOT_FOUND;
+    revalidatePath("/estudo");
+    return { ok: true, data: { savedAt: new Date().toISOString() } };
   } catch {
     return SAVE_FAILED;
   }
