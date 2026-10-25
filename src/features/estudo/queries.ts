@@ -20,6 +20,17 @@ export async function getStudyDocument(id: string): Promise<StudyDocument | null
   };
 }
 
+/** Pasta gravada do Estudo do usuário (ativo); `null` para id inválido, inexistente, alheio ou excluído. */
+export async function getStudyFolder(id: string): Promise<string | null> {
+  if (typeof id !== "string" || id.length === 0) return null;
+  const userId = await getCurrentUserId();
+  const record = await db.studyRecord.findFirst({
+    where: { id, userId, deletedAt: null },
+    select: { pasta: true },
+  });
+  return record?.pasta ?? null;
+}
+
 export async function listStudyRecords(params: { q?: string; page?: number }): Promise<ListPage> {
   const userId = await getCurrentUserId();
   const records = await db.studyRecord.findMany({
