@@ -95,6 +95,19 @@ describe("EditorView — estrutura", () => {
     expect(cell(1)).toHaveTextContent("Célula vazia. Clique para editar.");
   });
 
+  it("abre e adiciona células sem crypto.randomUUID (http fora de localhost)", async () => {
+    const real = globalThis.crypto;
+    vi.stubGlobal("crypto", { getRandomValues: real.getRandomValues.bind(real) });
+    try {
+      const { user } = setup([]);
+      expect(groups()).toHaveLength(1);
+      await user.click(screen.getByRole("button", { name: "Adicionar célula abaixo" }));
+      expect(groups()).toHaveLength(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("com 2 células mostra as duas na ordem", () => {
     setup(TWO);
     expect(groups()).toHaveLength(2);

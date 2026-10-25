@@ -2,8 +2,22 @@ import type { Cell } from "@/features/estudo/content-schema";
 
 export type RemovedCell = { cell: Cell; index: number };
 
+/**
+ * Id novo de célula. `crypto.randomUUID` só existe em contexto seguro (https ou localhost); aberto
+ * por http://192.168.x.x o editor usa `getRandomValues`, que existe em qualquer contexto.
+ */
 export function newCellId(): string {
-  return crypto.randomUUID();
+  const { crypto } = globalThis;
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return uuidV4FromRandomValues(crypto);
+}
+
+function uuidV4FromRandomValues(crypto: Crypto): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // versão 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variante RFC 4122
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function emptyCell(id: string): Cell {

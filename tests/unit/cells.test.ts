@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Cell } from "@/features/estudo/content-schema";
 import {
@@ -25,6 +25,24 @@ describe("newCellId", () => {
     const b = newCellId();
     expect(a).not.toBe("");
     expect(a).not.toBe(b);
+  });
+
+  describe("sem crypto.randomUUID (página fora de localhost, em http)", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("usa crypto.getRandomValues e gera ids no formato UUID v4, únicos e não vazios", () => {
+      const real = globalThis.crypto;
+      vi.stubGlobal("crypto", { getRandomValues: real.getRandomValues.bind(real) });
+      expect(globalThis.crypto.randomUUID).toBeUndefined();
+
+      const generated = Array.from({ length: 200 }, () => newCellId());
+      for (const id of generated) {
+        expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      }
+      expect(new Set(generated).size).toBe(generated.length);
+    });
   });
 });
 
