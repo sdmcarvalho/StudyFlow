@@ -27,7 +27,7 @@ describe("página /estudo/[id]", () => {
     getMock.mockResolvedValue({
       id: "abc 1",
       descricao: "Física II",
-      pasta: "C:\Estudos\Física",
+      pasta: "C:\\Estudos\\Física",
       cells: [{ id: "a", texto: "olá" }],
     });
     render(await EstudoEditorPage(props("abc 1")));

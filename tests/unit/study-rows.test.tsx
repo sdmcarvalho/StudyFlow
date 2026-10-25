@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StudyCardList } from "@/features/estudo/components/StudyCardList";
 import { StudyTable } from "@/features/estudo/components/StudyTable";
 import type { StudyRecordRow } from "@/features/estudo/list";
@@ -8,7 +8,7 @@ import type { StudyRecordRow } from "@/features/estudo/list";
 const record: StudyRecordRow = {
   id: "a b/1",
   descricao: "Física II",
-  pasta: "C:\Estudos\Física",
+  pasta: "C:\\Estudos\\Física",
   dataInicial: "2026-09-01",
   dataAtualizacao: "2026-10-14",
 };
@@ -18,24 +18,32 @@ const onOpen = vi.fn();
 const onEdit = vi.fn();
 const onDelete = vi.fn();
 
+// jsdom não implementa navegação: cancela o clique no link já na captura (o link para a propagação, então o document não o veria), sem ruído no log.
+const cancelLinkNavigation = (event: Event) => {
+  if ((event.target as Element).closest("a")) event.preventDefault();
+};
+
 beforeEach(() => {
   onOpen.mockReset();
   onEdit.mockReset();
   onDelete.mockReset();
+  document.addEventListener("click", cancelLinkNavigation, true);
 });
+
+afterEach(() => document.removeEventListener("click", cancelLinkNavigation, true));
 
 const variants = [
   {
     name: "StudyTable (linha)",
     renderIt: () => render(<StudyTable items={[record]} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />),
     container: () => screen.getAllByRole("row")[1],
-    inside: () => screen.getByText("C:\Estudos\Física"),
+    inside: () => screen.getByText("C:\\Estudos\\Física"),
   },
   {
     name: "StudyCardList (card)",
     renderIt: () => render(<StudyCardList items={[record]} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />),
     container: () => screen.getByRole("listitem"),
-    inside: () => screen.getByText("C:\Estudos\Física"),
+    inside: () => screen.getByText("C:\\Estudos\\Física"),
   },
 ];
 
