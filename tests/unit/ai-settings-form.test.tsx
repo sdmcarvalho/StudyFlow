@@ -320,6 +320,20 @@ describe("AiSettingsForm: Salvar", () => {
     expect(screen.queryByText("Configuração salva.")).not.toBeInTheDocument();
   });
 
+  it("fieldErrors.apiKey aparece sob o campo da chave", async () => {
+    const message = "Digite a API key da nova URL (a chave salva só vale para a URL salva).";
+    vi.mocked(saveAiSettings).mockResolvedValue({ ok: false, fieldErrors: { apiKey: message } });
+    render(<AiSettingsForm initial={initial} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    const error = await screen.findByText(message);
+    expect(error).toHaveAttribute("role", "alert");
+    expect(screen.getByLabelText("Gateway API key")).toHaveAccessibleDescription(expect.stringContaining(message));
+    expect(screen.getByLabelText("Gateway API key")).toBeInvalid();
+    expect(screen.queryByText("Configuração salva.")).not.toBeInTheDocument();
+  });
+
   it("falha geral mostra a message no toast", async () => {
     vi.mocked(saveAiSettings).mockResolvedValue({ ok: false, message: "Não foi possível salvar a configuração." });
     render(<AiSettingsForm initial={initial} />);

@@ -119,6 +119,26 @@ describe("testConnection", () => {
   });
 });
 
+describe("redirect e extras", () => {
+  it("listModels, testConnection e chat mandam redirect: error", async () => {
+    const { fetchImpl, calls } = mockFetch((call) =>
+      call.url.endsWith("/models") ? json({ data: [] }) : json({ choices: [{ message: { content: "OK" } }] }),
+    );
+    const client = createAiClient(base, fetchImpl);
+    await client.listModels();
+    await client.testConnection();
+    await client.chat("s", "u");
+    expect(calls).toHaveLength(3);
+    for (const call of calls) expect(call.init.redirect).toBe("error");
+  });
+
+  it("extraParams não mudam o max_tokens de testConnection", async () => {
+    const { fetchImpl, calls } = mockFetch(() => json({ choices: [{ message: { content: "OK" } }] }));
+    await createAiClient({ ...base, extraParams: { max_tokens: 4096, top_p: 0.5 } }, fetchImpl).testConnection();
+    expect(calls[0].body).toMatchObject({ max_tokens: 5, top_p: 0.5 });
+  });
+});
+
 describe("cabeçalhos", () => {
   it("apara a chave no Authorization", async () => {
     const { fetchImpl, calls } = mockFetch(() => json({ data: [] }));

@@ -128,6 +128,14 @@ describe("POST /api/ai/testar", () => {
     expect(call.auth).toBe("Bearer sk-nova");
   });
 
+  it("sem chave salva, URL digitada e chave em branco testa o gateway sem Authorization", async () => {
+    const response = await post({ baseUrl: "https://gw-local/v1", apiKey: "", model: "m" });
+    expect(response.status).toBe(200);
+    const call = lastCall();
+    expect(call.url).toBe("https://gw-local/v1/chat/completions");
+    expect(call.auth).toBeUndefined();
+  });
+
   it("digitar só o modelo mantém a URL e a chave salvas", async () => {
     await saveSettings();
     const response = await post({ model: "m2" });

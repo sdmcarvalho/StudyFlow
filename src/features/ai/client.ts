@@ -107,6 +107,7 @@ export function createAiClient(config: AiClientConfig, fetchImpl: typeof fetch =
       res = await fetchImpl(`${baseUrl}/models`, {
         method: "GET",
         headers: headers(),
+        redirect: "error",
         signal: AbortSignal.timeout(MODELS_TIMEOUT_S * 1000),
       });
     } catch (e) {
@@ -138,9 +139,10 @@ export function createAiClient(config: AiClientConfig, fetchImpl: typeof fetch =
           model: config.model,
           messages: [{ role: "user", content: "Responda apenas: OK" }],
           ...providerDefaults(baseUrl),
-          max_tokens: 5,
           ...config.extraParams,
+          max_tokens: 5, // depois dos extras: eles não podem encarecer o Testar
         }),
+        redirect: "error",
         signal: AbortSignal.timeout(TEST_TIMEOUT_S * 1000),
       });
       if (res.status !== 200) {
@@ -191,6 +193,7 @@ export function createAiClient(config: AiClientConfig, fetchImpl: typeof fetch =
         method: "POST",
         headers: headers(),
         body: JSON.stringify(body),
+        redirect: "error",
         signal: AbortSignal.timeout(config.timeout * 1000),
       });
     } catch (e) {

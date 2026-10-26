@@ -1,6 +1,6 @@
 # Configuração do agente de IA — design
 
-Data: 2026-10-25 · Estado: aguardando revisão
+Data: 2026-10-25 · Estado: implementado (aguardando merge)
 
 ## Objetivo
 
@@ -46,7 +46,7 @@ model AiSettings {
 }
 ```
 
-Mais migration própria e relação `aiSettings AiSettings?` em `User`. A chave fica em texto no SQLite local (app local de usuário único), nunca é escrita em log e nunca volta inteira ao navegador: a tela recebe `apiKeyMasked` (`sk-s…VdU`, ou `…` se ≤ 8 caracteres) e `hasKey`. Salvar com chave vazia mantém a chave guardada.
+Mais migration própria e relação `aiSettings AiSettings?` em `User`. A chave fica em texto no SQLite local (app local de usuário único), nunca é escrita em log e nunca volta inteira ao navegador: a tela recebe `apiKeyMasked` (`sk-s…VdU`, ou `…` se ≤ 8 caracteres) e `hasKey`. Salvar com chave vazia mantém a chave guardada, mas só quando a Base URL não mudou; com outra URL e chave vazia (havendo chave salva) o salvamento é recusado com erro no campo da chave e nada é gravado.
 
 ## Servidor
 
@@ -81,6 +81,6 @@ Estrutura `src/features/ai/`:
 2. Dá para salvar URL, chave, modelo e ajustes; ao recarregar, tudo persiste e a chave aparece mascarada.
 3. Testar mostra sucesso (latência e resposta) ou erro claro, sem salvar.
 4. Buscar modelos preenche a lista; o modelo escolhido é salvo.
-5. Salvar com chave em branco não apaga a chave existente.
+5. Salvar com chave em branco e a mesma Base URL não apaga a chave existente; com outra Base URL e chave em branco (havendo chave salva) o salvamento é recusado e nada é gravado.
 6. A chave completa nunca chega ao navegador nem aparece em logs.
 7. `tsc`, ESLint, testes unitários e e2e passam.

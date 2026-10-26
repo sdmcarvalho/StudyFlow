@@ -67,6 +67,44 @@ describe("saveAiSettings", () => {
     expect((await getAiSettingsWithKey()).apiKey).toBe("sk-nova-chave-9999");
   });
 
+  it("outra URL com chave em branco e chave salva é recusada e não grava nada", async () => {
+    await saveAiSettings(valid);
+    const before = await db.aiSettings.findFirstOrThrow();
+    const result = await saveAiSettings({ ...valid, baseUrl: "https://atacante.example.com/v1", apiKey: "", model: "outro" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.fieldErrors?.apiKey).toBe("Digite a API key da nova URL (a chave salva só vale para a URL salva).");
+    expect(JSON.stringify(result)).not.toContain(KEY);
+    expect(await db.aiSettings.findFirstOrThrow()).toEqual(before);
+  });
+
+  it("outra URL com chave nova digitada é salva", async () => {
+    await saveAiSettings(valid);
+    const result = await saveAiSettings({ ...valid, baseUrl: "https://novo.example.com/v1", apiKey: "sk-nova-chave-9999" });
+    expect(result.ok).toBe(true);
+    const stored = await getAiSettingsWithKey();
+    expect(stored.baseUrl).toBe("https://novo.example.com/v1");
+    expect(stored.apiKey).toBe("sk-nova-chave-9999");
+  });
+
+  it("mesma URL (barra final e espaços diferentes) com chave em branco mantém a chave", async () => {
+    await saveAiSettings(valid);
+    const result = await saveAiSettings({ ...valid, baseUrl: "  https://gateway.example.com/v1//  ", apiKey: "", model: "m2" });
+    expect(result.ok).toBe(true);
+    const stored = await getAiSettingsWithKey();
+    expect(stored.apiKey).toBe(KEY);
+    expect(stored.model).toBe("m2");
+  });
+
+  it("sem chave salva, outra URL com chave em branco é salva (gateway sem chave)", async () => {
+    await saveAiSettings({ ...valid, apiKey: "" });
+    const result = await saveAiSettings({ ...valid, baseUrl: "http://localhost:8080/v1", apiKey: "" });
+    expect(result.ok).toBe(true);
+    const stored = await getAiSettingsWithKey();
+    expect(stored.baseUrl).toBe("http://localhost:8080/v1");
+    expect(stored.apiKey).toBe("");
+  });
+
   it("entrada inválida devolve fieldErrors e não grava nada", async () => {
     const result = await saveAiSettings({ ...valid, baseUrl: "" });
     expect(result.ok).toBe(false);
