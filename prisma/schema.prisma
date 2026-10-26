@@ -8,9 +8,10 @@ datasource db {
 }
 
 model User {
-  id      String        @id @default(cuid())
-  name    String
-  records StudyRecord[]
+  id         String        @id @default(cuid())
+  name       String
+  records    StudyRecord[]
+  aiSettings AiSettings?
 }
 
 model StudyRecord {
@@ -26,4 +27,17 @@ model StudyRecord {
   conteudo    String    @default("[]") // JSON [{ id, texto }]: células de Markdown do documento
 
   @@index([userId, updatedAt])
+}
+
+model AiSettings {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  baseUrl     String   @default("")
+  apiKey      String   @default("")
+  model       String   @default("")
+  temperature Float    @default(0.2)
+  timeout     Int      @default(300)
+  extraParams String   @default("")
+  updatedAt   DateTime @updatedAt
 }

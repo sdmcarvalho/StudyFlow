@@ -34,6 +34,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await db.studyRecord.deleteMany();
+  await db.aiSettings.deleteMany();
   await db.user.deleteMany();
 });
 

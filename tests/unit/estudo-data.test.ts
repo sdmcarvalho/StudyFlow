@@ -55,6 +55,7 @@ async function insertMany(userId: string, count: number) {
 
 beforeEach(async () => {
   await db.studyRecord.deleteMany();
+  await db.aiSettings.deleteMany();
   await db.user.deleteMany();
 });
 

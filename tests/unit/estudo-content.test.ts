@@ -18,6 +18,7 @@ async function insert(userId: string, descricao = "Cálculo I", updatedAt = new 
 
 beforeEach(async () => {
   await db.studyRecord.deleteMany();
+  await db.aiSettings.deleteMany();
   await db.user.deleteMany();
 });
 

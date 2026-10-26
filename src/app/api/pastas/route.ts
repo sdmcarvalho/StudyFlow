@@ -11,6 +11,7 @@ import {
   listDrives,
   listFolder,
 } from "@/features/estudo/folder-browser";
+import { isSameOrigin } from "@/lib/same-origin";
 
 const FORBIDDEN = "O seletor de pastas só funciona neste computador ou na rede local.";
 
@@ -35,17 +36,6 @@ export async function GET(request: Request): Promise<Response> {
   const listing = await listFolder(caminho);
   if (!listing.ok) return fail(statusFor(listing.message), listing.message);
   return Response.json({ path: listing.path, parent: listing.parent, folders: listing.folders, drives });
-}
-
-/** Origin, quando o navegador envia, precisa ser o próprio app (mesmo Host): barra formulários de outros sites. */
-function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (origin === null) return true;
-  try {
-    return new URL(origin).host === request.headers.get("host");
-  } catch {
-    return false;
-  }
 }
 
 export async function POST(request: Request): Promise<Response> {

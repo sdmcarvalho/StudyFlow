@@ -1,0 +1,148 @@
+.panel {
+  max-width: 640px;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  margin: 0 0 var(--space-5);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.field input {
+  height: 44px;
+}
+
+.field textarea {
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.hasError input,
+.hasError textarea {
+  border-color: var(--color-error);
+}
+
+.withButton {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.withButton input {
+  flex: 1;
+  min-width: 0;
+}
+
+.withButton button {
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.help {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.error,
+.inlineError {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-error);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.result {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.resultOk {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.resultFail {
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+@media (max-width: 479.98px) {
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .withButton {
+    flex-direction: column;
+  }
+
+  .withButton button {
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+}

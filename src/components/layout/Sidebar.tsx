@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookIcon, BookmarkCheckIcon, CalendarIcon, DocumentIcon } from "@/components/ui/icons";
+import { BookIcon, BookmarkCheckIcon, CalendarIcon, DocumentIcon, SettingsIcon } from "@/components/ui/icons";
 import styles from "./Sidebar.module.css";
 
 const ITEMS = [
   { href: "/estudo", label: "Estudo", Icon: BookIcon },
   { href: "/testes", label: "Testes", Icon: BookmarkCheckIcon },
   { href: "/agenda", label: "Agenda", Icon: CalendarIcon },
+  { href: "/configuracao", label: "Configuração", Icon: SettingsIcon },
 ];
 
 type SidebarProps = { id: string; open: boolean; onNavigate: () => void };
