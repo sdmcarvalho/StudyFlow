@@ -176,6 +176,30 @@ describe("AiSettingsForm: Testar", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Testar" })).toBeEnabled());
   });
 
+  it("o resultado some quando qualquer campo testado é editado", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ok: true, latencyMs: 820, reply: "OK", error: null, status: 200 }));
+    render(<AiSettingsForm initial={initial} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Testar" }));
+    expect(await screen.findByText("OK · 820 ms · resposta: OK")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Modelo"), "x");
+    expect(screen.queryByText("OK · 820 ms · resposta: OK")).not.toBeInTheDocument();
+  });
+
+  it("um resultado que chega depois de editar um campo não é mostrado", async () => {
+    let resolve: (r: Response) => void = () => {};
+    fetchMock.mockReturnValue(new Promise<Response>((r) => (resolve = r)));
+    render(<AiSettingsForm initial={initial} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Testar" }));
+    await userEvent.type(screen.getByLabelText("Gateway base URL"), "/x");
+    resolve(jsonResponse({ ok: true, latencyMs: 820, reply: "OK", error: null, status: 200 }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Testar" })).toBeEnabled());
+    expect(screen.queryByText("OK · 820 ms · resposta: OK")).not.toBeInTheDocument();
+  });
+
   it("aceita vírgula decimal na temperatura e manda com ponto", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ok: true, latencyMs: 1, reply: "OK", error: null, status: 200 }));
     render(<AiSettingsForm initial={initial} />);
@@ -208,6 +232,17 @@ describe("AiSettingsForm: Buscar modelos", () => {
     await userEvent.clear(model);
     await userEvent.type(model, "meu-modelo");
     expect(model).toHaveValue("meu-modelo");
+  });
+
+  it("o erro da busca some quando a URL é editada", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ message: "Não foi possível listar os modelos: HTTP 500: x" }, 502));
+    render(<AiSettingsForm initial={initial} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Buscar modelos" }));
+    expect(await screen.findByText("Não foi possível listar os modelos: HTTP 500: x")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Gateway base URL"), "a");
+    expect(screen.queryByText("Não foi possível listar os modelos: HTTP 500: x")).not.toBeInTheDocument();
   });
 
   it("falha 502 mostra a mensagem em linha", async () => {

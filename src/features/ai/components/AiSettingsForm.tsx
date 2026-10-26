@@ -14,6 +14,8 @@ const MODELS_DATALIST_ID = "ai-models-list";
 
 type Busy = "test" | "models" | "save" | null;
 type Outcome = { ok: boolean; text: string };
+/** Resultado do Testar/Buscar modelos preso aos valores que foram usados na chamada. */
+type Tagged = Outcome & { snapshot: string };
 
 /** Número digitado em pt-BR: aceita vírgula decimal ("0,5"). Texto que não vira número segue como texto,
  *  para o servidor recusar com a mensagem do campo. */
@@ -61,11 +63,16 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPublic }) {
   const [keyInfo, setKeyInfo] = useState({ masked: initial.apiKeyMasked, hasKey: initial.hasKey });
 
   const [models, setModels] = useState<string[]>([]);
-  const [modelsError, setModelsError] = useState<string | null>(null);
-  const [testOutcome, setTestOutcome] = useState<Outcome | null>(null);
+  const [modelsError, setModelsError] = useState<Omit<Tagged, "ok"> | null>(null);
+  const [testOutcome, setTestOutcome] = useState<Tagged | null>(null);
   const [errors, setErrors] = useState<AiFieldErrors>({});
   const [busy, setBusy] = useState<Busy>(null);
   const { toast, show } = useToast();
+
+  // Um resultado só vale para os valores com que foi pedido: se algum campo mudou (inclusive durante a
+  // chamada), ele deixa de ser mostrado. A busca de modelos só depende da URL e da chave.
+  const testSnapshot = JSON.stringify([baseUrl, apiKey, model, temperature, timeout, extraParams]);
+  const modelsSnapshot = JSON.stringify([baseUrl, apiKey]);
 
   /** Só os campos digitados; a chave entra apenas se houver algo no campo. */
   function typedFields() {
@@ -82,15 +89,16 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPublic }) {
   async function handleTest() {
     setBusy("test");
     setTestOutcome(null);
+    const snapshot = testSnapshot;
     try {
       const { status, data } = await postJson("/api/ai/testar", typedFields());
       if (status === 200 && data && typeof data === "object") {
-        setTestOutcome(describeTest(data as TestResult));
+        setTestOutcome({ ...describeTest(data as TestResult), snapshot });
       } else {
-        setTestOutcome({ ok: false, text: messageOf(data) ?? SERVER_UNREACHABLE });
+        setTestOutcome({ ok: false, text: messageOf(data) ?? SERVER_UNREACHABLE, snapshot });
       }
     } catch {
-      setTestOutcome({ ok: false, text: SERVER_UNREACHABLE });
+      setTestOutcome({ ok: false, text: SERVER_UNREACHABLE, snapshot });
     } finally {
       setBusy(null);
     }
@@ -99,16 +107,17 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPublic }) {
   async function handleFetchModels() {
     setBusy("models");
     setModelsError(null);
+    const snapshot = modelsSnapshot;
     try {
       const { status, data } = await postJson("/api/ai/modelos", typedFields());
       const list = (data as { models?: unknown } | null)?.models;
       if (status === 200 && Array.isArray(list)) {
         setModels(list.filter((id): id is string => typeof id === "string"));
       } else {
-        setModelsError(messageOf(data) ?? SERVER_UNREACHABLE);
+        setModelsError({ text: messageOf(data) ?? SERVER_UNREACHABLE, snapshot });
       }
     } catch {
-      setModelsError(SERVER_UNREACHABLE);
+      setModelsError({ text: SERVER_UNREACHABLE, snapshot });
     } finally {
       setBusy(null);
     }
@@ -144,6 +153,8 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPublic }) {
   }
 
   const disabled = busy !== null;
+  const shownTest = testOutcome && testOutcome.snapshot === testSnapshot ? testOutcome : null;
+  const shownModelsError = modelsError && modelsError.snapshot === modelsSnapshot ? modelsError.text : null;
 
   return (
     <section className={styles.panel} aria-labelledby="ai-settings-title">
@@ -204,9 +215,9 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPublic }) {
               <option key={id} value={id} />
             ))}
           </datalist>
-          {modelsError ? (
+          {shownModelsError ? (
             <p className={styles.inlineError} role="alert">
-              {modelsError}
+              {shownModelsError}
             </p>
           ) : null}
         </Field>
@@ -257,9 +268,9 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPublic }) {
           </Button>
         </div>
 
-        {testOutcome ? (
-          <p className={`${styles.result} ${testOutcome.ok ? styles.resultOk : styles.resultFail}`} role="status">
-            {testOutcome.text}
+        {shownTest ? (
+          <p className={`${styles.result} ${shownTest.ok ? styles.resultOk : styles.resultFail}`} role="status">
+            {shownTest.text}
           </p>
         ) : null}
       </form>
