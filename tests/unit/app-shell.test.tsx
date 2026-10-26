@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -22,13 +22,25 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
-  it("renderiza o conteúdo e os três itens do menu", () => {
+  it("renderiza o conteúdo e os quatro itens do menu", () => {
     setup();
     expect(screen.getByText("Conteúdo")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Navegação principal" });
     expect(nav).toHaveTextContent("Estudo");
     expect(nav).toHaveTextContent("Testes");
     expect(nav).toHaveTextContent("Agenda");
+    expect(nav).toHaveTextContent("Configuração");
+  });
+
+  it("Configuração vem depois de Agenda e aponta para /configuracao", () => {
+    setup();
+    const links = within(screen.getByRole("navigation", { name: "Navegação principal" })).getAllByRole("link");
+    const labels = links.map((link) => link.textContent ?? "");
+    const agenda = labels.findIndex((text) => text.includes("Agenda"));
+    const config = labels.findIndex((text) => text.includes("Configuração"));
+    expect(config).toBe(agenda + 1);
+    expect(links[config]).toHaveAttribute("href", "/configuracao");
+    expect(links[config]).not.toHaveAttribute("aria-current");
   });
 
   it("marca só o item da rota atual com aria-current", () => {
