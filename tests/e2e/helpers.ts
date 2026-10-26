@@ -21,6 +21,8 @@ export function resetData() {
   fs.rmSync(E2E_BASE_DIR, { recursive: true, force: true });
   fs.mkdirSync(E2E_BASE_DIR, { recursive: true });
   execSync("npx tsx prisma/seed.ts", { stdio: "pipe", env: E2E_ENV });
+  // O seed preserva AiSettings; os testes começam sem configuração de IA salva.
+  execSync("npx tsx tests/e2e/clear-ai-settings.ts", { stdio: "pipe", env: E2E_ENV });
 }
 
 /**
