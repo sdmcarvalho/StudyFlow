@@ -71,17 +71,26 @@ test("configura o gateway: busca modelos, testa, salva e a chave nunca volta ao 
   await testButton(page).click();
   await expect(result(page)).toContainText("Falha · HTTP 401");
 
-  // Salva com a chave certa; depois, em branco, a chave guardada é mantida.
+  // Salva com a chave certa. O servidor responde ao POST da server action na própria página.
+  const saveDone = (p: Page) =>
+    p.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/configuracao");
+  const firstSave = saveDone(page);
   await fieldKey(page).fill(FAKE_KEY);
   await saveButton(page).click();
-  await expect(page.getByRole("status").filter({ hasText: "Configuração salva." })).toBeVisible();
+  await firstSave;
   await expect(fieldKey(page)).toHaveValue("");
+
+  // Segundo salvamento com a chave em branco, mudando outro campo: prova que ele terminou (o modelo novo
+  // persiste depois do reload) e que a chave guardada foi mantida (o Testar abaixo ainda autentica).
+  const secondSave = saveDone(page);
+  await fieldModel(page).fill("modelo-b");
   await saveButton(page).click();
-  await expect(page.getByRole("status").filter({ hasText: "Configuração salva." })).toBeVisible();
+  await secondSave;
+  await expect(saveButton(page)).toBeEnabled();
 
   await page.reload();
   await expect(fieldUrl(page)).toHaveValue(GATEWAY_URL);
-  await expect(fieldModel(page)).toHaveValue("modelo-a");
+  await expect(fieldModel(page)).toHaveValue("modelo-b");
   await expect(fieldKey(page)).toHaveValue("");
   await expect(fieldKey(page)).toHaveAttribute("placeholder", "chav…-123");
   expect(await page.locator("body").innerText()).not.toContain(FAKE_KEY);
@@ -92,6 +101,7 @@ test("configura o gateway: busca modelos, testa, salva e a chave nunca volta ao 
   await expect(result(page)).toContainText("OK ·");
   await expect(result(page)).toContainText("resposta: OK");
   expect(await page.locator("body").innerText()).not.toContain(FAKE_KEY);
+  expect(await page.content()).not.toContain(FAKE_KEY);
 });
 
 test("outra Base URL com chave salva exige a chave digitada junto", async ({ page }) => {
