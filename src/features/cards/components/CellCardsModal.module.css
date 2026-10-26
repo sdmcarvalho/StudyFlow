@@ -1,0 +1,59 @@
+.list {
+ display: flex;
+ flex-direction: column;
+ gap: 16px;
+ max-height: 60vh;
+ overflow-y: auto;
+}
+
+.empty {
+ text-align: center;
+ color: var(--color-text-secondary);
+ padding: 24px 0;
+}
+
+.item {
+ border: 1px solid var(--color-border);
+ border-radius: 8px;
+ padding: 12px;
+ background-color: var(--color-bg-subtle, #fafafa);
+}
+
+.content {
+ margin-bottom: 12px;
+}
+
+.tema {
+ font-size: 14px;
+ font-weight: 600;
+ margin: 0 0 4px 0;
+ color: var(--color-text-primary);
+}
+
+.pergunta {
+ font-size: 14px;
+ margin: 0 0 8px 0;
+ line-height: 1.5;
+ display: -webkit-box;
+ -webkit-line-clamp: 3;
+ -webkit-box-orient: vertical;
+ overflow: hidden;
+}
+
+.resposta {
+ font-size: 13px;
+ color: var(--color-text-secondary);
+ margin: 0;
+ white-space: pre-wrap;
+}
+
+.noAnswer {
+ color: var(--color-text-tertiary);
+ font-style: italic;
+}
+
+.actions {
+ display: flex;
+ justify-content: flex-end;
+ gap: 8px;
+}

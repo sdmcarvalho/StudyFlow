@@ -13,7 +13,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
-import { PlusIcon, TrashIcon } from "@/components/ui/icons";
+import { CardIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { MAX_CELL_CHARS, type Cell as CellData } from "../../content-schema";
 import type { EditorMode } from "../editor-mode";
 import { imageMarkdown } from "../markdown-format";
@@ -53,6 +53,8 @@ export type CellProps = {
   onFocusCell?: (id: string) => void;
   /** Colar ou soltar uma imagem falhou no envio (o editor mostra o toast). */
   onImageError?: (message: string) => void;
+  cardCount?: number;
+  onOpenCards?: (id: string) => void;
   drag?: CellDrag;
 };
 
@@ -83,6 +85,8 @@ export function Cell({
   registerTextarea,
   onFocusCell,
   onImageError,
+  cardCount = 0,
+  onOpenCards,
   drag,
 }: CellProps) {
   const { id, texto } = cell;
@@ -208,6 +212,7 @@ export function Cell({
   function handleViewClick(event: MouseEvent<HTMLDivElement>) {
     // Links do conteúdo continuam funcionando como links.
     if ((event.target as HTMLElement).closest("a")) return;
+    if (window.getSelection()?.toString()) return;
     onEdit(id);
   }
 
@@ -240,6 +245,8 @@ export function Cell({
       // Clicar numa área sem foco dentro da célula mantém o foco nela (não conta como "clicar fora").
       tabIndex={-1}
       onBlur={handleBlur}
+      onFocusCapture={() => onFocusCell?.(id)}
+      onMouseUp={() => onFocusCell?.(id)}
     >
       {readOnly ? null : (
         <div className={styles.controls}>
@@ -311,6 +318,18 @@ export function Cell({
               Pressione Enter para editar
             </span>
           </div>
+        )}
+
+        {cardCount > 0 && onOpenCards && (
+          <button
+            type="button"
+            className={`${styles.control} ${styles.cardBadge}`}
+            title={`${cardCount} card${cardCount === 1 ? "" : "s"} desta célula`}
+            aria-label={`${cardCount} card${cardCount === 1 ? "" : "s"} desta célula`}
+            onClick={(e) => { e.stopPropagation(); onOpenCards(id); }}
+          >
+            <CardIcon /> <span>{cardCount}</span>
+          </button>
         )}
 
         {readOnly ? null : (

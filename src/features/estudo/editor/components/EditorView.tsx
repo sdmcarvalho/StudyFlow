@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { CardFormModal } from "@/features/cards/components/CardFormModal";
+import { CellCardsModal } from "@/features/cards/components/CellCardsModal";
+import type { CardRow } from "@/features/cards/types";
+import { captureCardSource } from "../card-source";
 import { CONTENT_LIMIT_MESSAGE, MAX_CELLS, type Cell } from "../../content-schema";
 import { normalizeFolderPath } from "../../folder-path";
 import type { EditorMode } from "../editor-mode";
@@ -21,9 +25,10 @@ type EditorViewProps = {
   descricao: string;
   pasta: string;
   initialCells: Cell[];
+  initialCards?: CardRow[];
 };
 
-export function EditorView({ studyId, descricao, pasta, initialCells }: EditorViewProps) {
+export function EditorView({ studyId, descricao, pasta, initialCells, initialCards = [] }: EditorViewProps) {
   const { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, resizeImage, saveNow } =
     useEditorDocument(studyId, initialCells);
   const { toast, show, hide } = useToast();
@@ -34,6 +39,33 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
   const [imageTarget, setImageTarget] = useState<string | null>(null);
   const imageOpenRef = useRef(false);
   const textareasRef = useRef(new Map<string, HTMLTextAreaElement>());
+  const [cards, setCards] = useState<CardRow[]>(initialCards);
+  const [cardForm, setCardForm] = useState<{ cellId: string; pergunta: string; card?: CardRow } | null>(null);
+  const [listCell, setListCell] = useState<string | null>(null);
+  const cardCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const card of cards) counts[card.cellId] = (counts[card.cellId] ?? 0) + 1;
+    return counts;
+  }, [cards]);
+  function upsertCard(card: CardRow) {
+    setCards((current) => [card, ...current.filter((item) => item.id !== card.id)]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)));
+  }
+  async function openCard() {
+    const source = await captureCardSource(window.getSelection(), editingId, focusedId, cells);
+    if (source.cellId) setCardForm({ cellId: source.cellId, pergunta: source.pergunta });
+  }
+  async function beforeCreateCard(): Promise<boolean> {
+    // Inclui a célula vazia inicial, que ainda pode não existir no banco.
+    if (pending || !initialCells.some((cell) => cell.id === cardForm?.cellId)) {
+      if (!pending && cardForm) {
+        const result = await import("../../actions").then(({ saveStudyContent }) => saveStudyContent(studyId, cells));
+        return result.ok;
+      }
+      return (await saveNow()) === "saved";
+    }
+    return true;
+  }
 
   const imagesEnabled = useMemo(() => normalizeFolderPath(pasta).ok, [pasta]);
   const pending = saveState.status !== "idle" && saveState.status !== "saved";
@@ -191,6 +223,8 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
         onFormat={(action) => {
           if (targetId !== null) formatCell(targetId, action);
         }}
+        onCard={() => void openCard()}
+        canCreateCard={exists(editingId) || exists(focusedId)}
         onImage={openImage}
         imageDisabled={!imagesEnabled}
         state={saveState}
@@ -205,6 +239,8 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
           mode={mode}
           editingId={activeEditingId}
           studyId={studyId}
+          cardCounts={cardCounts}
+          onOpenCards={setListCell}
           onReorder={reorder}
           canAddBelow={cells.length < MAX_CELLS}
           onEdit={handleEdit}
@@ -220,6 +256,28 @@ export function EditorView({ studyId, descricao, pasta, initialCells }: EditorVi
       </div>
 
       <ImageDialog open={imageTarget !== null} studyId={studyId} onClose={closeImage} onInsert={insertImage} />
+      {cardForm && <CardFormModal
+        open
+        studyId={studyId}
+        cellId={cardForm?.cellId ?? null}
+        descricaoEstudo={descricao}
+        initialPergunta={cardForm?.pergunta ?? ""}
+        editingCard={cardForm?.card ?? null}
+        onClose={() => setCardForm(null)}
+        onSaved={(card) => { upsertCard(card); setCardForm(null); show(cardForm?.card ? "Card atualizado." : "Card criado."); }}
+        onError={show}
+        beforeCreate={beforeCreateCard}
+      />}
+      <CellCardsModal
+        open={listCell !== null}
+        cellId={listCell ?? ""}
+        cards={cards.filter((c) => c.cellId === listCell)}
+        onClose={() => setListCell(null)}
+        onEdit={(card) => setCardForm({ cellId: card.cellId, pergunta: card.pergunta, card })}
+        onDeleted={(card) => setCards((current) => current.filter((c) => c.id !== card.id))}
+        onRestored={(card) => upsertCard(card)}
+        onNotify={show}
+      />
       <UnsavedDialog open={guard.pendingHref !== null} onStay={guard.stay} onLeave={guard.leave} />
       <Toast message={toast?.message ?? ""} visible={toast !== null} onUndo={toast?.onUndo} />
     </div>

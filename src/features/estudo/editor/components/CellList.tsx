@@ -45,6 +45,8 @@ type CellListProps = CellCallbacks & {
   mode: EditorMode;
   editingId: string | null;
   studyId: string;
+  cardCounts?: Record<string, number>;
+  onOpenCards?: (id: string) => void;
   onReorder: (from: number, to: number) => void;
 };
 
@@ -58,7 +60,7 @@ const POINTER_ACTIVATION = { activationConstraint: { distance: 6 } };
 const TOUCH_ACTIVATION = { activationConstraint: { delay: 200, tolerance: 8 } };
 const KEYBOARD_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
 
-export function CellList({ cells, mode, editingId, studyId, onReorder, ...callbacks }: CellListProps) {
+export function CellList({ cells, mode, editingId, studyId, onReorder, cardCounts = {}, onOpenCards, ...callbacks }: CellListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, POINTER_ACTIVATION),
     useSensor(TouchSensor, TOUCH_ACTIVATION),
@@ -115,6 +117,8 @@ export function CellList({ cells, mode, editingId, studyId, onReorder, ...callba
               editing={!readOnly && cell.id === editingId}
               studyId={studyId}
               dragDisabled={readOnly}
+              cardCount={cardCounts[cell.id] ?? 0}
+              onOpenCards={onOpenCards}
               {...callbacks}
             />
           ))}

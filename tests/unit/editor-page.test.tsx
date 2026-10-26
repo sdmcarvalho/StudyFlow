@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/features/estudo/actions", () => ({ saveStudyContent: vi.fn() }));
 vi.mock("@/features/estudo/queries", () => ({ getStudyDocument: vi.fn() }));
+vi.mock("@/features/cards/queries", () => ({ listStudyCards: vi.fn().mockResolvedValue([]) }));
 
 import EstudoEditorPage, { generateMetadata } from "@/app/(app)/estudo/[id]/page";
 import { getStudyDocument } from "@/features/estudo/queries";

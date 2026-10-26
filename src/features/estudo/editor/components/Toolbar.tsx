@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { CardIcon } from "@/components/ui/icons";
 import { CONTENT_LIMIT_MESSAGE } from "../../content-schema";
 import type { AutosaveState } from "../autosave";
 import type { EditorMode } from "../editor-mode";
@@ -35,6 +36,8 @@ type ToolbarProps = {
   imageDisabled: boolean;
   state: AutosaveState;
   onSave: () => void;
+  onCard?: () => void;
+  canCreateCard?: boolean;
 };
 
 type FormatButton = { action: FormatAction; label: string; icon: ReactNode };
@@ -102,6 +105,8 @@ export function Toolbar({
   imageDisabled,
   state,
   onSave,
+  onCard,
+  canCreateCard = false,
 }: ToolbarProps) {
   const disabled = !canFormat;
 
@@ -164,6 +169,12 @@ export function Toolbar({
             <PreviewIcon />
           </ToolButton>
         </div>
+        <span className={styles.separator} aria-hidden="true" />
+        <button type="button" className={styles.save} aria-label="Criar card"
+          title={canCreateCard ? "Criar card" : "Selecione um texto numa célula"}
+          disabled={!canCreateCard} onClick={onCard}>
+          <CardIcon /><span>Card</span>
+        </button>
         <div className={styles.end}>
           <span role="status" aria-live="polite" className={`${styles.status} ${statusClass}`}>
             {statusText}

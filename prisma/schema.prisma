@@ -11,6 +11,7 @@ model User {
   id      String        @id @default(cuid())
   name    String
   records StudyRecord[]
+  cards   Card[]
 }
 
 model StudyRecord {
@@ -24,6 +25,25 @@ model StudyRecord {
   updatedAt   DateTime  @updatedAt // exibido como "Data atualização"
   deletedAt   DateTime? // exclusão lógica, suporta o "Desfazer"
   conteudo    String    @default("[]") // JSON [{ id, texto }]: células de Markdown do documento
+  cards       Card[]
 
   @@index([userId, updatedAt])
+}
+
+model Card {
+  id        String    @id @default(cuid())
+  userId    String
+  studyId   String
+  cellId    String // id da célula de origem no conteudo do Estudo
+  tema      String // máx. 120 caracteres
+  pergunta  String // máx. 5000 caracteres
+  resposta  String    @default("") // máx. 5000 caracteres
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // exclusão lógica, suporta o "Desfazer"
+
+  user      User       @relation(fields: [userId], references: [id])
+  study     StudyRecord @relation(fields: [studyId], references: [id])
+
+  @@index([userId, studyId])
 }

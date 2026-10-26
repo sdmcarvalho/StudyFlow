@@ -9,6 +9,7 @@ vi.mock("@/features/estudo/editor/upload", () => ({
   UPLOAD_FAILED: "Não foi possível salvar a imagem.",
   uploadImage: vi.fn(),
 }));
+vi.mock("@/features/cards/queries", () => ({ listStudyCards: vi.fn().mockResolvedValue([]) }));
 
 import { saveStudyContent } from "@/features/estudo/actions";
 import { CONTENT_LIMIT_MESSAGE, MAX_CELL_CHARS, MAX_CELLS, type Cell } from "@/features/estudo/content-schema";

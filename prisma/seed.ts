@@ -28,6 +28,7 @@ async function main() {
     update: {},
     create: { id: USER_ID, name: "Usuário local" },
   });
+  await db.card.deleteMany({ where: { userId: USER_ID } });
   await db.studyRecord.deleteMany({ where: { userId: USER_ID } });
   // Pastas reais em <STUDYFLOW_BASE_DIR>\<nome>; as que já existem ficam como estão (nada é apagado).
   const base = baseFolder();

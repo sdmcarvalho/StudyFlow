@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cache } from "react";
+import { listStudyCards } from "@/features/cards/queries";
 import { EditorView } from "@/features/estudo/editor/components/EditorView";
 import { getStudyDocument } from "@/features/estudo/queries";
 import styles from "./page.module.css";
@@ -29,8 +30,9 @@ export default async function EstudoEditorPage({ params }: PageProps<"/estudo/[i
     );
   }
 
+  const cards = await listStudyCards(doc.id);
   // `key`: abrir outro Estudo recomeça o editor (células, salvamento e modo).
   return (
-    <EditorView key={doc.id} studyId={doc.id} descricao={doc.descricao} pasta={doc.pasta} initialCells={doc.cells} />
+    <EditorView key={doc.id} studyId={doc.id} descricao={doc.descricao} pasta={doc.pasta} initialCells={doc.cells} initialCards={cards} />
   );
 }

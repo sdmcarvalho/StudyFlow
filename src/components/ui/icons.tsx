@@ -46,6 +46,12 @@ export const ChevronLeftIcon = (p: IconProps) => (
 export const ChevronRightIcon = (p: IconProps) => (
   <Icon {...p}><path d="M8 5l5 5-5 5" /></Icon>
 );
+export const CardIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="4" width="14" height="12" rx="2" />
+    <path d="M7 8h6M7 12h4" />
+  </Icon>
+);
 export const DocumentIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 3h9l3 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
