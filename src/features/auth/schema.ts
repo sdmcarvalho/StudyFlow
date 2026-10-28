@@ -11,6 +11,8 @@ const SENHA_MIN = 8;
 const SENHA_MAX_BYTES = 72; // limite do bcrypt
 const NOME_MIN = 2;
 const NOME_MAX = 80;
+const EMAIL_MAX = 254; // limite do endereço SMTP; também barra entradas gigantes antes de qualquer trabalho
+const LOGIN_SENHA_MAX = 1024; // só no login; a regra de 72 bytes vale para senhas novas
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
@@ -18,6 +20,7 @@ export function normalizeEmail(value: string): string {
 
 const email = z
   .string({ error: "Informe um e-mail válido." })
+  .max(EMAIL_MAX, `Use no máximo ${EMAIL_MAX} caracteres.`)
   .transform(normalizeEmail)
   .pipe(z.email("Informe um e-mail válido."));
 
@@ -34,7 +37,10 @@ const novaSenha = (required: string) =>
 
 const loginSchema = z.object({
   email,
-  senha: z.string({ error: "Informe a senha." }).min(1, "Informe a senha."),
+  senha: z
+    .string({ error: "Informe a senha." })
+    .min(1, "Informe a senha.")
+    .max(LOGIN_SENHA_MAX, `Use no máximo ${LOGIN_SENHA_MAX} caracteres.`),
   next: z.string().optional().catch(undefined),
 });
 

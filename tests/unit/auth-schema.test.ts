@@ -107,3 +107,37 @@ describe("normalizeEmail", () => {
     expect(normalizeEmail(" Ana@X.com ")).toBe("ana@x.com");
   });
 });
+
+describe("limites de tamanho (anti-abuso)", () => {
+  it("recusa e-mail com mais de 254 caracteres com mensagem de tamanho", () => {
+    const tooLong = `${"a".repeat(250)}@x.com`; // 256
+    for (const result of [
+      parseLoginInput({ email: tooLong, senha: "x" }),
+      parseCreateUserInput({ ...valid, email: tooLong }),
+    ]) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.fieldErrors.email).toBe("Use no máximo 254 caracteres.");
+    }
+  });
+
+  it("254 caracteres passam e 255 não (o tamanho é checado antes de normalizar)", () => {
+    const base = `${"a".repeat(60)}@${"b".repeat(60)}.${"c".repeat(60)}.${"d".repeat(60)}.com`;
+    const at254 = base + "e".repeat(254 - base.length);
+    expect(at254).toHaveLength(254);
+    expect(parseLoginInput({ email: at254, senha: "x" }).ok).toBe(true);
+    expect(parseCreateUserInput({ ...valid, email: at254 }).ok).toBe(true);
+    const result255 = parseLoginInput({ email: at254 + "e", senha: "x" });
+    expect(result255.ok).toBe(false);
+    if (!result255.ok) expect(result255.fieldErrors.email).toBe("Use no máximo 254 caracteres.");
+    // espaços ao redor contam: o limite protege antes da normalização
+    const padded = parseLoginInput({ email: ` ${at254}`, senha: "x" });
+    expect(padded.ok).toBe(false);
+  });
+
+  it("senha do login: 1024 caracteres passam e 1025 são recusados", () => {
+    expect(parseLoginInput({ email: "ana@x.com", senha: "x".repeat(1024) }).ok).toBe(true);
+    const result = parseLoginInput({ email: "ana@x.com", senha: "x".repeat(1025) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.fieldErrors.senha).toBe("Use no máximo 1024 caracteres.");
+  });
+});
