@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import type { ShellUser } from "@/features/auth/types";
 import styles from "./AppShell.module.css";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -8,7 +9,7 @@ import { Topbar } from "./Topbar";
 const TABLET_MIN_WIDTH = 768;
 const SIDEBAR_ID = "sidebar";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ user, children }: { user: ShellUser; children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClick={() => setDrawerOpen(false)}
       />
       <div className={styles.main}>
-        <Topbar open={drawerOpen} controlsId={SIDEBAR_ID} onToggle={() => setDrawerOpen((open) => !open)} />
+        <Topbar open={drawerOpen} controlsId={SIDEBAR_ID} onToggle={() => setDrawerOpen((open) => !open)} user={user} />
         <main className={styles.content}>{children}</main>
       </div>
     </div>

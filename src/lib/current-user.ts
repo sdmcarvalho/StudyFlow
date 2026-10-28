@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
+import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import { readSessionToken } from "@/features/auth/cookie";
 import { findSessionUser } from "@/features/auth/session";
 import type { SessionUser } from "@/features/auth/types";
@@ -8,7 +9,7 @@ export class AuthError extends Error {
   readonly code: "unauthenticated" | "forbidden";
 
   constructor(code: "unauthenticated" | "forbidden") {
-    super(code === "unauthenticated" ? "Sessão expirada, entre novamente." : "Acesso negado.");
+    super(code === "unauthenticated" ? SESSION_EXPIRED_MESSAGE : FORBIDDEN_MESSAGE);
     this.name = "AuthError";
     this.code = code;
   }

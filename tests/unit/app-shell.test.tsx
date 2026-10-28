@@ -3,12 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/estudo" }));
+vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 
 import { AppShell } from "@/components/layout/AppShell";
 
 function setup() {
   render(
-    <AppShell>
+    <AppShell user={{ name: "Ana Souza", email: "ana@x.com", role: "USER" }}>
       <p>Conteúdo</p>
     </AppShell>,
   );
@@ -30,6 +31,12 @@ describe("AppShell", () => {
     expect(nav).toHaveTextContent("Testes");
     expect(nav).toHaveTextContent("Agenda");
     expect(nav).toHaveTextContent("Configuração");
+  });
+
+  it("mostra o nome do usuário (e-mail no title) e o botão Sair na barra superior", () => {
+    setup();
+    expect(screen.getByText("Ana Souza")).toHaveAttribute("title", "ana@x.com");
+    expect(screen.getByRole("button", { name: "Sair" })).toBeInTheDocument();
   });
 
   it("Configuração vem depois de Agenda e aponta para /configuracao", () => {

@@ -5,9 +5,16 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: 
 vi.mock("@/features/estudo/actions", () => ({ saveStudyContent: vi.fn() }));
 vi.mock("@/features/estudo/queries", () => ({ getStudyDocument: vi.fn() }));
 vi.mock("@/features/cards/queries", () => ({ listStudyCards: vi.fn().mockResolvedValue([]) }));
+// A página confere a sessão: aqui o usuário já está logado (a conferência real é testada em current-user.test.ts).
+const { FakeAuthError } = vi.hoisted(() => ({ FakeAuthError: class FakeAuthError extends Error {} }));
+vi.mock("@/lib/current-user", () => ({
+  requireUser: vi.fn().mockResolvedValue({ id: "u1", name: "Ana", email: "ana@x.com", role: "USER", folderName: "ana" }),
+  isAuthError: (error: unknown) => error instanceof FakeAuthError,
+}));
 
 import EstudoEditorPage, { generateMetadata } from "@/app/(app)/estudo/[id]/page";
 import { getStudyDocument } from "@/features/estudo/queries";
+import { requireUser } from "@/lib/current-user";
 
 const getMock = vi.mocked(getStudyDocument);
 const props = (id: string) => ({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) });
@@ -36,5 +43,19 @@ describe("página /estudo/[id]", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Física II" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Célula 1 de 1" })).toHaveTextContent("olá");
     expect(await generateMetadata(props("abc 1"))).toEqual({ title: "Física II · StudyFlow" });
+  });
+
+  it("a página exige sessão antes de ler o registro", async () => {
+    getMock.mockResolvedValue(null);
+    vi.mocked(requireUser).mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    await expect(EstudoEditorPage(props("abc"))).rejects.toThrow("NEXT_REDIRECT");
+    expect(getMock).not.toHaveBeenCalled();
+  });
+
+  it("generateMetadata sem sessão devolve só StudyFlow, e outros erros continuam subindo", async () => {
+    getMock.mockRejectedValueOnce(new FakeAuthError("unauthenticated"));
+    expect(await generateMetadata(props("abc"))).toEqual({ title: "StudyFlow" });
+    getMock.mockRejectedValueOnce(new Error("falha do banco"));
+    await expect(generateMetadata(props("abc"))).rejects.toThrow("falha do banco");
   });
 });

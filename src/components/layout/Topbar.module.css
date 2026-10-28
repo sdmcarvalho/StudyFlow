@@ -1,18 +1,18 @@
+/* Desktop e tablet: a barra só leva o menu do usuário (a marca fica na Sidebar), rolando junto com a página
+ * para não disputar o topo com a barra de ferramentas do editor. No mobile ela é a barra fixa completa. */
 .topbar {
-  display: none;
+  display: flex;
   align-items: center;
   gap: var(--space-3);
   height: var(--topbar-h);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-8);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  position: static;
 }
 
 .menuButton {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 40px;
@@ -28,7 +28,7 @@
 }
 
 .brand {
-  display: flex;
+  display: none;
   align-items: center;
   gap: var(--space-2);
   font-weight: 400;
@@ -53,8 +53,21 @@
   stroke-width: 2.25;
 }
 
+@media (max-width: 1023.98px) {
+  .topbar {
+    padding: 0 var(--space-6);
+  }
+}
+
 @media (max-width: 767.98px) {
   .topbar {
+    padding: 0 var(--space-4);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .menuButton,
+  .brand {
     display: flex;
   }
 }

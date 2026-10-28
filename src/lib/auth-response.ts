@@ -1,7 +1,8 @@
+import { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import { isAuthError } from "@/lib/current-user";
 
-export const SESSION_EXPIRED_MESSAGE = "Sessão expirada, entre novamente.";
-export const FORBIDDEN_MESSAGE = "Acesso negado.";
+// Os textos moram em constants.ts (o proxy os usa sem puxar o banco); reexportados para quem já importa daqui.
+export { FORBIDDEN_MESSAGE, SESSION_EXPIRED_MESSAGE };
 
 /** Resposta JSON (401/403) para um AuthError; null para qualquer outro erro. */
 export function authErrorResponse(error: unknown): Response | null {

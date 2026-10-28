@@ -1,9 +1,11 @@
+import { UserMenu } from "@/features/auth/components/UserMenu";
+import type { ShellUser } from "@/features/auth/types";
 import { CloseIcon, DocumentIcon, MenuIcon } from "@/components/ui/icons";
 import styles from "./Topbar.module.css";
 
-type TopbarProps = { open: boolean; controlsId: string; onToggle: () => void };
+type TopbarProps = { open: boolean; controlsId: string; onToggle: () => void; user: ShellUser };
 
-export function Topbar({ open, controlsId, onToggle }: TopbarProps) {
+export function Topbar({ open, controlsId, onToggle, user }: TopbarProps) {
   return (
     <header className={styles.topbar}>
       <button
@@ -22,6 +24,7 @@ export function Topbar({ open, controlsId, onToggle }: TopbarProps) {
         </span>
         <span>StudyFlow</span>
       </div>
+      <UserMenu name={user.name} email={user.email} />
     </header>
   );
 }
