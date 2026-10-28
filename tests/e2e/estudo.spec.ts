@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_BASE_DIR, resetData, tableRows } from "./helpers";
+import { E2E_USER_ROOT, login, resetData, tableRows } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   resetData();
+  await login(page);
   await page.goto("/estudo");
 });
 
@@ -13,7 +14,7 @@ const toast = (page: Page) => page.getByRole("status");
 async function createRecord(page: Page, descricao: string, pasta: string) {
   await page.getByRole("button", { name: "Novo" }).first().click();
   await page.getByLabel("Descrição").fill(descricao);
-  await page.getByLabel("Pasta").fill(`${E2E_BASE_DIR}\\${pasta}`);
+  await page.getByLabel("Pasta").fill(`${E2E_USER_ROOT}\\${pasta}`);
   await page.getByRole("button", { name: "Salvar" }).click();
 }
 
@@ -37,12 +38,12 @@ test("cria um registro: aparece no topo com o toast de confirmação", async ({ 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(tableRows(page).first()).toContainText("Estatística — Probabilidade");
   await expect(page.getByText("Mostrando 1–5 de 9 registros")).toBeVisible();
-  expect(fs.statSync(path.join(E2E_BASE_DIR, "Estatística")).isDirectory()).toBe(true);
+  expect(fs.statSync(path.join(E2E_USER_ROOT, "Estatística")).isDirectory()).toBe(true);
 });
 
 test("o modal de novo registro começa com a pasta base no campo Pasta", async ({ page }) => {
   await page.getByRole("button", { name: "Novo" }).first().click();
-  await expect(page.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\`);
+  await expect(page.getByLabel("Pasta")).toHaveValue(`${E2E_USER_ROOT}\\`);
 });
 
 test("Procurar… navega no disco, cria uma pasta e preenche o campo Pasta", async ({ page }) => {
@@ -52,28 +53,28 @@ test("Procurar… navega no disco, cria uma pasta e preenche o campo Pasta", asy
   await dialog.getByRole("button", { name: "Procurar…" }).click();
 
   // Abre na pasta base e2e, que tem as pastas do seed.
-  await expect(dialog.locator("output")).toHaveText(E2E_BASE_DIR);
+  await expect(dialog.locator("output")).toHaveText(E2E_USER_ROOT);
   const list = dialog.getByRole("list", { name: "Subpastas" });
   await expect(list.getByRole("button", { name: "Matemática" })).toBeVisible();
 
   await dialog.getByRole("button", { name: "Nova pasta" }).click();
   await dialog.getByLabel("Nome da nova pasta").fill("Geografia");
   await dialog.getByRole("button", { name: "Criar" }).click();
-  await expect(dialog.locator("output")).toHaveText(`${E2E_BASE_DIR}\\Geografia`);
-  expect(fs.statSync(path.join(E2E_BASE_DIR, "Geografia")).isDirectory()).toBe(true);
+  await expect(dialog.locator("output")).toHaveText(`${E2E_USER_ROOT}\\Geografia`);
+  expect(fs.statSync(path.join(E2E_USER_ROOT, "Geografia")).isDirectory()).toBe(true);
 
   // Sobe um nível e volta a entrar pela lista.
   await dialog.getByRole("button", { name: "Pasta acima" }).click();
-  await expect(dialog.locator("output")).toHaveText(E2E_BASE_DIR);
+  await expect(dialog.locator("output")).toHaveText(E2E_USER_ROOT);
   await list.getByRole("button", { name: "Geografia" }).click();
-  await expect(dialog.locator("output")).toHaveText(`${E2E_BASE_DIR}\\Geografia`);
+  await expect(dialog.locator("output")).toHaveText(`${E2E_USER_ROOT}\\Geografia`);
   await dialog.getByRole("button", { name: "Selecionar esta pasta" }).click();
 
-  await expect(dialog.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\Geografia`);
+  await expect(dialog.getByLabel("Pasta")).toHaveValue(`${E2E_USER_ROOT}\\Geografia`);
   await expect(dialog.getByLabel("Descrição")).toHaveValue("Geografia — Climas");
   await dialog.getByRole("button", { name: "Salvar" }).click();
   await expect(toast(page)).toContainText("Registro criado.");
-  await expect(tableRows(page).first()).toContainText(`${E2E_BASE_DIR}\\Geografia`);
+  await expect(tableRows(page).first()).toContainText(`${E2E_USER_ROOT}\\Geografia`);
 });
 
 test("Esc no seletor de pastas volta ao formulário sem fechar o modal", async ({ page }) => {
@@ -82,7 +83,7 @@ test("Esc no seletor de pastas volta ao formulário sem fechar o modal", async (
   await dialog.getByRole("button", { name: "Procurar…" }).click();
   await expect(dialog.getByRole("list", { name: "Subpastas" }).getByRole("button", { name: "Matemática" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(dialog.getByLabel("Pasta")).toHaveValue(`${E2E_BASE_DIR}\\`);
+  await expect(dialog.getByLabel("Pasta")).toHaveValue(`${E2E_USER_ROOT}\\`);
   await expect(dialog.getByRole("button", { name: "Procurar…" })).toBeFocused();
 });
 

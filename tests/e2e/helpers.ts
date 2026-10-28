@@ -2,7 +2,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * Pasta base dos Estudos nos testes e2e (STUDYFLOW_BASE_DIR do servidor e do seed). Fica sempre
@@ -53,6 +53,37 @@ export function insertStudy(record: { descricao: string; pasta: string }): strin
   })
     .toString()
     .trim();
+}
+
+/** Entra pela tela /login (padrão: o superusuário e2e) e espera sair dela. */
+export async function login(page: Page, credentials: { email: string; password: string } = E2E_SUPER): Promise<void> {
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(credentials.email);
+  await page.getByLabel("Senha").fill(credentials.password);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.waitForURL((url) => url.pathname !== "/login");
+}
+
+/** Sai pelo menu "Sair" e espera chegar em /login. */
+export async function logout(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Sair" }).click();
+  await page.waitForURL((url) => url.pathname === "/login");
+}
+
+/** Cria um usuário comum pela tela Usuários (o superusuário já precisa estar logado). */
+export async function createUserViaUi(
+  page: Page,
+  user: { nome: string; email: string; senha: string },
+): Promise<void> {
+  await page.goto("/usuarios");
+  await page.getByRole("button", { name: "Novo usuário" }).click();
+  const dialog = page.getByRole("dialog", { name: "Novo usuário" });
+  await dialog.getByLabel("Nome").fill(user.nome);
+  await dialog.getByLabel("E-mail").fill(user.email);
+  await dialog.getByLabel("Senha").fill(user.senha);
+  await dialog.getByRole("button", { name: "Criar" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("row", { name: new RegExp(user.email) })).toBeVisible();
 }
 
 /** Linhas da tabela (visão desktop). */

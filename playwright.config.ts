@@ -18,8 +18,8 @@ export default defineConfig({
   webServer: {
     // O webServer sobe antes de qualquer globalSetup, então as migrations rodam no próprio comando.
     command: `npx prisma migrate deploy && npm run build && npx next start -p ${PORT}`,
-    // /testes não usa o banco, então responde mesmo antes do primeiro seed.
-    url: `http://localhost:${PORT}/testes`,
+    // /login é pública e não consulta o banco, então responde mesmo antes do primeiro seed.
+    url: `http://localhost:${PORT}/login`,
     timeout: 240_000,
     reuseExistingServer: false,
     // Pastas dos Estudos criadas pelo app ficam na pasta temporária e2e (ver resetData).

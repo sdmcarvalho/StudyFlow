@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { formatDateBR, toIsoDate } from "../../src/lib/dates";
-import { E2E_BASE_DIR, insertStudy, resetData, tableRows } from "./helpers";
+import { E2E_USER_ROOT, insertStudy, login, resetData, tableRows } from "./helpers";
 
 const PROGRAMACAO = "Programação — Estruturas de dados";
 const PIXEL = path.join(__dirname, "fixtures", "pixel.png");
@@ -10,6 +10,7 @@ const PIXEL_NAME = /^pixel-\d{8}-\d{6}\.png$/;
 
 test.beforeEach(async ({ page }) => {
   resetData();
+  await login(page);
   await page.goto("/estudo");
 });
 
@@ -49,8 +50,8 @@ async function saveWithButton(page: Page) {
   await expect(saveStatus(page)).toHaveText(/^Salvo às \d{2}:\d{2}$/);
 }
 
-/** Pasta real do Estudo de Programação (seed: `<E2E_BASE_DIR>\Ciência da Computação`). */
-const imagesDir = () => path.join(E2E_BASE_DIR, "Ciência da Computação", "imagens");
+/** Pasta real do Estudo de Programação (seed: `<E2E_USER_ROOT>\Ciência da Computação`). */
+const imagesDir = () => path.join(E2E_USER_ROOT, "Ciência da Computação", "imagens");
 
 function savedImages(): string[] {
   try {

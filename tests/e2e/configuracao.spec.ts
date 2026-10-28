@@ -1,6 +1,6 @@
 import http from "node:http";
 import { expect, test, type Page } from "@playwright/test";
-import { resetData } from "./helpers";
+import { login, resetData } from "./helpers";
 
 const GATEWAY_PORT = 3299;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}/v1`;
@@ -39,7 +39,10 @@ test.afterAll(async () => {
   await new Promise<void>((resolve) => gateway.close(() => resolve()));
 });
 
-test.beforeEach(() => resetData());
+test.beforeEach(async ({ page }) => {
+  resetData();
+  await login(page);
+});
 
 const fieldUrl = (page: Page) => page.getByLabel("Gateway base URL");
 const fieldKey = (page: Page) => page.getByLabel("Gateway API key");

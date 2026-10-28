@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { resetData } from "./helpers";
+import { login, resetData } from "./helpers";
 
-test.beforeEach(() => resetData());
+test.beforeEach(async ({ page }) => {
+  resetData();
+  await login(page);
+});
 
 for (const [label, path] of [
   ["Testes", "/testes"],
