@@ -16,6 +16,20 @@ export function baseFolder(): string {
   return normalized.ok ? normalized.path : value;
 }
 
+/**
+ * Nomes de tudo o que já existe direto dentro da pasta base. O app não apaga pastas de usuários
+ * excluídos; ao escolher a pasta de um usuário novo esses nomes contam como ocupados, para ele não
+ * herdar os dados de outra pessoa. Pasta base inexistente (ou que não é pasta) = lista vazia.
+ */
+export async function existingBaseFolderNames(): Promise<string[]> {
+  try {
+    return (await fs.readdir(baseFolder(), { withFileTypes: true })).map((entry) => entry.name);
+  } catch (error) {
+    if (isErrorCode(error, "ENOENT") || isErrorCode(error, "ENOTDIR")) return [];
+    throw error;
+  }
+}
+
 /** `<pasta>\imagens`, onde ficam as imagens do Estudo. */
 export function imagesDir(folder: string): string {
   return path.win32.join(folder, "imagens");

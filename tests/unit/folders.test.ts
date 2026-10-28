@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { baseFolder, copyImages, ensureFolder, imagesDir } from "@/features/estudo/folders";
+import { baseFolder, copyImages, ensureFolder, existingBaseFolderNames, imagesDir } from "@/features/estudo/folders";
 
 let root: string;
 let dir: string;
@@ -115,5 +115,25 @@ describe("baseFolder", () => {
   it("devolve o valor de STUDYFLOW_BASE_DIR quando definida", () => {
     vi.stubEnv("STUDYFLOW_BASE_DIR", "D:\\Meus Estudos");
     expect(baseFolder()).toBe("D:\\Meus Estudos");
+  });
+});
+
+describe("existingBaseFolderNames", () => {
+  it("lista o que existe direto dentro da pasta base", async () => {
+    const base = await freshDir();
+    await fs.mkdir(path.join(base, "Ana"));
+    await fs.mkdir(path.join(base, "Bia", "sub"), { recursive: true });
+    vi.stubEnv("STUDYFLOW_BASE_DIR", base);
+    expect((await existingBaseFolderNames()).sort()).toEqual(["Ana", "Bia"]);
+  });
+
+  it("pasta base inexistente ou que é um arquivo dá lista vazia, sem erro", async () => {
+    const base = await freshDir();
+    vi.stubEnv("STUDYFLOW_BASE_DIR", path.join(base, "nao-existe"));
+    expect(await existingBaseFolderNames()).toEqual([]);
+    const file = path.join(base, "arquivo.txt");
+    await fs.writeFile(file, "x");
+    vi.stubEnv("STUDYFLOW_BASE_DIR", file);
+    expect(await existingBaseFolderNames()).toEqual([]);
   });
 });

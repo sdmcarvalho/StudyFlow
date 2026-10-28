@@ -1,3 +1,4 @@
+import { existingBaseFolderNames } from "@/features/estudo/folders";
 import { db } from "@/lib/db";
 import { slugFolderName, uniqueFolderName } from "./folder-name";
 import { hashPassword } from "./password";
@@ -28,7 +29,11 @@ export async function bootstrapSuperuser(input: BootstrapInput): Promise<Bootstr
     where: legacy ? { id: { not: LEGACY_USER_ID } } : {},
     select: { folderName: true },
   });
-  const taken = others.flatMap((user) => (user.folderName ? [user.folderName] : []));
+  // Também o que já está no disco (pastas de usuários excluídos): o SUPER novo não herda dados de ninguém.
+  const taken = [
+    ...others.flatMap((user) => (user.folderName ? [user.folderName] : [])),
+    ...(await existingBaseFolderNames()),
+  ];
   const data = {
     name: nome,
     email,

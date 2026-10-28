@@ -30,13 +30,20 @@ async function wipe() {
   await db.user.deleteMany();
 }
 
+/** Pasta base de cada teste: um diretório novo e vazio, para o createUser não olhar o C:\StudyFlow real. */
+let baseDir = "";
+
 beforeEach(async () => {
+  baseDir = await mkdtemp(path.join(os.tmpdir(), "studyflow-base-"));
+  tmpDirs.push(baseDir);
+  vi.stubEnv("STUDYFLOW_BASE_DIR", baseDir);
   signOut();
   vi.mocked(revalidatePath).mockClear();
   await wipe();
 });
 
 afterAll(async () => {
+  vi.unstubAllEnvs();
   await wipe();
   await Promise.all(tmpDirs.map((dir) => rm(dir, { recursive: true, force: true })));
 });
@@ -124,6 +131,39 @@ describe("createUser", () => {
     if (!first.ok || !second.ok) throw new Error("criação falhou");
     const rows = await db.user.findMany({ where: { id: { in: [first.data.id, second.data.id] } } });
     expect(rows.map((row) => row.folderName).sort()).toEqual(["Ana", "Ana 2"]);
+  });
+
+  it("recriar um usuário excluído não herda a pasta que ficou no disco: Ana vira Ana 2", async () => {
+    await asSuper();
+    const first = await createUser({ nome: "Ana", email: "ana@x.com", senha: "Senha1234" });
+    if (!first.ok) throw new Error("criação falhou");
+    await mkdir(path.join(baseDir, "Ana", "imagens"), { recursive: true });
+    await writeFile(path.join(baseDir, "Ana", "nota.md"), "dados antigos");
+    expect(await deleteUser(first.data.id, "ana@x.com")).toEqual({ ok: true, data: undefined });
+
+    const again = await createUser({ nome: "Ana", email: "ana-nova@x.com", senha: "Senha1234" });
+    if (!again.ok) throw new Error("criação falhou");
+    const user = await db.user.findUniqueOrThrow({ where: { id: again.data.id } });
+    expect(user.folderName).toBe("Ana 2");
+    expect((await stat(path.join(baseDir, "Ana", "nota.md"))).isFile()).toBe(true); // a pasta antiga segue intocada
+  });
+
+  it("pasta que só difere na caixa (ana no disco, Ana no cadastro) também conta como ocupada", async () => {
+    await asSuper();
+    await mkdir(path.join(baseDir, "ana"));
+    const result = await createUser({ nome: "Ana", email: "ana@x.com", senha: "Senha1234" });
+    if (!result.ok) throw new Error("criação falhou");
+    const user = await db.user.findUniqueOrThrow({ where: { id: result.data.id } });
+    expect(user.folderName).toBe("Ana 2");
+  });
+
+  it("pasta base que não existe não dá erro e o nome fica livre", async () => {
+    await asSuper();
+    vi.stubEnv("STUDYFLOW_BASE_DIR", path.join(baseDir, "nao-existe"));
+    const result = await createUser({ nome: "Bia", email: "bia@x.com", senha: "Senha1234" });
+    if (!result.ok) throw new Error("criação falhou");
+    const user = await db.user.findUniqueOrThrow({ where: { id: result.data.id } });
+    expect(user.folderName).toBe("Bia");
   });
 
   it("e-mail repetido, mesmo com outra caixa, vira erro de campo e não cria nada", async () => {

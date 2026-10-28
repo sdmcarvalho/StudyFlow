@@ -8,6 +8,7 @@ import { deleteUserSessions } from "@/features/auth/session";
 import type { AuthResult } from "@/features/auth/types";
 import { authActionMessage } from "@/lib/auth-response";
 import { assertSuperuser } from "@/lib/current-user";
+import { existingBaseFolderNames } from "@/features/estudo/folders";
 import { db } from "@/lib/db";
 
 type Failure = { ok: false; message: string };
@@ -61,10 +62,12 @@ export async function createUser(input: unknown): Promise<AuthResult<{ id: strin
   // Duas tentativas: a segunda cobre a corrida em que outro cadastro tomou a mesma pasta entre a leitura e a gravação.
   for (let attempt = 0; attempt < 2; attempt++) {
     const existing = await db.user.findMany({ where: { folderName: { not: null } }, select: { folderName: true } });
-    const folderName = uniqueFolderName(
-      slugFolderName(nome),
-      existing.flatMap((row) => (row.folderName ? [row.folderName] : [])),
-    );
+    // Também o que já está no disco: as pastas de usuários excluídos ficam lá, e o novo não pode herdá-las.
+    const taken = [
+      ...existing.flatMap((row) => (row.folderName ? [row.folderName] : [])),
+      ...(await existingBaseFolderNames()),
+    ];
+    const folderName = uniqueFolderName(slugFolderName(nome), taken);
     try {
       const user = await db.user.create({
         data: { name: nome, email, passwordHash, folderName, role: "USER", active: true },

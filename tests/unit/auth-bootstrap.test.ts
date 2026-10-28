@@ -1,5 +1,8 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bootstrapSuperuser } from "@/features/auth/bootstrap";
 import { verifyPassword } from "@/features/auth/password";
 import { db } from "@/lib/db";
@@ -16,9 +19,37 @@ async function clean() {
   await db.user.deleteMany();
 }
 
-beforeEach(clean);
+let baseDir = "";
+
+beforeEach(async () => {
+  // Pasta base nova e vazia: o bootstrap não pode olhar o C:\StudyFlow real.
+  baseDir = await mkdtemp(path.join(os.tmpdir(), "studyflow-boot-"));
+  vi.stubEnv("STUDYFLOW_BASE_DIR", baseDir);
+  await clean();
+});
+
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  await rm(baseDir, { recursive: true, force: true });
+});
 
 describe("bootstrapSuperuser", () => {
+  it("escolhe uma pasta livre quando o nome já existe no disco (de um usuário excluído)", async () => {
+    await mkdir(path.join(baseDir, "administrador")); // caixa diferente de "Administrador"
+    const result = await bootstrapSuperuser(INPUT);
+    expect(result.status).toBe("created");
+    const user = await db.user.findUniqueOrThrow({ where: { id: result.userId } });
+    expect(user.folderName).toBe("Administrador 2");
+  });
+
+  it("ao converter o local-user, também evita a pasta que já existe no disco", async () => {
+    await db.user.create({ data: { id: "local-user", name: "Usuário local" } });
+    await mkdir(path.join(baseDir, "Administrador"));
+    await bootstrapSuperuser(INPUT);
+    const user = await db.user.findUniqueOrThrow({ where: { id: "local-user" } });
+    expect(user.folderName).toBe("Administrador 2");
+  });
+
   it("converte o local-user no lugar, mantendo o id e os dados", async () => {
     await db.user.create({ data: { id: "local-user", name: "Usuário local" } });
     const study = await db.studyRecord.create({
