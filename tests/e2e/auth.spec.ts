@@ -159,3 +159,25 @@ test("o superusuário desativa o usuário e a próxima navegação dele cai em /
     await mariaContext.close();
   }
 });
+
+test("sem o cookie de sessão, a action mostra \"Sessão expirada\" na própria tela (o proxy não a redireciona)", async ({
+  page,
+  context,
+}) => {
+  await login(page);
+  await page.goto("/configuracao");
+  const account = page.getByRole("region", { name: "Minha conta" });
+  await expect(account).toBeVisible();
+
+  // O cookie some (expirou ou saiu em outra aba) com a página aberta.
+  await context.clearCookies();
+
+  await account.getByLabel("Senha atual", { exact: true }).fill("Qualquer123");
+  await account.getByLabel("Nova senha", { exact: true }).fill("Outra12345");
+  await account.getByLabel("Confirmar nova senha").fill("Outra12345");
+  await account.getByRole("button", { name: "Alterar senha" }).click();
+
+  await expect(account.getByRole("alert").filter({ hasText: "Sessão expirada, entre novamente." })).toBeVisible();
+  // A tela continua onde estava: nada de redirecionamento nem erro de página.
+  await expect(page).toHaveURL(/\/configuracao$/);
+});

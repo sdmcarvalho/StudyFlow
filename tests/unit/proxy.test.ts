@@ -4,8 +4,9 @@ import { describe, expect, it } from "vitest";
 import { SESSION_COOKIE, SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 import { config, proxy } from "@/proxy";
 
-function request(path: string, cookie?: string) {
+function request(path: string, cookie?: string, method = "GET") {
   return new NextRequest(`http://localhost:3000${path}`, {
+    method,
     headers: cookie ? { cookie: `${SESSION_COOKIE}=${cookie}` } : {},
   });
 }
@@ -33,12 +34,37 @@ describe("proxy", () => {
     expect(await response.json()).toEqual({ message: SESSION_EXPIRED_MESSAGE });
   });
 
+  it("HEAD sem cookie também redireciona para /login", () => {
+    const response = proxy(request("/estudo", undefined, "HEAD"));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/login");
+  });
+
+  it("sem cookie, um POST (server action) em página segue adiante: quem responde é a própria action", () => {
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      const response = proxy(request("/estudo?page=2", undefined, method));
+      expect(response.status, method).toBe(200);
+      expect(response.headers.get("location"), method).toBeNull();
+      expect(response.headers.get("x-middleware-next"), method).toBe("1");
+    }
+  });
+
+  it("sem cookie, /api/* devolve 401 em qualquer método", async () => {
+    for (const method of ["GET", "POST", "PUT", "DELETE"]) {
+      const response = proxy(request("/api/x", undefined, method));
+      expect(response.status, method).toBe(401);
+      expect(await response.json()).toEqual({ message: SESSION_EXPIRED_MESSAGE });
+    }
+  });
+
   it("com cookie segue adiante, em páginas e em /api/*", () => {
-    for (const path of ["/estudo", "/api/cards", "/"]) {
-      const response = proxy(request(path, "qualquer-valor"));
-      expect(response.status).toBe(200);
-      expect(response.headers.get("location")).toBeNull();
-      expect(response.headers.get("x-middleware-next")).toBe("1");
+    for (const method of ["GET", "POST"]) {
+      for (const path of ["/estudo", "/api/cards", "/"]) {
+        const response = proxy(request(path, "qualquer-valor", method));
+        expect(response.status).toBe(200);
+        expect(response.headers.get("location")).toBeNull();
+        expect(response.headers.get("x-middleware-next")).toBe("1");
+      }
     }
   });
 

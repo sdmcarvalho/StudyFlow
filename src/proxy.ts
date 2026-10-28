@@ -4,7 +4,12 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, SESSION_EXPIRED_MESSAGE } from "@/features/auth/constants";
 
 /** Checagem otimista: só olha se o cookie de sessão existe (não se vale). Quem confere de verdade é
- *  `requireUser`/`getCurrentUserId`, nas páginas, actions e rotas. */
+ *  `requireUser`/`getCurrentUserId`, nas páginas, actions e rotas.
+ *
+ *  Sem cookie: `/api/*` recebe 401 JSON; GET/HEAD em páginas vão para o login; qualquer outro método
+ *  (POST de server action etc.) segue adiante. Redirecionar a action faria o navegador seguir o 307 e a
+ *  resposta dela, "Sessão expirada, entre novamente.", nunca chegaria à tela; como toda action e toda
+ *  página já conferem a sessão, deixá-la passar não abre acesso. */
 export function proxy(request: NextRequest) {
   if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
 
@@ -13,6 +18,8 @@ export function proxy(request: NextRequest) {
   if (pathname === "/api" || pathname.startsWith("/api/")) {
     return NextResponse.json({ message: SESSION_EXPIRED_MESSAGE }, { status: 401 });
   }
+
+  if (request.method !== "GET" && request.method !== "HEAD") return NextResponse.next();
 
   const login = new URL("/login", request.url);
   if (pathname !== "/") login.searchParams.set("next", `${pathname}${search}`);
