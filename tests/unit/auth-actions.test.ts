@@ -19,10 +19,10 @@ vi.mock("@/features/auth/password", async (importOriginal) => {
   return { ...actual, verifyPassword: vi.fn(actual.verifyPassword) };
 });
 
-import { loginAction, logoutAction } from "@/features/auth/actions";
+import { changePasswordAction, loginAction, logoutAction } from "@/features/auth/actions";
 import { SESSION_COOKIE, SESSION_DAYS } from "@/features/auth/constants";
-import { verifyPassword } from "@/features/auth/password";
-import { hashToken } from "@/features/auth/session";
+import { hashPassword, verifyPassword } from "@/features/auth/password";
+import { findSessionUser, hashToken } from "@/features/auth/session";
 import { isThrottled, recordFailure, resetThrottle } from "@/features/auth/throttle";
 import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut, TEST_PASSWORD } from "./helpers/auth";
@@ -299,5 +299,138 @@ describe("logoutAction", () => {
     await expect(logoutAction()).rejects.toThrow("NEXT_REDIRECT:/login");
 
     expect(await cookieValue()).toBeUndefined();
+  });
+});
+
+describe("changePasswordAction", () => {
+  const NEW_PASSWORD = "NovaSenha99";
+  const input = (overrides: Record<string, string> = {}) => ({
+    senhaAtual: TEST_PASSWORD,
+    novaSenha: NEW_PASSWORD,
+    confirmacao: NEW_PASSWORD,
+    ...overrides,
+  });
+  const hashOf = async (id: string) => (await db.user.findUniqueOrThrow({ where: { id } })).passwordHash;
+  const otherSession = (userId: string, tokenHash: string) =>
+    db.session.create({ data: { tokenHash, userId, expiresAt: new Date(Date.now() + DAY_MS) } });
+
+  it("sem sessão devolve a mensagem de sessão expirada e não altera nada", async () => {
+    const user = await createTestUser();
+    const before = await hashOf(user.id);
+
+    const result = await changePasswordAction(input());
+
+    expect(result).toEqual({ ok: false, message: "Sessão expirada, entre novamente." });
+    expect(await hashOf(user.id)).toBe(before);
+  });
+
+  it("senha atual errada vira erro em senhaAtual e o hash não muda", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+    const before = await hashOf(user.id);
+
+    const result = await changePasswordAction(input({ senhaAtual: "Errada1234" }));
+
+    expect(result).toEqual({ ok: false, fieldErrors: { senhaAtual: "Senha atual incorreta." } });
+    expect(await hashOf(user.id)).toBe(before);
+  });
+
+  it("nova senha fraca vira erro em novaSenha, sem consultar a senha atual", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+    const before = await hashOf(user.id);
+
+    const result = await changePasswordAction(input({ novaSenha: "abcdefgh", confirmacao: "abcdefgh" }));
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.fieldErrors?.novaSenha).toBe("Use pelo menos um número.");
+    expect(verifyPassword).not.toHaveBeenCalled();
+    expect(await hashOf(user.id)).toBe(before);
+  });
+
+  it("confirmação diferente vira erro em confirmacao e o hash não muda", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+    const before = await hashOf(user.id);
+
+    const result = await changePasswordAction(input({ confirmacao: "OutraSenha99" }));
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.fieldErrors?.confirmacao).toBe("A confirmação não confere com a nova senha.");
+    expect(await hashOf(user.id)).toBe(before);
+  });
+
+  it("entrada que não é objeto vira erros de campo", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+
+    const result = await changePasswordAction(null);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.fieldErrors).toBeTruthy();
+  });
+
+  it("sucesso grava o novo hash: a nova senha passa e a antiga falha", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+
+    const result = await changePasswordAction(input());
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    const hash = await hashOf(user.id);
+    expect(await verifyPassword(NEW_PASSWORD, hash)).toBe(true);
+    expect(await verifyPassword(TEST_PASSWORD, hash)).toBe(false);
+  });
+
+  it("mantém a sessão atual e revoga as outras sessões do usuário, sem tocar nas de outro usuário", async () => {
+    const user = await createTestUser();
+    const stranger = await createTestUser();
+    const token = await signInAs(user);
+    await otherSession(user.id, "outro-dispositivo-1");
+    await otherSession(user.id, "outro-dispositivo-2");
+    await otherSession(stranger.id, "sessao-do-estranho");
+
+    const result = await changePasswordAction(input());
+
+    expect(result.ok).toBe(true);
+    expect((await findSessionUser(token))?.id).toBe(user.id);
+    const remaining = (await db.session.findMany()).map((s) => s.tokenHash).sort();
+    expect(remaining).toEqual([hashToken(token), "sessao-do-estranho"].sort());
+  });
+
+  it("a troca feita pelo usuário A nunca altera o usuário B", async () => {
+    const a = await createTestUser({ email: "a@x.com" });
+    const b = await createTestUser({ email: "b@x.com" });
+    await signInAs(a);
+    const bBefore = await hashOf(b.id);
+
+    // Ids vindos do cliente são ignorados: só vale o usuário da sessão.
+    const result = await changePasswordAction({ ...input(), id: b.id, userId: b.id, email: "b@x.com" });
+
+    expect(result.ok).toBe(true);
+    expect(await verifyPassword(NEW_PASSWORD, (await hashOf(a.id)) as string)).toBe(true);
+    expect(await hashOf(b.id)).toBe(bBefore);
+    expect(await verifyPassword(TEST_PASSWORD, (await hashOf(b.id)) as string)).toBe(true);
+  });
+
+  it("a senha atual de outro usuário não vale", async () => {
+    const a = await createTestUser({ email: "a@x.com" });
+    const b = await createTestUser({ email: "b@x.com" });
+    await db.user.update({ where: { id: b.id }, data: { passwordHash: await hashPassword("SenhaDoB123") } });
+    await signInAs(a);
+
+    const result = await changePasswordAction(input({ senhaAtual: "SenhaDoB123" }));
+
+    expect(result).toEqual({ ok: false, fieldErrors: { senhaAtual: "Senha atual incorreta." } });
+  });
+
+  it("erro inesperado vira mensagem genérica", async () => {
+    const user = await createTestUser();
+    await signInAs(user);
+    vi.mocked(verifyPassword).mockRejectedValueOnce(new Error("boom"));
+
+    const result = await changePasswordAction(input());
+
+    expect(result).toEqual({ ok: false, message: "Não foi possível alterar a senha. Tente novamente." });
   });
 });

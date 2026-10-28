@@ -1,12 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { authActionMessage } from "@/lib/auth-response";
+import { getCurrentUser } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { SESSION_EXPIRED_MESSAGE } from "./constants";
 import { clearSessionCookie, readSessionToken, setSessionCookie } from "./cookie";
 import { safeNext } from "./next-url";
-import { verifyPassword } from "./password";
-import { parseLoginInput } from "./schema";
-import { createSession, deleteSession } from "./session";
+import { hashPassword, verifyPassword } from "./password";
+import { parseChangePasswordInput, parseLoginInput } from "./schema";
+import { createSession, deleteSession, deleteUserSessions } from "./session";
 import { clearFailures, isThrottled, recordFailure } from "./throttle";
 import type { AuthResult } from "./types";
 
@@ -49,4 +52,35 @@ export async function logoutAction(): Promise<void> {
   if (token) await deleteSession(token);
   await clearSessionCookie();
   redirect("/login");
+}
+
+export type ChangePasswordResult = AuthResult<undefined, "senhaAtual" | "novaSenha" | "confirmacao">;
+
+const MSG_CHANGE_FAILED = "Não foi possível alterar a senha. Tente novamente.";
+const MSG_WRONG_CURRENT = "Senha atual incorreta.";
+
+/** Troca a senha do próprio usuário da sessão. O usuário vem sempre da sessão (nunca do que o cliente envia) e o hash
+ *  atual é lido do banco por esse id. No sucesso, grava o novo hash e revoga todas as outras sessões do usuário,
+ *  mantendo a atual. Sem limite de tentativas: quem chega aqui já tem sessão. */
+export async function changePasswordAction(input: unknown): Promise<ChangePasswordResult> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, message: SESSION_EXPIRED_MESSAGE };
+
+    const parsed = parseChangePasswordInput(input);
+    if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
+    const { senhaAtual, novaSenha } = parsed.data;
+
+    const record = await db.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
+    if (!(await verifyPassword(senhaAtual, record?.passwordHash))) {
+      return { ok: false, fieldErrors: { senhaAtual: MSG_WRONG_CURRENT } };
+    }
+
+    const passwordHash = await hashPassword(novaSenha);
+    await db.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await deleteUserSessions(user.id, await readSessionToken());
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return { ok: false, message: authActionMessage(error) ?? MSG_CHANGE_FAILED };
+  }
 }
