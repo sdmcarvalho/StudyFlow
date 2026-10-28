@@ -24,6 +24,7 @@ const E2E_ENV = {
   SUPERUSER_EMAIL: E2E_SUPER.email,
   SUPERUSER_PASSWORD: E2E_SUPER.password,
   SUPERUSER_NAME: E2E_SUPER.name,
+  SEED_FORCE: "1", // o seed recusa apagar dados existentes; aqui o banco é descartável
 };
 
 /**

@@ -9,12 +9,15 @@ Spec e plano de implementação ficam em `docs/superpowers/`.
 
 ```bash
 cp .env.example .env
+# Preencha SUPERUSER_EMAIL, SUPERUSER_PASSWORD e SUPERUSER_NAME no .env antes do próximo passo.
 npm install
 npm run db:migrate
 npm run auth:bootstrap
 npm run db:seed
 npm run dev
 ```
+
+Depois do `auth:bootstrap`, apague `SUPERUSER_PASSWORD` do `.env` (ele só é usado nessa etapa). O `db:seed` recusa rodar se o superusuário já tem dados (Estudos, cards, resultados ou agenda); só use `SEED_FORCE=1` em bancos de teste.
 
 Para os testes e2e, instale o navegador uma vez com `npx playwright install chromium`. O `npm run test:e2e` faz um build e sobrescreve `.next` (pare o `npm run dev` antes); ele usa banco (`prisma/e2e.db`), superusuário e pasta base próprios e nunca toca no banco de desenvolvimento.
 
@@ -30,13 +33,13 @@ A variável opcional `STUDYFLOW_BASE_DIR` (padrão `C:\StudyFlow`) define a past
 
 O acesso é por e-mail e senha em `/login`; todas as páginas e APIs exigem sessão, e o cadastro não é aberto (não há auto-cadastro).
 
-**Primeiro acesso.** Defina `SUPERUSER_EMAIL`, `SUPERUSER_PASSWORD` e `SUPERUSER_NAME` no `.env` e rode `npm run auth:bootstrap`. O comando cria o superusuário (ou converte o usuário local antigo, mantendo os dados dele) e é idempotente: pode rodar de novo sem duplicar nada e não sobrescreve a senha já definida. Depois entre em http://localhost:3000/login.
+**Primeiro acesso.** Defina `SUPERUSER_EMAIL`, `SUPERUSER_PASSWORD` e `SUPERUSER_NAME` no `.env` e rode `npm run auth:bootstrap`. O comando cria o superusuário (ou converte o usuário local antigo, mantendo os dados dele) e é idempotente: pode rodar de novo sem duplicar nada e não sobrescreve a senha já definida. Depois entre em http://localhost:3000/login e remova `SUPERUSER_PASSWORD` do `.env`.
 
 - **Usuários** (item do menu, só para o superusuário): cria usuários comuns, redefine senha, desativa/reativa e exclui. Só existe um superusuário.
 - **Minha conta** (em Configuração): cada usuário troca a própria senha.
 - **Dados por usuário**: Estudos, cards, agenda e configuração de IA são de cada usuário. As pastas dos Estudos ficam dentro da raiz do usuário, `<base>\<pasta do usuário>` (por exemplo `C:\StudyFlow\Maria`); o app recusa pastas fora dela. Excluir um usuário apaga só as linhas do banco, nunca as pastas do disco.
 
-> Atenção: `npm run db:seed` **substitui** os registros de exemplo do superusuário (apaga os cards e Estudos dele e recria os 8 de exemplo). Não rode em um banco com dados reais.
+> Atenção: `npm run db:seed` **substitui** os registros de exemplo do superusuário (apaga cards, resultados, agenda e Estudos dele e recria os 8 de exemplo). Por segurança ele recusa rodar se o superusuário já tem dados, a menos que `SEED_FORCE=1`; não use isso em um banco com dados reais.
 
 ## Scripts
 
@@ -49,4 +52,4 @@ O acesso é por e-mail e senha em `/login`; todas as páginas e APIs exigem sess
 | `npm run test:e2e` | testes de ponta a ponta (Playwright) |
 | `npm run db:migrate` | aplica migrations no banco de desenvolvimento |
 | `npm run auth:bootstrap` | cria (ou converte) o superusuário a partir de `SUPERUSER_*` no `.env`; idempotente |
-| `npm run db:seed` | recria os registros de exemplo do superusuário (apaga os dele; não use com dados reais) |
+| `npm run db:seed` | recria os registros de exemplo do superusuário; recusa se ele já tem dados (só `SEED_FORCE=1` em banco de teste) |

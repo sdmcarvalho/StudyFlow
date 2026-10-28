@@ -2,6 +2,7 @@ import "dotenv/config";
 import path from "node:path";
 import { baseFolder, ensureFolder } from "../src/features/estudo/folders";
 import { db } from "../src/lib/db";
+import { clearUserDataForSeed } from "./seed-guard";
 
 /** Registros de exemplo do protótipo (Design/script.js). `updatedAt` sempre às 12:00 locais. */
 const records = [
@@ -26,8 +27,8 @@ async function main() {
   if (!superuser) throw new Error("Rode npm run auth:bootstrap antes do seed.");
   if (!superuser.folderName) throw new Error("O superusuário não tem pasta (folderName); rode npm run auth:bootstrap.");
   const userId = superuser.id;
-  await db.card.deleteMany({ where: { userId } });
-  await db.studyRecord.deleteMany({ where: { userId } });
+  // Recusa (sem apagar nada) se o superusuário já tem dados, a menos que SEED_FORCE=1 (só em bancos de teste).
+  await clearUserDataForSeed(userId, { force: process.env.SEED_FORCE === "1" });
   // Pastas reais em <STUDYFLOW_BASE_DIR>\<pasta do usuário>\<nome>; as que já existem ficam como estão (nada é apagado).
   const base = path.win32.join(baseFolder(), superuser.folderName);
   for (const { atualizado, pasta: nome, ...record } of records) {
