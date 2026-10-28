@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookIcon, BookmarkCheckIcon, CalendarIcon, DocumentIcon, SettingsIcon } from "@/components/ui/icons";
+import {
+  BookIcon,
+  BookmarkCheckIcon,
+  CalendarIcon,
+  DocumentIcon,
+  SettingsIcon,
+  UsersIcon,
+} from "@/components/ui/icons";
 import styles from "./Sidebar.module.css";
 
 const ITEMS = [
@@ -12,10 +19,14 @@ const ITEMS = [
   { href: "/configuracao", label: "Configuração", Icon: SettingsIcon },
 ];
 
-type SidebarProps = { id: string; open: boolean; onNavigate: () => void };
+/** Só o superusuário vê este item; vem logo depois de Configuração. */
+const SUPER_ITEMS = [{ href: "/usuarios", label: "Usuários", Icon: UsersIcon }];
 
-export function Sidebar({ id, open, onNavigate }: SidebarProps) {
+type SidebarProps = { id: string; open: boolean; onNavigate: () => void; isSuper: boolean };
+
+export function Sidebar({ id, open, onNavigate, isSuper }: SidebarProps) {
   const pathname = usePathname();
+  const items = isSuper ? [...ITEMS, ...SUPER_ITEMS] : ITEMS;
 
   return (
     <aside id={id} className={`${styles.sidebar} ${open ? styles.open : ""}`}>
@@ -27,7 +38,7 @@ export function Sidebar({ id, open, onNavigate }: SidebarProps) {
       </div>
 
       <nav className={styles.nav} aria-label="Navegação principal">
-        {ITEMS.map(({ href, label, Icon }) => {
+        {items.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link

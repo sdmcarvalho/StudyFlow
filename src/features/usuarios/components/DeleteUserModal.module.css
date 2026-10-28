@@ -1,0 +1,7 @@
+.desc {
+  margin: calc(var(--space-5) * -1 + var(--space-1)) 0 var(--space-5);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}

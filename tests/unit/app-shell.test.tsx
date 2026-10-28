@@ -7,9 +7,9 @@ vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 
 import { AppShell } from "@/components/layout/AppShell";
 
-function setup() {
+function setup(role: "SUPER" | "USER" = "USER") {
   render(
-    <AppShell user={{ name: "Ana Souza", email: "ana@x.com", role: "USER" }}>
+    <AppShell user={{ name: "Ana Souza", email: "ana@x.com", role }}>
       <p>Conteúdo</p>
     </AppShell>,
   );
@@ -48,6 +48,16 @@ describe("AppShell", () => {
     expect(config).toBe(agenda + 1);
     expect(links[config]).toHaveAttribute("href", "/configuracao");
     expect(links[config]).not.toHaveAttribute("aria-current");
+  });
+
+  it("o item Usuários só aparece para o superusuário", () => {
+    setup("SUPER");
+    expect(screen.getByRole("link", { name: /Usuários/ })).toHaveAttribute("href", "/usuarios");
+  });
+
+  it("usuário comum não vê o item Usuários", () => {
+    setup("USER");
+    expect(screen.queryByRole("link", { name: /Usuários/ })).not.toBeInTheDocument();
   });
 
   it("marca só o item da rota atual com aria-current", () => {

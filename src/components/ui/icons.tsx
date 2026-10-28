@@ -82,3 +82,10 @@ export const SettingsIcon = (p: IconProps) => (
     <circle cx="10" cy="10" r="2.5" />
   </Icon>
 );
+export const UsersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="7.5" cy="7" r="3" />
+    <path d="M2 16.5v-.5a4.5 4.5 0 0 1 4.5-4.5h2a4.5 4.5 0 0 1 4.5 4.5v.5" />
+    <path d="M13 4.2a3 3 0 0 1 0 5.6M15.5 11.8A4.5 4.5 0 0 1 18 16v.5" />
+  </Icon>
+);

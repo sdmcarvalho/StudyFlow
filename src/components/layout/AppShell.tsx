@@ -36,7 +36,12 @@ export function AppShell({ user, children }: { user: ShellUser; children: ReactN
 
   return (
     <div className={styles.shell}>
-      <Sidebar id={SIDEBAR_ID} open={drawerOpen} onNavigate={() => setDrawerOpen(false)} />
+      <Sidebar
+        id={SIDEBAR_ID}
+        open={drawerOpen}
+        onNavigate={() => setDrawerOpen(false)}
+        isSuper={user.role === "SUPER"}
+      />
       <div
         data-testid="sidebar-overlay"
         className={`${styles.overlay} ${drawerOpen ? styles.overlayVisible : ""}`}

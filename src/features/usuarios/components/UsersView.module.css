@@ -1,0 +1,153 @@
+.actionBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Em telas estreitas a tabela rola na horizontal, mantendo a semântica de tabela. */
+.wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table thead th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.table thead th.actionsHead {
+  text-align: right;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background var(--transition-fast);
+}
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+.table tbody tr:hover {
+  background: var(--color-bg);
+}
+
+.table tbody td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+.table td.name {
+  font-weight: 500;
+  max-width: 260px;
+}
+.nameCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.table td.email {
+  color: var(--color-text-secondary);
+  max-width: 260px;
+}
+.table td.date {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.truncate {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.super {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-pressed);
+}
+.active {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.inactive {
+  background: var(--color-surface-strong);
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+.btn:hover {
+  background: var(--color-bg);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn :global(.icon) {
+  width: 15px;
+  height: 15px;
+}
+
+.danger {
+  color: var(--color-error);
+}
+.danger:hover {
+  background: var(--color-error-soft);
+  border-color: var(--color-error);
+}
+
+@media (max-width: 767.98px) {
+  .actionBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
