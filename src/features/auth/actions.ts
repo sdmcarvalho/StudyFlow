@@ -18,21 +18,23 @@ const MSG_THROTTLED = "Muitas tentativas. Tente novamente em alguns minutos.";
 
 /** Entra com e-mail e senha. A ordem importa: o limite de tentativas vem antes de qualquer consulta de senha, a
  *  senha é sempre verificada (mesmo sem usuário, para o tempo não revelar se o e-mail existe) e só depois de
- *  acertá-la se diz que a conta está desativada. */
+ *  acertá-la se diz que a conta está desativada.
+ *
+ *  A tentativa é contada (`recordFailure`) no mesmo instante síncrono em que o limite é conferido, antes de
+ *  qualquer `await`: se fosse contada só depois do bcrypt, pedidos paralelos passariam todos pela conferência
+ *  antes de a primeira falha ser registrada. O sucesso limpa a contagem; conta desativada com senha certa a mantém. */
 export async function loginAction(input: unknown): Promise<LoginResult> {
   const parsed = parseLoginInput(input);
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
   const { email, senha, next } = parsed.data;
 
-  // Bloqueado: não verifica a senha nem conta nova falha (quem insiste não prolonga o próprio bloqueio).
+  // Bloqueado: não verifica a senha nem conta nova tentativa (quem insiste não prolonga o próprio bloqueio).
   if (isThrottled(email)) return { ok: false, message: MSG_THROTTLED };
+  recordFailure(email); // reserva da tentativa; nenhum await entre a conferência e esta linha
 
   const user = await db.user.findUnique({ where: { email } });
   const passwordOk = await verifyPassword(senha, user?.passwordHash);
-  if (!user || !passwordOk) {
-    recordFailure(email);
-    return { ok: false, message: MSG_INVALID };
-  }
+  if (!user || !passwordOk) return { ok: false, message: MSG_INVALID };
   if (!user.active) return { ok: false, message: MSG_INACTIVE };
 
   clearFailures(email);

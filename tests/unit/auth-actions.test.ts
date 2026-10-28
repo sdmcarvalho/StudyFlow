@@ -164,7 +164,9 @@ describe("loginAction: falhas", () => {
     expect(result).toEqual({ ok: false, message: DISABLED });
     expect(await db.session.count()).toBe(0);
     expect(await cookieValue()).toBeUndefined();
-    expect(recordFailure).not.toHaveBeenCalled();
+    // A reserva da tentativa fica (não é limpa): conta desativada com senha certa continua contando.
+    expect(recordFailure).toHaveBeenCalledTimes(1);
+    expect(recordFailure).toHaveBeenCalledWith("off@x.com");
   });
 
   it("desativado com a senha errada recebe só a mensagem genérica", async () => {
@@ -173,7 +175,25 @@ describe("loginAction: falhas", () => {
     const result = await loginAction({ email: "off@x.com", senha: "errada123" });
 
     expect(result).toEqual({ ok: false, message: GENERIC });
+    expect(recordFailure).toHaveBeenCalledTimes(1);
     expect(recordFailure).toHaveBeenCalledWith("off@x.com");
+  });
+
+  it("conta exatamente uma tentativa por login não bloqueado: senha errada, e-mail inexistente e sucesso", async () => {
+    await createTestUser({ email: "ana@x.com" });
+
+    await loginAction({ email: "ana@x.com", senha: "errada123" });
+    expect(recordFailure).toHaveBeenCalledTimes(1);
+
+    vi.mocked(recordFailure).mockClear();
+    await loginAction({ email: "ninguem@x.com", senha: "errada123" });
+    expect(recordFailure).toHaveBeenCalledTimes(1);
+
+    vi.mocked(recordFailure).mockClear();
+    const ok = await loginAction({ email: "ana@x.com", senha: TEST_PASSWORD });
+    expect(ok.ok).toBe(true);
+    expect(recordFailure).toHaveBeenCalledTimes(1);
+    expect(isThrottled("ana@x.com")).toBe(false); // o sucesso limpa a reserva e as falhas
   });
 
   it("e-mail inválido ou senha em branco voltam como erro de campo, sem consultar senha nem contar falha", async () => {
@@ -209,6 +229,20 @@ describe("loginAction: limite de tentativas", () => {
     expect(await cookieValue()).toBeUndefined();
     expect(verifyPassword).not.toHaveBeenCalled();
     expect(recordFailure).not.toHaveBeenCalled();
+  });
+
+  it("pedidos paralelos não furam o limite: no máximo 5 chegam à verificação da senha", async () => {
+    await createTestUser({ email: "ana@x.com" });
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => loginAction({ email: "ana@x.com", senha: "errada123" })),
+    );
+
+    expect(verifyPassword).toHaveBeenCalledTimes(5);
+    expect(recordFailure).toHaveBeenCalledTimes(5);
+    expect(results.filter((r) => !r.ok && r.message === GENERIC)).toHaveLength(5);
+    expect(results.filter((r) => !r.ok && r.message === THROTTLED)).toHaveLength(3);
+    expect(await db.session.count()).toBe(0);
   });
 
   it("o bloqueio vale para o e-mail normalizado e também para e-mails inexistentes", async () => {
