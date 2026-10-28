@@ -3,8 +3,6 @@ import path from "node:path";
 import { baseFolder, ensureFolder } from "../src/features/estudo/folders";
 import { db } from "../src/lib/db";
 
-const USER_ID = "local-user";
-
 /** Registros de exemplo do protótipo (Design/script.js). `updatedAt` sempre às 12:00 locais. */
 const records = [
   { descricao: "Cálculo I — Limites e derivadas", pasta: "Matemática", dataInicial: "2026-08-04", atualizado: "2026-09-25" },
@@ -23,23 +21,23 @@ function noonLocal(iso: string): Date {
 }
 
 async function main() {
-  await db.user.upsert({
-    where: { id: USER_ID },
-    update: {},
-    create: { id: USER_ID, name: "Usuário local" },
-  });
-  await db.card.deleteMany({ where: { userId: USER_ID } });
-  await db.studyRecord.deleteMany({ where: { userId: USER_ID } });
-  // Pastas reais em <STUDYFLOW_BASE_DIR>\<nome>; as que já existem ficam como estão (nada é apagado).
-  const base = baseFolder();
+  // Os exemplos pertencem ao superusuário, criado antes por `npm run auth:bootstrap`.
+  const superuser = await db.user.findFirst({ where: { role: "SUPER" } });
+  if (!superuser) throw new Error("Rode npm run auth:bootstrap antes do seed.");
+  if (!superuser.folderName) throw new Error("O superusuário não tem pasta (folderName); rode npm run auth:bootstrap.");
+  const userId = superuser.id;
+  await db.card.deleteMany({ where: { userId } });
+  await db.studyRecord.deleteMany({ where: { userId } });
+  // Pastas reais em <STUDYFLOW_BASE_DIR>\<pasta do usuário>\<nome>; as que já existem ficam como estão (nada é apagado).
+  const base = path.win32.join(baseFolder(), superuser.folderName);
   for (const { atualizado, pasta: nome, ...record } of records) {
     const pasta = path.win32.join(base, nome);
     if (!(await ensureFolder(pasta))) throw new Error(`Não foi possível criar a pasta ${pasta}.`);
     await db.studyRecord.create({
-      data: { userId: USER_ID, ...record, pasta, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },
+      data: { userId, ...record, pasta, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },
     });
   }
-  console.log(`Seed concluído: ${records.length} registros para ${USER_ID} em ${base}.`);
+  console.log(`Seed concluído: ${records.length} registros para ${superuser.email ?? superuser.name} (${userId}) em ${base}.`);
 }
 
 main()

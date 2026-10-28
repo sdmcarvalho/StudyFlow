@@ -6,8 +6,10 @@ import { db } from "../../src/lib/db";
 async function main() {
   if (process.env.DATABASE_URL !== "file:./prisma/e2e.db") throw new Error("Use apenas o banco e2e.");
   const { descricao, pasta } = JSON.parse(process.env.E2E_STUDY ?? "{}") as { descricao: string; pasta: string };
+  const superuser = await db.user.findFirst({ where: { role: "SUPER" } });
+  if (!superuser) throw new Error("O banco e2e não tem superusuário; rode resetData() antes.");
   const record = await db.studyRecord.create({
-    data: { userId: "local-user", descricao, pasta, dataInicial: "2026-10-01" },
+    data: { userId: superuser.id, descricao, pasta, dataInicial: "2026-10-01" },
   });
   process.stdout.write(record.id);
 }
