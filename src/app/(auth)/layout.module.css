@@ -1,0 +1,23 @@
+.main {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.box {
+  width: 100%;
+  max-width: 400px;
+  display: grid;
+  gap: var(--space-5);
+}
+
+.brand {
+  margin: 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
