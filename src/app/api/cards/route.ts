@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authErrorResponse } from "@/lib/auth-response";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
 
@@ -25,6 +26,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(serialized);
   } catch (error) {
+    const response = authErrorResponse(error);
+    if (response) return response;
     console.error("Failed to fetch cards:", error);
     return NextResponse.json({ error: "Failed to fetch cards" }, { status: 500 });
   }

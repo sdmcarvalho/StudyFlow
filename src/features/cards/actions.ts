@@ -1,5 +1,6 @@
 "use server";
 
+import { authActionMessage } from "@/lib/auth-response";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { parseStoredContent } from "../estudo/content-schema";
@@ -11,6 +12,11 @@ export type CardResult<T = undefined> =
   | { ok: false; fieldErrors?: CardFieldErrors; message?: string };
 const NOT_FOUND = { ok: false, message: "Card ou Estudo não encontrado." } as const;
 const FAILED = { ok: false, message: "Não foi possível salvar o card." } as const;
+/** Falha de uma action: sessão inválida vira a mensagem de sessão expirada; o resto, a falha genérica. */
+function failure(error: unknown) {
+  const message = authActionMessage(error);
+  return message ? ({ ok: false, message } as const) : FAILED;
+}
 const validId = (id: unknown): id is string => typeof id === "string" && id.length > 0;
 const row = (card: Omit<CardRow, "createdAt"> & { createdAt: Date }): CardRow => ({
   id: card.id, cellId: card.cellId, tema: card.tema, pergunta: card.pergunta,
@@ -32,7 +38,7 @@ export async function createCard(studyId: string, cellId: string, input: unknown
       const card = await tx.card.create({ data: { userId, studyId, cellId, ...parsed.data } });
       return { ok: true, data: row(card) } as const;
     });
-  } catch { return FAILED; }
+  } catch (error) { return failure(error); }
 }
 
 export async function updateCard(cardId: string, input: unknown): Promise<CardResult<CardRow>> {
@@ -48,7 +54,7 @@ export async function updateCard(cardId: string, input: unknown): Promise<CardRe
       const card = await tx.card.findFirst({ where });
       return card ? { ok: true, data: row(card) } as const : NOT_FOUND;
     });
-  } catch { return FAILED; }
+  } catch (error) { return failure(error); }
 }
 
 export async function deleteCard(cardId: string): Promise<CardResult> {
@@ -60,7 +66,7 @@ export async function deleteCard(cardId: string): Promise<CardResult> {
       data: { deletedAt: new Date() },
     });
     return count ? { ok: true, data: undefined } : NOT_FOUND;
-  } catch { return FAILED; }
+  } catch (error) { return failure(error); }
 }
 
 export async function restoreCard(cardId: string): Promise<CardResult<CardRow>> {
@@ -76,5 +82,5 @@ export async function restoreCard(cardId: string): Promise<CardResult<CardRow>> 
       const card = await tx.card.findFirst({ where: { id: cardId, userId, study: { userId, deletedAt: null } } });
       return card ? { ok: true, data: row(card) } as const : NOT_FOUND;
     });
-  } catch { return FAILED; }
+  } catch (error) { return failure(error); }
 }

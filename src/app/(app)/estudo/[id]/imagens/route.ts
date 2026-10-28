@@ -1,6 +1,7 @@
 // Envio de imagem para `<pasta>\imagens` do Estudo. Nunca sobrescreve: grava com a flag `wx`.
 import fs from "node:fs/promises";
 import path from "node:path";
+import { authErrorResponse } from "@/lib/auth-response";
 import { normalizeFolderPath } from "@/features/estudo/folder-path";
 import { ensureFolder, imagesDir } from "@/features/estudo/folders";
 import { MAX_IMAGE_BYTES, cleanImageStem, detectImageKind, safeImageName } from "@/features/estudo/images";
@@ -36,7 +37,15 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   if (typeof id !== "string" || id.length === 0) return fail(404, "Registro não encontrado.");
 
-  const pasta = await getStudyFolder(id);
+  let pasta: string | null;
+  try {
+    pasta = await getStudyFolder(id);
+  } catch (error) {
+    // Sem sessão válida: 401 com a mensagem padrão (o Estudo é sempre conferido por usuário).
+    const response = authErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
   if (pasta === null) return fail(404, "Registro não encontrado.");
   // Pastas antigas (relativas) nunca são resolvidas contra a pasta de trabalho do servidor.
   const folder = normalizeFolderPath(pasta);

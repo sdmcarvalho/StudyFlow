@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { authActionMessage } from "@/lib/auth-response";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { toPublicSettings } from "./queries";
@@ -44,7 +45,8 @@ export async function saveAiSettings(input: unknown): Promise<SaveAiSettingsResu
     if (row === null) return { ok: false, fieldErrors: { apiKey: MSG_KEY_FOR_NEW_URL } };
     revalidatePath("/configuracao");
     return { ok: true, data: toPublicSettings(row) };
-  } catch {
-    return SAVE_FAILED;
+  } catch (error) {
+    const message = authActionMessage(error);
+    return message ? { ok: false, message } : SAVE_FAILED;
   }
 }

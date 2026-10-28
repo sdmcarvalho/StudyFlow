@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authErrorResponse } from "@/lib/auth-response";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
 
@@ -59,6 +60,8 @@ export async function GET() {
 
     return NextResponse.json(summaries);
   } catch (error) {
+    const response = authErrorResponse(error);
+    if (response) return response;
     console.error("Failed to load studies for tests:", error);
     return NextResponse.json({ error: "Failed to load studies" }, { status: 500 });
   }

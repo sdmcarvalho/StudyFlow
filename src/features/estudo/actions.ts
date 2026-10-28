@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { authActionMessage } from "@/lib/auth-response";
 import { AuthError, getCurrentUser, getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { parseContent, serializeContent } from "./content-schema";
@@ -19,6 +20,12 @@ const SAVE_FAILED = { ok: false, message: "Não foi possível salvar. Tente nova
 /** Argumentos de server actions vêm do cliente: um objeto de filtro como id atingiria vários registros. */
 function isValidId(id: unknown): id is string {
   return typeof id === "string" && id.length > 0;
+}
+
+/** Falha de uma action: sessão inválida vira a mensagem de sessão expirada; o resto, a falha genérica. */
+function failure(error: unknown) {
+  const message = authActionMessage(error);
+  return message ? ({ ok: false, message } as const) : SAVE_FAILED;
 }
 
 function done(): ActionResult {
@@ -62,8 +69,8 @@ export async function createStudyRecord(input: unknown): Promise<ActionResult<{ 
     const record = await db.studyRecord.create({ data: { userId, ...parsed.data } });
     revalidatePath("/estudo");
     return { ok: true, data: { id: record.id } };
-  } catch {
-    return SAVE_FAILED;
+  } catch (error) {
+    return failure(error);
   }
 }
 
@@ -96,8 +103,8 @@ export async function updateStudyRecord(id: string, input: unknown): Promise<Act
       data: parsed.data,
     });
     return count === 0 ? NOT_FOUND : done();
-  } catch {
-    return SAVE_FAILED;
+  } catch (error) {
+    return failure(error);
   }
 }
 
@@ -119,8 +126,8 @@ export async function saveStudyContent(
     if (count === 0) return NOT_FOUND;
     revalidatePath("/estudo");
     return { ok: true, data: { savedAt: new Date().toISOString() } };
-  } catch {
-    return SAVE_FAILED;
+  } catch (error) {
+    return failure(error);
   }
 }
 
@@ -136,8 +143,8 @@ export async function deleteStudyRecord(id: string): Promise<ActionResult> {
       data: { deletedAt: new Date(), updatedAt: record.updatedAt },
     });
     return done();
-  } catch {
-    return SAVE_FAILED;
+  } catch (error) {
+    return failure(error);
   }
 }
 
@@ -154,7 +161,7 @@ export async function restoreStudyRecord(id: string): Promise<ActionResult> {
       data: { deletedAt: null, updatedAt: record.updatedAt },
     });
     return done();
-  } catch {
-    return SAVE_FAILED;
+  } catch (error) {
+    return failure(error);
   }
 }

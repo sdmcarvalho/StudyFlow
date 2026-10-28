@@ -20,7 +20,8 @@ async function readImage(id: string, arquivo: string): Promise<{ bytes: Uint8Arr
   const type = contentTypeFor(arquivo);
   if (type === null) return null;
 
-  const pasta = await getStudyFolder(id);
+  // Qualquer falha ao achar o Estudo (inclusive sem sessão) é "não encontrado", sem detalhes.
+  const pasta = await getStudyFolder(id).catch(() => null);
   if (pasta === null) return null;
   // Pastas antigas (relativas) nunca são resolvidas contra a pasta de trabalho do servidor.
   const folder = normalizeFolderPath(pasta);

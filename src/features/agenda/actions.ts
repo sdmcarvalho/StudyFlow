@@ -1,5 +1,6 @@
 "use server";
-import { getCurrentUserId } from "@/lib/current-user";
+import { authActionMessage } from "@/lib/auth-response";
+import { getCurrentUserId, isAuthError } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { toIsoDate } from "@/lib/dates";
 
@@ -27,6 +28,14 @@ export async function createSchedules(
     const userId = await getCurrentUserId();
     const now = new Date();
     const today = toIsoDate(now);
+
+    // O id do estudo vem do cliente: só vale se for um Estudo ativo do próprio usuário. Sem isso, os
+    // agendamentos ficariam presos ao Estudo de outra pessoa e a agenda exibiria o nome dele.
+    const study = await db.studyRecord.findFirst({
+      where: { id: input.studyId, userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!study) return { ok: false, message: "Estudo não encontrado." };
 
     // Verifica se já existem agendamentos ativos para este estudo
     const existingSchedules = await db.schedule.findMany({
@@ -77,6 +86,8 @@ export async function createSchedules(
       data: { count: schedulesToCreate.length, hasActive: false },
     };
   } catch (error) {
+    const authMessage = authActionMessage(error);
+    if (authMessage) return { ok: false, message: authMessage };
     console.error("Erro ao criar agendamentos:", error);
     return { ok: false, message: "Não foi possível criar os agendamentos." };
   }
@@ -102,13 +113,16 @@ export async function completeSchedule(scheduleId: string): Promise<ActionResult
     }
 
     return { ok: true, data: undefined };
-  } catch {
+  } catch (error) {
+    const authMessage = authActionMessage(error);
+    if (authMessage) return { ok: false, message: authMessage };
     return { ok: false, message: "Não foi possível atualizar o agendamento." };
   }
 }
 
 /**
  * Lista todos os agendamentos de um usuário, ordenados por data de revisão.
+ * Sem sessão válida lança AuthError (a página já redirecionou para o login antes de chamar).
  */
 export async function listUserSchedules() {
   const userId = await getCurrentUserId();
@@ -141,7 +155,7 @@ export async function listUserSchedules() {
 }
 
 /**
- * Verifica se um estudo tem agendamentos ativos.
+ * Verifica se um estudo tem agendamentos ativos. Sem sessão válida lança AuthError (não é "false").
  */
 export async function checkStudyHasActiveSchedules(studyId: string): Promise<boolean> {
   if (typeof studyId !== "string" || !studyId.length) return false;
@@ -152,7 +166,8 @@ export async function checkStudyHasActiveSchedules(studyId: string): Promise<boo
       where: { studyId, userId, status: "Ativo" },
     });
     return count > 0;
-  } catch {
+  } catch (error) {
+    if (isAuthError(error)) throw error;
     return false;
   }
 }

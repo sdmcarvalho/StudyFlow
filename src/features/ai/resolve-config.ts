@@ -1,3 +1,5 @@
+import { authActionMessage } from "@/lib/auth-response";
+import { isAuthError } from "@/lib/current-user";
 import type { AiClientConfig } from "./client";
 import { getAiSettingsWithKey } from "./queries";
 import { normalizeBaseUrl, parseExtraParams } from "./schema";
@@ -26,7 +28,15 @@ function typedNumber(source: Record<string, unknown>, key: string): number | und
  *  A chave salva só é usada com a Base URL salva: outra URL exige a chave digitada junto. */
 export async function resolveAiConfig(body: unknown, options: { requireModel: boolean }): Promise<ResolveResult> {
   const typed = typeof body === "object" && body !== null && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
-  const saved = await getAiSettingsWithKey();
+  let saved;
+  try {
+    saved = await getAiSettingsWithKey();
+  } catch (error) {
+    // Sem sessão válida (ou sem permissão): 401/403 com a mensagem padrão, sem detalhes.
+    const message = authActionMessage(error);
+    if (message && isAuthError(error)) return { ok: false, status: error.code === "forbidden" ? 403 : 401, message };
+    throw error;
+  }
 
   const typedUrl = typedText(typed, "baseUrl");
   const baseUrl = normalizeBaseUrl(typedUrl ?? saved.baseUrl);

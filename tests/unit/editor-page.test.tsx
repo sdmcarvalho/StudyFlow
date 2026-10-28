@@ -6,15 +6,17 @@ vi.mock("@/features/estudo/actions", () => ({ saveStudyContent: vi.fn() }));
 vi.mock("@/features/estudo/queries", () => ({ getStudyDocument: vi.fn() }));
 vi.mock("@/features/cards/queries", () => ({ listStudyCards: vi.fn().mockResolvedValue([]) }));
 // A página confere a sessão: aqui o usuário já está logado (a conferência real é testada em current-user.test.ts).
-const { FakeAuthError } = vi.hoisted(() => ({ FakeAuthError: class FakeAuthError extends Error {} }));
+const { loggedUser } = vi.hoisted(() => ({
+  loggedUser: { id: "u1", name: "Ana", email: "ana@x.com", role: "USER", folderName: "ana" },
+}));
 vi.mock("@/lib/current-user", () => ({
-  requireUser: vi.fn().mockResolvedValue({ id: "u1", name: "Ana", email: "ana@x.com", role: "USER", folderName: "ana" }),
-  isAuthError: (error: unknown) => error instanceof FakeAuthError,
+  requireUser: vi.fn().mockResolvedValue(loggedUser),
+  getCurrentUser: vi.fn().mockResolvedValue(loggedUser),
 }));
 
 import EstudoEditorPage, { generateMetadata } from "@/app/(app)/estudo/[id]/page";
 import { getStudyDocument } from "@/features/estudo/queries";
-import { requireUser } from "@/lib/current-user";
+import { getCurrentUser, requireUser } from "@/lib/current-user";
 
 const getMock = vi.mocked(getStudyDocument);
 const props = (id: string) => ({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) });
@@ -52,9 +54,10 @@ describe("página /estudo/[id]", () => {
     expect(getMock).not.toHaveBeenCalled();
   });
 
-  it("generateMetadata sem sessão devolve só StudyFlow, e outros erros continuam subindo", async () => {
-    getMock.mockRejectedValueOnce(new FakeAuthError("unauthenticated"));
+  it("generateMetadata sem sessão devolve só StudyFlow sem ler o documento, e erros de banco continuam subindo", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValueOnce(null);
     expect(await generateMetadata(props("abc"))).toEqual({ title: "StudyFlow" });
+    expect(getMock).not.toHaveBeenCalled();
     getMock.mockRejectedValueOnce(new Error("falha do banco"));
     await expect(generateMetadata(props("abc"))).rejects.toThrow("falha do banco");
   });
