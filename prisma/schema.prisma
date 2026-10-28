@@ -8,25 +8,30 @@ datasource db {
 }
 
 model User {
-  id         String        @id @default(cuid())
-  name       String
-  records    StudyRecord[]
-  cards      Card[]
-  aiSettings AiSettings?
+  id          String        @id @default(cuid())
+  name        String
+  records     StudyRecord[]
+  cards       Card[]
+  aiSettings  AiSettings?
+  cardResults CardResult[]
+  schedules   Schedule[]
 }
 
 model StudyRecord {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  descricao   String // máx. 80 caracteres
-  pasta       String // máx. 40 caracteres
-  dataInicial String // YYYY-MM-DD (SQLite não tem tipo date; evita problema de fuso)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt // exibido como "Data atualização"
-  deletedAt   DateTime? // exclusão lógica, suporta o "Desfazer"
-  conteudo    String    @default("[]") // JSON [{ id, texto }]: células de Markdown do documento
-  cards       Card[]
+  id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id])
+  descricao    String // máx. 80 caracteres
+  pasta        String // máx. 40 caracteres
+  dataInicial  String // YYYY-MM-DD (SQLite não tem tipo date; evita problema de fuso)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt // exibido como "Data atualização"
+  deletedAt    DateTime? // exclusão lógica, suporta o "Desfazer"
+  conteudo     String       @default("[]") // JSON [{ id, texto }]: células de Markdown do documento
+  lastTestedAt DateTime?
+  cards        Card[]
+  cardResults  CardResult[]
+  schedules    Schedule[]
 
   @@index([userId, updatedAt])
 }
@@ -43,10 +48,43 @@ model Card {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // exclusão lógica, suporta o "Desfazer"
 
-  user      User       @relation(fields: [userId], references: [id])
-  study     StudyRecord @relation(fields: [studyId], references: [id])
+  user    User         @relation(fields: [userId], references: [id])
+  study   StudyRecord  @relation(fields: [studyId], references: [id])
+  results CardResult[]
 
   @@index([userId, studyId])
+}
+
+model CardResult {
+  id        String   @id @default(cuid())
+  cardId    String
+  studyId   String
+  userId    String
+  correct   Boolean
+  createdAt DateTime @default(now())
+
+  card  Card        @relation(fields: [cardId], references: [id])
+  study StudyRecord @relation(fields: [studyId], references: [id])
+  user  User        @relation(fields: [userId], references: [id])
+
+  @@index([userId, cardId])
+  @@index([userId, studyId])
+}
+
+model Schedule {
+  id         String @id @default(cuid())
+  studyId    String
+  userId     String
+  reviewDate String // YYYY-MM-DD
+  createdAt  String
+  session    String
+  status     String @default("Ativo")
+
+  study StudyRecord @relation(fields: [studyId], references: [id])
+  user  User        @relation(fields: [userId], references: [id])
+
+  @@index([userId, studyId])
+  @@index([userId, reviewDate])
 }
 
 model AiSettings {
