@@ -2,11 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => import("./helpers/next-headers"));
 
 import { saveStudyContent } from "@/features/estudo/actions";
 import { getStudyDocument } from "@/features/estudo/queries";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
 
@@ -19,7 +21,10 @@ async function insert(userId: string, descricao = "Cálculo I", updatedAt = new 
 beforeEach(async () => {
   await db.studyRecord.deleteMany();
   await db.aiSettings.deleteMany();
+  await db.session.deleteMany();
   await db.user.deleteMany();
+  signOut();
+  await signInAs(await createTestUser());
 });
 
 describe("getStudyDocument", () => {

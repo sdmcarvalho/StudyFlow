@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => import("./helpers/next-headers"));
 
 import {
   createStudyRecord,
@@ -15,6 +16,7 @@ import {
 import { listStudyRecords } from "@/features/estudo/queries";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { createTestUser, signInAs, signOut } from "./helpers/auth";
 import { toIsoDate } from "@/lib/dates";
 
 const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
@@ -56,7 +58,10 @@ async function insertMany(userId: string, count: number) {
 beforeEach(async () => {
   await db.studyRecord.deleteMany();
   await db.aiSettings.deleteMany();
+  await db.session.deleteMany();
   await db.user.deleteMany();
+  signOut();
+  await signInAs(await createTestUser());
 });
 
 describe("createStudyRecord", () => {

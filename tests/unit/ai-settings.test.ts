@@ -1,11 +1,13 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => import("./helpers/next-headers"));
 
 import { saveAiSettings } from "@/features/ai/actions";
 import { getAiSettings, getAiSettingsWithKey } from "@/features/ai/queries";
 import { db } from "@/lib/db";
+import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 const KEY = "sk-secret-1234567890-VdU";
 
@@ -17,6 +19,11 @@ const valid = {
   timeout: 120,
   extraParams: '{"top_p": 0.8}',
 };
+
+beforeEach(async () => {
+  signOut();
+  await signInAs(await createTestUser());
+});
 
 afterEach(async () => {
   await db.aiSettings.deleteMany();

@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => import("./helpers/next-headers"));
 
 import { GET } from "@/app/(app)/estudo/[id]/imagens/[arquivo]/route";
 import { POST } from "@/app/(app)/estudo/[id]/imagens/route";
@@ -12,6 +13,7 @@ import { getStudyFolder } from "@/features/estudo/queries";
 import { MAX_IMAGE_BYTES } from "@/features/estudo/images";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 // PNG real de 1x1 pixel.
 const PNG_BYTES = Uint8Array.from(
@@ -35,7 +37,10 @@ afterAll(async () => {
 beforeEach(async () => {
   await db.studyRecord.deleteMany();
   await db.aiSettings.deleteMany();
+  await db.session.deleteMany();
   await db.user.deleteMany();
+  signOut();
+  await signInAs(await createTestUser());
 });
 
 afterEach(() => {

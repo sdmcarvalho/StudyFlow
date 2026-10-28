@@ -2,11 +2,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => import("./helpers/next-headers"));
 
 import { POST as modelos } from "@/app/api/ai/modelos/route";
 import { POST as testar } from "@/app/api/ai/testar/route";
 import { saveAiSettings } from "@/features/ai/actions";
 import { db } from "@/lib/db";
+import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 const LOCAL = "localhost:3000";
 const SAVED_KEY = "sk-salva-1234567890";
@@ -50,7 +52,9 @@ async function saveSettings() {
   expect(result.ok).toBe(true);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  signOut();
+  await signInAs(await createTestUser());
   fetchMock = vi.fn(async (url: string) => (String(url).endsWith("/models") ? Response.json({ data: [] }) : completion()));
   vi.stubGlobal("fetch", fetchMock);
 });
