@@ -28,7 +28,7 @@ function messageOf(data: Record<string, unknown>, fallback: string): string {
   return typeof message === "string" && message.trim() !== "" ? message : fallback;
 }
 
-/** Subpastas de `caminho` (ou só as unidades, com `null`). */
+/** Subpastas de `caminho` (ou, com `null`, as da raiz do usuário). */
 export async function fetchFolder(caminho: string | null): Promise<FolderViewResult> {
   const url = caminho === null ? "/api/pastas" : `/api/pastas?caminho=${encodeURIComponent(caminho)}`;
   const result = await request(url);

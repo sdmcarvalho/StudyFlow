@@ -14,6 +14,7 @@ import {
   updateStudyRecord,
 } from "@/features/estudo/actions";
 import { listStudyRecords } from "@/features/estudo/queries";
+import { userRoot } from "@/features/estudo/folder-scope";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
@@ -21,18 +22,25 @@ import { toIsoDate } from "@/lib/dates";
 
 const NOT_FOUND = { ok: false, message: "Registro não encontrado." };
 const DUPLICATE = { ok: false, fieldErrors: { pasta: "Já existe um Estudo usando esta pasta." } };
+const outsideRoot = (root: string) => ({
+  ok: false,
+  fieldErrors: { pasta: `A pasta precisa ficar dentro de ${root}.` },
+});
 const MKDIR_FAILED = { ok: false, fieldErrors: { pasta: "Não foi possível criar a pasta." } };
 
 // Pastas reais, sempre dentro de uma pasta temporária deste arquivo (apagada no fim).
+// `base` é a STUDYFLOW_BASE_DIR; `root` é a raiz do usuário logado, onde as actions aceitam pastas.
 let base: string;
+let root: string;
 let input: { descricao: string; pasta: string; dataInicial: string };
 
 beforeAll(async () => {
   base = await fs.mkdtemp(path.join(os.tmpdir(), "studyflow-data-"));
-  input = { descricao: "Cálculo I", pasta: path.join(base, "Calculo"), dataInicial: "2026-08-04" };
+  vi.stubEnv("STUDYFLOW_BASE_DIR", base);
 });
 
 afterAll(async () => {
+  vi.unstubAllEnvs();
   await fs.rm(base, { recursive: true, force: true });
 });
 
@@ -61,7 +69,10 @@ beforeEach(async () => {
   await db.session.deleteMany();
   await db.user.deleteMany();
   signOut();
-  await signInAs(await createTestUser());
+  const user = await createTestUser();
+  await signInAs(user);
+  root = userRoot(user);
+  input = { descricao: "Cálculo I", pasta: path.join(root, "Calculo"), dataInicial: "2026-08-04" };
 });
 
 describe("createStudyRecord", () => {
@@ -93,7 +104,7 @@ describe("updateStudyRecord", () => {
     const created = await createStudyRecord(input);
     if (!created.ok) throw new Error("create falhou");
 
-    const exatas = path.join(base, "Exatas");
+    const exatas = path.join(root, "Exatas");
     const result = await updateStudyRecord(created.data.id, {
       descricao: "Cálculo II",
       pasta: exatas,
@@ -117,7 +128,7 @@ describe("updateStudyRecord", () => {
 
 describe("pasta física", () => {
   it("criar com uma pasta inexistente cria a pasta no disco", async () => {
-    const pasta = path.join(base, "Nova", "Sub");
+    const pasta = path.join(root, "Nova", "Sub");
     expect(await isDirectory(pasta)).toBe(false);
     const result = await createStudyRecord({ ...input, pasta });
     expect(result.ok).toBe(true);
@@ -155,7 +166,8 @@ describe("pasta física", () => {
   });
 
   it("criar com uma pasta impossível devolve 'Não foi possível criar a pasta.' e não grava", async () => {
-    const file = path.join(base, "arquivo.txt");
+    const file = path.join(root, "arquivo.txt");
+    await fs.mkdir(root, { recursive: true });
     await fs.writeFile(file, "x");
     const result = await createStudyRecord({ ...input, pasta: path.join(file, "sub") });
     expect(result).toEqual(MKDIR_FAILED);
@@ -171,11 +183,11 @@ describe("pasta física", () => {
 
   it("editar para a pasta de outro Estudo ativo é recusado e mantém o registro", async () => {
     const a = await createStudyRecord(input);
-    const b = await createStudyRecord({ ...input, descricao: "B", pasta: path.join(base, "B") });
+    const b = await createStudyRecord({ ...input, descricao: "B", pasta: path.join(root, "B") });
     if (!a.ok || !b.ok) throw new Error("create falhou");
     expect(await updateStudyRecord(b.data.id, { ...input, descricao: "B" })).toEqual(DUPLICATE);
     const pastas = (await listStudyRecords({})).items.map((r) => r.pasta).sort();
-    expect(pastas).toEqual([input.pasta, path.join(base, "B")].sort());
+    expect(pastas).toEqual([input.pasta, path.join(root, "B")].sort());
   });
 
   it("editar para outra pasta copia imagens\\ para a nova e deixa a antiga intacta", async () => {
@@ -185,7 +197,7 @@ describe("pasta física", () => {
     await fs.mkdir(oldImages, { recursive: true });
     await fs.writeFile(path.join(oldImages, "foto.png"), "png");
 
-    const nova = path.join(base, "Movida");
+    const nova = path.join(root, "Movida");
     expect((await updateStudyRecord(created.data.id, { ...input, pasta: nova })).ok).toBe(true);
 
     expect(await fs.readFile(path.join(nova, "imagens", "foto.png"), "utf8")).toBe("png");
@@ -202,10 +214,62 @@ describe("pasta física", () => {
   it("editar um registro legado para uma pasta válida cria a pasta e grava", async () => {
     const userId = await getCurrentUserId();
     const legado = await insert(userId, "Legado", new Date(2026, 0, 1, 12), "Matemática");
-    const pasta = path.join(base, "Corrigida");
+    const pasta = path.join(root, "Corrigida");
     expect((await updateStudyRecord(legado.id, { ...input, pasta })).ok).toBe(true);
     expect(await isDirectory(pasta)).toBe(true);
     expect((await listStudyRecords({})).items[0].pasta).toBe(pasta);
+  });
+});
+
+describe("isolamento na raiz do usuário", () => {
+  it("criar com pasta fora da raiz é recusado, sem criar a pasta nem gravar", async () => {
+    const fora = path.join(base, "Fora");
+    expect(await createStudyRecord({ ...input, pasta: fora })).toEqual(outsideRoot(root));
+    expect(await isDirectory(fora)).toBe(false);
+    expect(await db.studyRecord.count()).toBe(0);
+  });
+
+  it("criar na raiz de outro usuário ou numa pasta irmã com o mesmo prefixo é recusado", async () => {
+    const other = await createTestUser({ name: "Outra Pessoa" });
+    expect(await createStudyRecord({ ...input, pasta: path.join(userRoot(other), "X") })).toEqual(outsideRoot(root));
+    expect(await createStudyRecord({ ...input, pasta: `${root}2\\X` })).toEqual(outsideRoot(root));
+    expect(await isDirectory(`${root}2`)).toBe(false);
+    expect(await db.studyRecord.count()).toBe(0);
+  });
+
+  it("criar dentro da raiz (e a própria raiz) funciona", async () => {
+    expect((await createStudyRecord(input)).ok).toBe(true);
+    expect((await createStudyRecord({ ...input, descricao: "Raiz", pasta: root })).ok).toBe(true);
+    expect(await isDirectory(input.pasta)).toBe(true);
+  });
+
+  it("a checagem da raiz vem depois da de duplicidade", async () => {
+    const fora = path.join(base, "Fora");
+    await insert(await getCurrentUserId(), "Legado", new Date(2026, 0, 1, 12), fora);
+    expect(await createStudyRecord({ ...input, pasta: fora })).toEqual(DUPLICATE);
+  });
+
+  it("editar Estudo antigo (pasta fora da raiz) sem mudar a pasta continua funcionando", async () => {
+    const fora = path.join(base, "Antigo");
+    const legado = await insert(await getCurrentUserId(), "Legado", new Date(2026, 0, 1, 12), fora);
+    expect((await updateStudyRecord(legado.id, { ...input, descricao: "Legado II", pasta: fora })).ok).toBe(true);
+    expect((await updateStudyRecord(legado.id, { ...input, descricao: "Legado III", pasta: `${fora}\\` })).ok).toBe(true);
+    expect((await listStudyRecords({})).items[0]).toMatchObject({ descricao: "Legado III", pasta: fora });
+  });
+
+  it("mudar a pasta de um Estudo para fora da raiz é recusado e mantém o registro", async () => {
+    const created = await createStudyRecord(input);
+    if (!created.ok) throw new Error("create falhou");
+    const fora = path.join(base, "Fora");
+    expect(await updateStudyRecord(created.data.id, { ...input, pasta: fora })).toEqual(outsideRoot(root));
+    expect(await isDirectory(fora)).toBe(false);
+    expect((await listStudyRecords({})).items[0].pasta).toBe(input.pasta);
+  });
+
+  it("Estudo antigo pode mudar para uma pasta dentro da raiz, mas não para outra fora", async () => {
+    const legado = await insert(await getCurrentUserId(), "Legado", new Date(2026, 0, 1, 12), path.join(base, "Antigo"));
+    expect(await updateStudyRecord(legado.id, { ...input, pasta: path.join(base, "OutraFora") })).toEqual(outsideRoot(root));
+    expect((await updateStudyRecord(legado.id, input)).ok).toBe(true);
   });
 });
 

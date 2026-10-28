@@ -109,9 +109,14 @@
   cursor: pointer;
 }
 
-.list button:hover,
+.list button:hover:enabled,
 .crumb button:hover {
   background: var(--color-bg);
+}
+
+.list button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .list button:focus-visible,

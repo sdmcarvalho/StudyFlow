@@ -2,18 +2,41 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GET, POST } from "@/app/api/pastas/route";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/headers", () => import("./helpers/next-headers"));
+
+import { GET, POST } from "@/app/api/pastas/route";
+import { userRoot } from "@/features/estudo/folder-scope";
+import { db } from "@/lib/db";
+import { createTestUser, signInAs, signOut } from "./helpers/auth";
+
+// `tmp` é a STUDYFLOW_BASE_DIR deste arquivo; `base` é a raiz do usuário logado (o seletor não sai dela).
+let tmp: string;
 let base: string;
+let user: Awaited<ReturnType<typeof createTestUser>>;
 
 beforeAll(async () => {
-  base = await fs.mkdtemp(path.join(os.tmpdir(), "studyflow-pastas-"));
-  await fs.mkdir(path.join(base, "Física"));
+  tmp = await fs.mkdtemp(path.join(os.tmpdir(), "studyflow-pastas-"));
+  vi.stubEnv("STUDYFLOW_BASE_DIR", tmp);
 });
 
 afterAll(async () => {
+  vi.unstubAllEnvs();
+  await fs.rm(tmp, { recursive: true, force: true });
+});
+
+beforeEach(async () => {
+  await db.studyRecord.deleteMany();
+  await db.aiSettings.deleteMany();
+  await db.session.deleteMany();
+  await db.user.deleteMany();
+  signOut();
+  user = await createTestUser();
+  await signInAs(user);
+  base = userRoot(user);
   await fs.rm(base, { recursive: true, force: true });
+  await fs.mkdir(path.join(base, "Física"), { recursive: true });
 });
 
 const LOCAL = "localhost:3000";
@@ -40,20 +63,68 @@ function post(body: unknown, options: { host?: string; origin?: string; contentT
 }
 
 describe("GET /api/pastas", () => {
-  it("lista as subpastas e as unidades", async () => {
+  it("lista as subpastas da raiz do usuário, sem unidades e sem pasta acima", async () => {
     const response = await get(base);
     expect(response.status).toBe(200);
     const json = await response.json();
     expect(json.path).toBe(base);
     expect(json.folders).toEqual(["Física"]);
-    expect(json.drives).toContain(path.parse(base).root);
+    expect(json.parent).toBeNull();
+    expect(json.drives).toEqual([]);
   });
 
-  it("sem caminho devolve só as unidades", async () => {
-    const json = await (await get(null)).json();
-    expect(json.path).toBeNull();
-    expect(json.folders).toEqual([]);
-    expect(json.drives.length).toBeGreaterThan(0);
+  it("sem caminho (ou vazio) devolve a raiz do usuário, criando-a se preciso", async () => {
+    await fs.rm(base, { recursive: true, force: true });
+    for (const caminho of [null, "", "  "]) {
+      const response = await get(caminho);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ path: base, parent: null, folders: [], drives: [] });
+    }
+    expect((await fs.stat(base)).isDirectory()).toBe(true);
+  });
+
+  it("subpasta devolve a raiz como pasta acima e continua sem unidades", async () => {
+    const json = await (await get(path.join(base, "Física"))).json();
+    expect(json.path).toBe(path.join(base, "Física"));
+    expect(json.parent).toBe(base);
+    expect(json.drives).toEqual([]);
+  });
+
+  it("segmento .. no caminho é recusado (400) e nunca lista fora da raiz", async () => {
+    const response = await get(`${base}\\..\\alheia`);
+    expect(response.status).toBe(400);
+    expect((await response.json()).folders).toBeUndefined();
+  });
+
+  it("pasta que não existe dentro da raiz sobe até a mais próxima que existe", async () => {
+    const json = await (await get(path.join(base, "Física", "Nada"))).json();
+    expect(json.path).toBe(path.join(base, "Física"));
+  });
+
+  it("sem sessão devolve 401 e não cria a raiz", async () => {
+    signOut();
+    await fs.rm(base, { recursive: true, force: true });
+    const response = await get(null);
+    expect(response.status).toBe(401);
+    expect((await response.json()).message).toBe("Sessão expirada, entre novamente.");
+    await expect(fs.stat(base)).rejects.toThrow();
+  });
+
+  it("caminho fora da raiz devolve 403, sem listar nada", async () => {
+    await fs.mkdir(path.join(tmp, "alheia", "segredo"), { recursive: true });
+    for (const fora of [tmp, `${base}2`, path.join(tmp, "alheia"), path.join(tmp, "alheia", "segredo"), path.parse(base).root]) {
+      const response = await get(fora);
+      expect(response.status).toBe(403);
+      const json = await response.json();
+      expect(json.message).toBe("Essa pasta fica fora da sua pasta de estudos.");
+      expect(json.folders).toBeUndefined();
+    }
+  });
+
+  it("a pasta de outro usuário está fora da raiz (403)", async () => {
+    const other = await createTestUser({ name: "Outra Pessoa" });
+    await fs.mkdir(userRoot(other), { recursive: true });
+    expect((await get(userRoot(other))).status).toBe(403);
   });
 
   it("caminho inválido devolve 400 com a mensagem", async () => {
@@ -74,6 +145,24 @@ describe("GET /api/pastas", () => {
 });
 
 describe("POST /api/pastas", () => {
+  it("sem sessão devolve 401 e não cria nada", async () => {
+    signOut();
+    const response = await post({ pai: base, nome: "SemSessao" });
+    expect(response.status).toBe(401);
+    await expect(fs.stat(path.join(base, "SemSessao"))).rejects.toThrow();
+  });
+
+  it("pai fora da raiz devolve 403 sem criar nada", async () => {
+    await fs.mkdir(path.join(tmp, "alheia"), { recursive: true });
+    for (const pai of [tmp, path.join(tmp, "alheia"), `${base}2`]) {
+      const response = await post({ pai, nome: "Invasor3" }, { origin: "http://localhost:3000" });
+      expect(response.status).toBe(403);
+      expect((await response.json()).message).toBe("Essa pasta fica fora da sua pasta de estudos.");
+    }
+    await expect(fs.stat(path.join(tmp, "Invasor3"))).rejects.toThrow();
+    await expect(fs.stat(path.join(tmp, "alheia", "Invasor3"))).rejects.toThrow();
+  });
+
   it("cria a subpasta e devolve o caminho", async () => {
     const response = await post({ pai: base, nome: "Química" }, { origin: "http://localhost:3000" });
     expect(response.status).toBe(201);

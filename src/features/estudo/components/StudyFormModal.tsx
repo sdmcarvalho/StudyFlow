@@ -73,6 +73,7 @@ function StudyForm({ record, baseDir, onCancel, onSaved, onError }: StudyFormPro
     return (
       <FolderPicker
         initialPath={current.ok ? current.path : baseDir}
+        rootPath={baseDir}
         onSelect={(path) => closeBrowser(path)}
         onCancel={() => closeBrowser(null)}
       />

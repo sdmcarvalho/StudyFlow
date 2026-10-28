@@ -8,16 +8,28 @@ import styles from "./FolderPicker.module.css";
 type FolderPickerProps = {
   /** Pasta onde o seletor abre; se não existir, o servidor sobe até a mais próxima que existe. */
   initialPath: string;
+  /** Raiz do usuário: os trechos clicáveis do caminho começam nela (o servidor não deixa sair dela). */
+  rootPath?: string;
   onSelect: (path: string) => void;
   onCancel: () => void;
 };
 
 type Crumb = { label: string; path: string };
 
-/** Trechos clicáveis do caminho: a raiz (`C:\` ou `\\servidor\pasta`) e cada subpasta. */
-function crumbsOf(path: string): Crumb[] {
+function isInside(root: string, path: string): boolean {
+  const base = root.toLowerCase();
+  const target = path.toLowerCase();
+  return target === base || target.startsWith(base.endsWith("\\") ? base : `${base}\\`);
+}
+
+/**
+ * Trechos clicáveis do caminho: a raiz (a do usuário, quando informada e o caminho está dentro dela;
+ * senão `C:\` ou `\\servidor\pasta`) e cada subpasta.
+ */
+function crumbsOf(path: string, rootPath?: string): Crumb[] {
   const unc = /^\\\\[^\\]+\\[^\\]+/.exec(path);
-  const root = unc ? unc[0] : path.slice(0, 3);
+  const scoped = rootPath !== undefined && isInside(rootPath, path);
+  const root = scoped ? path.slice(0, rootPath.length) : unc ? unc[0] : path.slice(0, 3);
   const crumbs: Crumb[] = [{ label: root, path: root }];
   let current = root;
   for (const segment of path.slice(root.length).split("\\")) {
@@ -31,7 +43,7 @@ function crumbsOf(path: string): Crumb[] {
 const driveOf = (path: string | null) => (path && /^[A-Za-z]:\\/.test(path) ? `${path[0].toUpperCase()}:\\` : "");
 
 /** Navegador de pastas do disco, mostrado no lugar do formulário do modal. */
-export function FolderPicker({ initialPath, onSelect, onCancel }: FolderPickerProps) {
+export function FolderPicker({ initialPath, rootPath, onSelect, onCancel }: FolderPickerProps) {
   const [view, setView] = useState<FolderView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +65,7 @@ export function FolderPicker({ initialPath, onSelect, onCancel }: FolderPickerPr
       return;
     }
     setError(result.message);
-    // Sem nada para mostrar (caminho inicial inválido): cai na lista de unidades, mantendo o erro.
+    // Sem nada para mostrar (caminho inicial inválido ou fora da raiz): o servidor responde com a raiz do usuário, mantendo o erro.
     if (!hasView.current) void fetchFolder(null).then((drives) => (drives.ok ? apply(id, drives) : setLoading(false)));
     else setLoading(false);
   }
@@ -77,7 +89,7 @@ export function FolderPicker({ initialPath, onSelect, onCancel }: FolderPickerPr
   useEffect(() => {
     const root = rootRef.current;
     if (!root || root.contains(document.activeElement) && document.activeElement !== root) return;
-    listRef.current?.querySelector<HTMLElement>("button")?.focus();
+    listRef.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
   }, [view]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -96,7 +108,7 @@ export function FolderPicker({ initialPath, onSelect, onCancel }: FolderPickerPr
 
   function handleListKeyDown(event: KeyboardEvent<HTMLUListElement>) {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     const next = event.key === "ArrowDown" ? Math.min(index + 1, buttons.length - 1) : Math.max(index - 1, 0);
     event.preventDefault();
@@ -121,20 +133,23 @@ export function FolderPicker({ initialPath, onSelect, onCancel }: FolderPickerPr
   return (
     <div ref={rootRef} className={styles.picker} tabIndex={-1} onKeyDown={handleKeyDown}>
       <div className={styles.bar}>
-        <label className={styles.drive}>
-          <span>Unidade</span>
-          <select value={driveOf(path)} onChange={(event) => navigate(event.target.value)}>
-            {driveOf(path) === "" ? <option value="">—</option> : null}
-            {(view?.drives ?? []).map((drive) => (
-              <option key={drive} value={drive}>
-                {drive}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Sem unidades (o servidor só mostra a raiz do usuário), não há o que escolher. */}
+        {(view?.drives ?? []).length > 0 ? (
+          <label className={styles.drive}>
+            <span>Unidade</span>
+            <select value={driveOf(path)} onChange={(event) => navigate(event.target.value)}>
+              {driveOf(path) === "" ? <option value="">—</option> : null}
+              {(view?.drives ?? []).map((drive) => (
+                <option key={drive} value={drive}>
+                  {drive}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {path ? (
           <nav aria-label="Caminho" className={styles.crumbs}>
-            {crumbsOf(path).map((crumb, index, all) => (
+            {crumbsOf(path, rootPath).map((crumb, index, all) => (
               <span key={crumb.path} className={styles.crumb}>
                 {index > 0 ? <span aria-hidden="true">›</span> : null}
                 <button type="button" onClick={() => navigate(crumb.path)} aria-current={index === all.length - 1 ? "location" : undefined}>
@@ -168,7 +183,12 @@ export function FolderPicker({ initialPath, onSelect, onCancel }: FolderPickerPr
         ) : (
           <>
             <li>
-              <button type="button" aria-label="Pasta acima" onClick={() => navigate(view?.parent ?? null)}>
+              <button
+                type="button"
+                aria-label="Pasta acima"
+                disabled={view?.parent == null}
+                onClick={() => navigate(view?.parent ?? null)}
+              >
                 <span aria-hidden="true">⬆ ..</span>
               </button>
             </li>

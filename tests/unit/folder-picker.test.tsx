@@ -11,6 +11,15 @@ const DRIVES = ["C:\\", "D:\\"];
 /** Disco simulado: pastas por caminho (chave em minúsculas). */
 let disk: Record<string, string[]>;
 let fetchMock: ReturnType<typeof vi.fn>;
+/** Quando definida, o servidor simulado é o do usuário: raiz fixa, sem unidades e sem sair dela. */
+let scopedRoot: string | null;
+
+function isInsideScope(path: string): boolean {
+  if (scopedRoot === null) return true;
+  const root = scopedRoot.toLowerCase();
+  const target = path.toLowerCase();
+  return target === root || target.startsWith(`${root}\\`);
+}
 
 function parentOf(path: string): string | null {
   if (/^[A-Z]:\\$/.test(path)) return null;
@@ -35,6 +44,12 @@ function handle(url: string, init?: RequestInit) {
     return json(201, { path: created });
   }
   const caminho = parsed.searchParams.get("caminho");
+  if (scopedRoot !== null) {
+    const target = caminho === null || caminho.trim() === "" ? scopedRoot : caminho;
+    if (!isInsideScope(target)) return json(403, { message: "Essa pasta fica fora da sua pasta de estudos." });
+    const parent = target.toLowerCase() === scopedRoot.toLowerCase() ? null : parentOf(target);
+    return json(200, { path: target, parent, folders: [...(disk[target.toLowerCase()] ?? [])], drives: [] } satisfies View);
+  }
   if (caminho === null) return json(200, { path: null, parent: null, folders: [], drives: DRIVES } satisfies View);
   const folders = disk[caminho.toLowerCase()];
   if (!folders) return json(400, { message: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo." });
@@ -42,6 +57,7 @@ function handle(url: string, init?: RequestInit) {
 }
 
 beforeEach(() => {
+  scopedRoot = null;
   disk = {
     "c:\\": ["Estudos", "Teste"],
     "c:\\estudos": ["Cálculo", "Física"],
@@ -86,20 +102,49 @@ describe("FolderPicker", () => {
     expect(onSelect).toHaveBeenCalledWith("C:\\Estudos\\Física");
   });
 
-  it("“Pasta acima” sobe um nível; na raiz mostra as unidades", async () => {
+  it("“Pasta acima” sobe um nível; na raiz da unidade (parent null) fica desabilitado", async () => {
     renderPicker();
     await within(list()).findByRole("button", { name: "Física" });
+    expect(screen.getByRole("button", { name: "Pasta acima" })).toBeEnabled();
     await userEvent.click(screen.getByRole("button", { name: "Pasta acima" }));
     await screen.findByText("C:\\", { selector: "output" });
     expect(within(list()).getByRole("button", { name: "Teste" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pasta acima" })).toBeDisabled();
+    expect(select()).toBeEnabled();
+  });
+
+  it("na raiz do usuário (sem unidades): “Pasta acima” desabilitado e sem seletor de unidade", async () => {
+    scopedRoot = "C:\\Estudos";
+    renderPicker("C:\\Estudos\\Física");
+    await screen.findByText("C:\\Estudos\\Física", { selector: "output" });
+    expect(screen.getByRole("button", { name: "Pasta acima" })).toBeEnabled();
+    expect(screen.queryByLabelText("Unidade")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Pasta acima" }));
-    expect(await within(list()).findByRole("button", { name: "D:\\" })).toBeInTheDocument();
-    expect(select()).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Pasta acima" })).not.toBeInTheDocument();
+    await screen.findByText("C:\\Estudos", { selector: "output" });
+    expect(within(list()).getByRole("button", { name: "Cálculo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pasta acima" })).toBeDisabled();
+    expect(screen.queryByLabelText("Unidade")).not.toBeInTheDocument();
+    expect(select()).toBeEnabled();
+  });
 
-    await userEvent.click(within(list()).getByRole("button", { name: "D:\\" }));
-    expect(await within(list()).findByRole("button", { name: "Backup" })).toBeInTheDocument();
+  it("com a raiz informada, os trechos do caminho começam nela", async () => {
+    scopedRoot = "C:\\Estudos";
+    render(<FolderPicker initialPath={"C:\\Estudos\\Física"} rootPath={"C:\\Estudos"} onSelect={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByText("C:\\Estudos\\Física", { selector: "output" });
+    const crumbs = within(screen.getByRole("navigation", { name: "Caminho" }));
+    expect(crumbs.queryByRole("button", { name: "C:\\" })).not.toBeInTheDocument();
+    await userEvent.click(crumbs.getByRole("button", { name: "C:\\Estudos" }));
+    expect(await within(list()).findByRole("button", { name: "Cálculo" })).toBeInTheDocument();
+  });
+
+  it("pasta inicial fora da raiz mostra o erro e abre na raiz do usuário", async () => {
+    scopedRoot = "C:\\Estudos";
+    renderPicker("C:\\Teste");
+    expect(await screen.findByRole("alert")).toHaveTextContent("fora da sua pasta");
+    await screen.findByText("C:\\Estudos", { selector: "output" });
+    expect(within(list()).getByRole("button", { name: "Física" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pasta acima" })).toBeDisabled();
   });
 
   it("trocar a unidade no seletor abre a raiz dela", async () => {
