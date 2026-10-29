@@ -138,3 +138,14 @@ Arquivos em `deploy/`, no molde do CRM (`C:\Dev\CrmAT`: PM2 + Nginx + Certbot, U
 4. Verificação do `undici`; depois `url-policy` e o `fetch` protegido.
 5. Arquivos de deploy, README e build em clone limpo.
 6. Revisão final da branch.
+
+## Refinamentos feitos ao escrever o plano
+
+Detalhes que a leitura do código mostrou (o plano em `docs/superpowers/plans/2026-10-29-publicacao-linux.md` os aplica):
+
+- **Componentes de cliente:** `FolderPicker` e `StudyFormModal` também tinham `\` e comparação sem diferenciar maiúsculas fixos. Ganham helpers puros em `folder-path.ts` (`joinFolder`, `isInsideFolder`, `folderCrumbs`, `withTrailingSeparator`).
+- **`//` no POSIX:** só repetições depois da primeira barra são colapsadas. Entrada que começa com `//` segue candidata a UNC (como hoje); `//a` e `///a` são inválidas.
+- **Mensagem de caminho relativo:** uma só, com os dois exemplos (`C:\Estudos\Cálculo ou /var/estudos/calculo`), em vez de variar com a base — evita levar o sabor da base até o schema, que roda no navegador.
+- **`createAiClient` exige `fetchImpl`** (sem padrão `fetch`); `createGatewayClient` é a fábrica de produção. A política usa o `fetch` do pacote `undici`, não o global.
+- **Rotas de IA já exigem sessão:** `resolveAiConfig` mapeia `AuthError` para 401/403; o plano só prova isso com teste.
+- **Testes injetáveis:** `baseFolder(platform)`, `listDrives(query, platform)`, `userRoot(user, base)`; os testes POSIX de disco usam `fs` simulado e rodam no Windows.
