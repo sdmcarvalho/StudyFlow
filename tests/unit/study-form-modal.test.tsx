@@ -14,8 +14,8 @@ describe("StudyFormModal: pasta inicial de um novo Estudo", () => {
     expect(renderNew("/var/sf/ana").value).toBe("/var/sf/ana/");
   });
 
-  it("base Windows recebe '\' no fim", () => {
-    expect(renderNew("C:\Estudos").value).toBe("C:\Estudos\\");
+  it("base Windows recebe a barra invertida no fim", () => {
+    expect(renderNew("C:\\Estudos").value).toBe("C:\\Estudos\\");
   });
 
   it("raiz de unidade não ganha barra duplicada", () => {
