@@ -23,6 +23,7 @@ export default defineConfig({
     timeout: 240_000,
     reuseExistingServer: false,
     // Pastas dos Estudos criadas pelo app ficam na pasta temporária e2e (ver resetData).
-    env: { DATABASE_URL, STUDYFLOW_BASE_DIR: E2E_BASE_DIR },
+    // O gateway falso de configuracao.spec.ts é http em 127.0.0.1; a política contra SSRF só o aceita relaxada.
+    env: { DATABASE_URL, STUDYFLOW_BASE_DIR: E2E_BASE_DIR, STUDYFLOW_AI_ALLOW_PRIVATE: "1" },
   },
 });
