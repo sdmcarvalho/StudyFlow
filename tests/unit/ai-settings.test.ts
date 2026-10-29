@@ -26,6 +26,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await db.aiSettings.deleteMany();
 });
 
@@ -104,6 +105,7 @@ describe("saveAiSettings", () => {
   });
 
   it("sem chave salva, outra URL com chave em branco é salva (gateway sem chave)", async () => {
+    vi.stubEnv("STUDYFLOW_AI_ALLOW_PRIVATE", "1"); // gateway local no computador de desenvolvimento
     await saveAiSettings({ ...valid, apiKey: "" });
     const result = await saveAiSettings({ ...valid, baseUrl: "http://localhost:8080/v1", apiKey: "" });
     expect(result.ok).toBe(true);
@@ -111,6 +113,17 @@ describe("saveAiSettings", () => {
     expect(stored.baseUrl).toBe("http://localhost:8080/v1");
     expect(stored.apiKey).toBe("");
   });
+
+  it.each(["http://gateway.example.com/v1", "https://localhost:11434/v1", "https://127.0.0.1/v1", "https://[::ffff:127.0.0.1]/v1"])(
+    "destino proibido %s é recusado no campo baseUrl e não grava nada",
+    async (baseUrl) => {
+      const result = await saveAiSettings({ ...valid, baseUrl });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.fieldErrors?.baseUrl).toBe("Endereço do gateway não permitido.");
+      expect(await db.aiSettings.count()).toBe(0);
+    },
+  );
 
   it("entrada inválida devolve fieldErrors e não grava nada", async () => {
     const result = await saveAiSettings({ ...valid, baseUrl: "" });

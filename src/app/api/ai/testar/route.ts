@@ -1,5 +1,5 @@
 // Testa a conexão com o gateway de IA usando os valores digitados (sem salvar) completados com os salvos.
-import { createAiClient } from "@/features/ai/client";
+import { createGatewayClient } from "@/features/ai/gateway";
 import { resolveAiConfig } from "@/features/ai/resolve-config";
 import { rejectUnsafePost } from "@/features/ai/route-guard";
 
@@ -17,5 +17,5 @@ export async function POST(request: Request): Promise<Response> {
   const resolved = await resolveAiConfig(body, { requireModel: true });
   if (!resolved.ok) return Response.json({ message: resolved.message }, { status: resolved.status });
 
-  return Response.json(await createAiClient(resolved.config).testConnection());
+  return Response.json(await createGatewayClient(resolved.config).testConnection());
 }

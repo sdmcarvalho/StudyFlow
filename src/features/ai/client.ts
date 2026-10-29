@@ -1,5 +1,6 @@
 // Cliente mínimo para APIs compatíveis com OpenAI (/models e /chat/completions).
-// Módulo puro: não toca o banco e recebe o `fetch` por injeção para os testes.
+// Módulo puro: não toca o banco e recebe o `fetch` por injeção (obrigatório). Em produção use
+// `createGatewayClient` (gateway.ts), que injeta o `fetch` com a política de destino.
 
 export type AiClientConfig = {
   baseUrl: string;
@@ -66,11 +67,17 @@ function providerDefaults(baseUrl: string): Record<string, unknown> {
   return baseUrl.includes("aliyuncs.com") ? { enable_thinking: false } : {};
 }
 
+/** Recusa da política de destino (url-policy): a mensagem já é a do usuário. Checada pelo nome para o
+ *  cliente continuar sem depender do `undici`. */
+function isBlockedDestination(e: unknown): e is Error {
+  return e instanceof Error && e.name === "BlockedDestinationError";
+}
+
 function isTimeout(e: unknown): boolean {
   return e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
 }
 
-export function createAiClient(config: AiClientConfig, fetchImpl: typeof fetch = fetch) {
+export function createAiClient(config: AiClientConfig, fetchImpl: typeof fetch) {
   const baseUrl = config.baseUrl.trim().replace(/\/+$/, "");
   const apiKey = config.apiKey;
 
@@ -83,6 +90,7 @@ export function createAiClient(config: AiClientConfig, fetchImpl: typeof fetch =
 
   function networkMessage(e: unknown, seconds: number): string {
     if (isTimeout(e)) return `Tempo esgotado (${seconds} s).`;
+    if (isBlockedDestination(e)) return e.message;
     const msg = e instanceof Error ? e.message : String(e);
     return safeText(`Erro de rede: ${msg}`, apiKey);
   }

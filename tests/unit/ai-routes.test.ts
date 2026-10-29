@@ -3,10 +3,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => import("./helpers/next-headers"));
+// As rotas usam a fábrica de produção; aqui ela troca só o transporte pelo `fetch` global (simulado em cada
+// teste). A política de destino em si é coberta por url-policy.test.ts e safe-fetch.test.ts.
+vi.mock("@/features/ai/gateway", async () => {
+  const { createAiClient } = await import("@/features/ai/client");
+  return {
+    createGatewayClient: (config: import("@/features/ai/client").AiClientConfig) =>
+      createAiClient(config, ((input, init) => globalThis.fetch(input, init)) as typeof fetch),
+  };
+});
 
 import { POST as modelos } from "@/app/api/ai/modelos/route";
 import { POST as testar } from "@/app/api/ai/testar/route";
 import { saveAiSettings } from "@/features/ai/actions";
+import { BlockedDestinationError } from "@/features/ai/url-policy";
 import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
@@ -16,6 +26,7 @@ const SAVED_KEY = "sk-salva-1234567890";
 const URL_REQUIRED = "Informe uma URL http ou https válida para o gateway.";
 const OTHER_URL_NEEDS_KEY = "Para testar outra Base URL, digite a API key junto (ou salve antes).";
 const MODEL_REQUIRED = "Escolha o modelo antes de testar.";
+const BLOCKED = "Endereço do gateway não permitido.";
 
 type Options = { host?: string; origin?: string; contentType?: string };
 
@@ -106,6 +117,53 @@ describe.each([
     const response = await send("{oops");
     expect(response.status).toBe(400);
     expect((await response.json()).message).toBe("Envie os dados em JSON.");
+  });
+
+  it.each([
+    "http://gw.exemplo.com/v1",
+    "https://localhost:11434/v1",
+    "https://localhost./v1",
+    "https://foo.localhost/v1",
+    "https://127.0.0.1/v1",
+    "https://2130706433/v1",
+    "https://[::1]/v1",
+    "https://[::ffff:127.0.0.1]/v1",
+    "https://169.254.169.254/latest",
+  ])("Base URL digitada proibida (%s) responde 400 sem chamar o gateway", async (baseUrl) => {
+    const response = await send({ baseUrl, apiKey: "sk-x", model: "m" });
+    expect(response.status).toBe(400);
+    expect((await response.json()).message).toBe(BLOCKED);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("recusa da política na conexão (DNS para endereço privado)", () => {
+  it("testar devolve a mensagem da política, não 'fetch failed'", async () => {
+    fetchMock.mockRejectedValueOnce(new BlockedDestinationError());
+    const response = await post({ baseUrl: "https://gw.exemplo.com/v1", apiKey: "sk-x", model: "m" });
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data).toMatchObject({ ok: false, error: BLOCKED, status: null });
+  });
+
+  it("modelos devolve 502 com a mensagem da política", async () => {
+    fetchMock.mockRejectedValueOnce(new BlockedDestinationError());
+    const response = await postModels({ baseUrl: "https://gw.exemplo.com/v1", apiKey: "sk-x" });
+    expect(response.status).toBe(502);
+    expect((await response.json()).message).toBe(`Não foi possível listar os modelos: ${BLOCKED}`);
+  });
+});
+
+describe("com STUDYFLOW_AI_ALLOW_PRIVATE=1", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("gateway local em http é testado", async () => {
+    vi.stubEnv("STUDYFLOW_AI_ALLOW_PRIVATE", "1");
+    const response = await post({ baseUrl: "http://localhost:11434/v1", apiKey: "", model: "m" });
+    expect(response.status).toBe(200);
+    expect(lastCall().url).toBe("http://localhost:11434/v1/chat/completions");
   });
 });
 

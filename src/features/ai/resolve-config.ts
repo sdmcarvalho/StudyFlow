@@ -3,6 +3,7 @@ import { isAuthError } from "@/lib/current-user";
 import type { AiClientConfig } from "./client";
 import { getAiSettingsWithKey } from "./queries";
 import { normalizeBaseUrl, parseExtraParams } from "./schema";
+import { checkGatewayUrlSyntax } from "./url-policy";
 
 export type ResolveResult = { ok: true; config: AiClientConfig } | { ok: false; status: number; message: string };
 
@@ -41,6 +42,9 @@ export async function resolveAiConfig(body: unknown, options: { requireModel: bo
   const typedUrl = typedText(typed, "baseUrl");
   const baseUrl = normalizeBaseUrl(typedUrl ?? saved.baseUrl);
   if (baseUrl === null) return bad(MSG_URL);
+  // Destino proibido (http, localhost, IP privado...) não chega ao cliente; o DNS é checado na conexão.
+  const urlProblem = checkGatewayUrlSyntax(baseUrl);
+  if (urlProblem !== null) return bad(urlProblem);
 
   const typedKey = typedText(typed, "apiKey") ?? "";
   const urlChanged = typedUrl !== undefined && baseUrl !== normalizeBaseUrl(saved.baseUrl);

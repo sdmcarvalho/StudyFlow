@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { toPublicSettings } from "./queries";
 import { normalizeBaseUrl, parseAiSettingsInput } from "./schema";
 import type { AiFieldErrors, AiSettingsPublic } from "./types";
+import { checkGatewayUrlSyntax } from "./url-policy";
 
 export type SaveAiSettingsResult =
   | { ok: true; data: AiSettingsPublic }
@@ -22,6 +23,8 @@ const SAVE_FAILED = { ok: false, message: "Não foi possível salvar a configura
 export async function saveAiSettings(input: unknown): Promise<SaveAiSettingsResult> {
   const parsed = parseAiSettingsInput(input);
   if (!parsed.ok) return { ok: false, fieldErrors: parsed.fieldErrors };
+  const urlProblem = checkGatewayUrlSyntax(parsed.data.baseUrl);
+  if (urlProblem !== null) return { ok: false, fieldErrors: { baseUrl: urlProblem } };
 
   const { apiKey, ...rest } = parsed.data;
   try {

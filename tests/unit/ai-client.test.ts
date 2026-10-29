@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { AiError, createAiClient, type AiClientConfig } from "@/features/ai/client";
+import { BlockedDestinationError } from "@/features/ai/url-policy";
 
 type Call = { url: string; init: RequestInit; headers: Record<string, string>; body: Record<string, unknown> | null };
 
@@ -116,6 +117,18 @@ describe("testConnection", () => {
       .listModels()
       .catch((e: unknown) => e as AiError);
     expect((err as AiError).message).not.toContain(key);
+  });
+
+  it("recusa da política de destino chega com a mensagem dela, sem 'Erro de rede'", async () => {
+    const blocked = mockFetch(() => Promise.reject(new BlockedDestinationError()));
+    const client = createAiClient(base, blocked.fetchImpl);
+    const r = await client.testConnection();
+    expect(r).toMatchObject({ ok: false, error: "Endereço do gateway não permitido.", status: null });
+    const listErr = await client.listModels().catch((e: unknown) => e as AiError);
+    expect(listErr).toBeInstanceOf(AiError);
+    expect((listErr as AiError).message).toBe("Endereço do gateway não permitido.");
+    const chatErr = await client.chat("s", "u").catch((e: unknown) => e as AiError);
+    expect((chatErr as AiError).message).toBe("Endereço do gateway não permitido.");
   });
 });
 
