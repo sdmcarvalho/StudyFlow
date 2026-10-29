@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { folderCrumbs, joinFolder } from "../folder-path";
 import { createFolder, fetchFolder, type FolderView, type FolderViewResult } from "../folder-api";
 import styles from "./FolderPicker.module.css";
 
@@ -13,32 +14,6 @@ type FolderPickerProps = {
   onSelect: (path: string) => void;
   onCancel: () => void;
 };
-
-type Crumb = { label: string; path: string };
-
-function isInside(root: string, path: string): boolean {
-  const base = root.toLowerCase();
-  const target = path.toLowerCase();
-  return target === base || target.startsWith(base.endsWith("\\") ? base : `${base}\\`);
-}
-
-/**
- * Trechos clicáveis do caminho: a raiz (a do usuário, quando informada e o caminho está dentro dela;
- * senão `C:\` ou `\\servidor\pasta`) e cada subpasta.
- */
-function crumbsOf(path: string, rootPath?: string): Crumb[] {
-  const unc = /^\\\\[^\\]+\\[^\\]+/.exec(path);
-  const scoped = rootPath !== undefined && isInside(rootPath, path);
-  const root = scoped ? path.slice(0, rootPath.length) : unc ? unc[0] : path.slice(0, 3);
-  const crumbs: Crumb[] = [{ label: root, path: root }];
-  let current = root;
-  for (const segment of path.slice(root.length).split("\\")) {
-    if (segment === "") continue;
-    current = current.endsWith("\\") ? `${current}${segment}` : `${current}\\${segment}`;
-    crumbs.push({ label: segment, path: current });
-  }
-  return crumbs;
-}
 
 const driveOf = (path: string | null) => (path && /^[A-Za-z]:\\/.test(path) ? `${path[0].toUpperCase()}:\\` : "");
 
@@ -129,6 +104,8 @@ export function FolderPicker({ initialPath, rootPath, onSelect, onCancel }: Fold
   }
 
   const path = view?.path ?? null;
+  // Vazio se o servidor devolver um caminho que o módulo não reconhece: sem trechos, só a lista.
+  const crumbs = path ? folderCrumbs(path, rootPath) : [];
 
   return (
     <div ref={rootRef} className={styles.picker} tabIndex={-1} onKeyDown={handleKeyDown}>
@@ -147,9 +124,9 @@ export function FolderPicker({ initialPath, rootPath, onSelect, onCancel }: Fold
             </select>
           </label>
         ) : null}
-        {path ? (
+        {crumbs.length > 0 ? (
           <nav aria-label="Caminho" className={styles.crumbs}>
-            {crumbsOf(path, rootPath).map((crumb, index, all) => (
+            {crumbs.map((crumb, index, all) => (
               <span key={crumb.path} className={styles.crumb}>
                 {index > 0 ? <span aria-hidden="true">›</span> : null}
                 <button type="button" onClick={() => navigate(crumb.path)} aria-current={index === all.length - 1 ? "location" : undefined}>
@@ -194,7 +171,7 @@ export function FolderPicker({ initialPath, rootPath, onSelect, onCancel }: Fold
             </li>
             {(view?.folders ?? []).map((folder) => (
               <li key={folder}>
-                <button type="button" onClick={() => navigate(path.endsWith("\\") ? `${path}${folder}` : `${path}\\${folder}`)}>
+                <button type="button" onClick={() => navigate(joinFolder(path, folder))}>
                   <span aria-hidden="true">📁</span> {folder}
                 </button>
               </li>

@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { todayIso } from "@/lib/dates";
 import { createStudyRecord, updateStudyRecord } from "../actions";
 import type { StudyRecordRow } from "../list";
-import { MAX_FOLDER_CHARS, normalizeFolderPath } from "../folder-path";
+import { MAX_FOLDER_CHARS, normalizeFolderPath, withTrailingSeparator } from "../folder-path";
 import { parseStudyRecordInput, type FieldErrors } from "../schema";
 import { FolderPicker } from "./FolderPicker";
 import styles from "./StudyFormModal.module.css";
@@ -16,7 +16,7 @@ const SAVE_FAILED = "Não foi possível salvar. Tente novamente.";
 type StudyFormModalProps = {
   open: boolean;
   record: StudyRecordRow | null;
-  /** Pasta base; um novo Estudo começa com `<baseDir>\` no campo Pasta. */
+  /** Pasta base; um novo Estudo começa com `<baseDir>` mais o separador do sistema no campo Pasta. */
   baseDir: string;
   onClose: () => void;
   onSaved: (kind: "created" | "updated") => void;
@@ -39,15 +39,10 @@ type StudyFormProps = {
   onError: (message: string) => void;
 };
 
-/** `<baseDir>\`, sem duplicar a barra quando a base já termina com ela (ex.: D:\). */
-function newFolderPrefix(baseDir: string): string {
-  return baseDir.endsWith("\\") ? baseDir : `${baseDir}\\`;
-}
-
 // Montado só enquanto o modal está aberto, então o estado reinicia a cada abertura.
 function StudyForm({ record, baseDir, onCancel, onSaved, onError }: StudyFormProps) {
   const [descricao, setDescricao] = useState(record?.descricao ?? "");
-  const [pasta, setPasta] = useState(record?.pasta ?? newFolderPrefix(baseDir));
+  const [pasta, setPasta] = useState(record?.pasta ?? withTrailingSeparator(baseDir));
   const [dataInicial, setDataInicial] = useState(record?.dataInicial ?? todayIso());
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);

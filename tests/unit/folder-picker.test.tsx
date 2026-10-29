@@ -240,6 +240,33 @@ describe("FolderPicker", () => {
   });
 });
 
+describe("FolderPicker em caminhos POSIX", () => {
+  const POSIX_VIEW: View = { path: "/var/sf/ana", parent: null, folders: ["Cálculo"], drives: [] };
+
+  beforeEach(() => {
+    fetchMock.mockImplementation(() => json(200, POSIX_VIEW));
+  });
+
+  it("mostra o trecho da raiz, navega com '/' e deixa “Pasta acima” desabilitado", async () => {
+    render(<FolderPicker initialPath="/var/sf/ana" rootPath="/var/sf/ana" onSelect={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByText("/var/sf/ana", { selector: "output" });
+    const crumbs = within(screen.getByRole("navigation", { name: "Caminho" }));
+    expect(crumbs.getByRole("button", { name: "/var/sf/ana" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pasta acima" })).toBeDisabled();
+
+    await userEvent.click(within(list()).getByRole("button", { name: "Cálculo" }));
+    expect(fetchMock).toHaveBeenLastCalledWith(`/api/pastas?caminho=${encodeURIComponent("/var/sf/ana/Cálculo")}`);
+  });
+
+  it("sem raiz informada, o primeiro trecho é '/' e há um trecho por subpasta", async () => {
+    fetchMock.mockImplementation(() => json(200, { ...POSIX_VIEW, path: "/var/sf", parent: "/var" }));
+    render(<FolderPicker initialPath="/var/sf" onSelect={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByText("/var/sf", { selector: "output" });
+    const crumbs = within(screen.getByRole("navigation", { name: "Caminho" }));
+    expect(crumbs.getAllByRole("button").map((button) => button.textContent)).toEqual(["/", "var", "sf"]);
+  });
+});
+
 describe("folder-api", () => {
   it("fetchFolder nunca lança: rede fora vira mensagem", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("offline"));
