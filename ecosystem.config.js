@@ -19,7 +19,7 @@ module.exports = {
     {
       name: "studyflow",
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3001 -H 127.0.0.1",
+      args: "start -p 3002 -H 127.0.0.1",
       cwd: __dirname,
       instances: 1,
       exec_mode: "fork",

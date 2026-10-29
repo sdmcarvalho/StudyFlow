@@ -102,10 +102,10 @@ raiz no banco (muda modelo de dados e tela, exige migrar dados reais).
 
 Arquivos em `deploy/`, no molde do CRM (`C:\Dev\CrmAT`: PM2 + Nginx + Certbot, Ubuntu/Debian):
 
-- `deploy/nginx/studyflow.conf`: `server_name estudo.aiontecno.com.br` → `127.0.0.1:3001`; cabeçalhos `Host`,
+- `deploy/nginx/studyflow.conf`: `server_name estudo.aiontecno.com.br` → `127.0.0.1:3002`; cabeçalhos `Host`,
   `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Forwarded-For` (sem `X-Forwarded-Host` as server actions do Next
   recusam a origem); `client_max_body_size` alinhado ao limite de upload de imagens; `limit_req` moderado em `/login`.
-- `ecosystem.config.js`: processo `studyflow` no PM2 com `next start -p 3001 -H 127.0.0.1` (só escuta no localhost; a
+- `ecosystem.config.js`: processo `studyflow` no PM2 com `next start -p 3002 -H 127.0.0.1` (só escuta no localhost; a
   porta 3000 do CRM não é tocada).
 - Seção "Deploy na VPS" no README: clone, `npm ci`, `.env`, `prisma migrate deploy`, `auth:bootstrap`, `build`, PM2,
   Nginx, Certbot.

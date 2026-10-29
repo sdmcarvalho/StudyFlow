@@ -58,7 +58,7 @@ O acesso é por e-mail e senha em `/login`; todas as páginas e APIs exigem sess
 
 ## Deploy na VPS
 
-Publicação em https://estudo.aiontecno.com.br numa VPS Linux (Ubuntu/Debian) que já hospeda o ATCRM (porta 3000). Arquitetura: o app roda via **PM2** (processo `studyflow`, `next start -p 3001 -H 127.0.0.1`) atrás de um **Nginx** com TLS (Certbot). O código fica em `/opt/studyflow`; o banco em `/opt/studyflow-data` e as pastas dos Estudos em `/var/lib/studyflow`, ambos fora do código. Os arquivos de apoio são `ecosystem.config.js` e `deploy/nginx/studyflow.conf`.
+Publicação em https://estudo.aiontecno.com.br numa VPS Linux (Ubuntu/Debian) que já hospeda o ATCRM (porta 3000). Arquitetura: o app roda via **PM2** (processo `studyflow`, `next start -p 3002 -H 127.0.0.1`) atrás de um **Nginx** com TLS (Certbot). O código fica em `/opt/studyflow`; o banco em `/opt/studyflow-data` e as pastas dos Estudos em `/var/lib/studyflow`, ambos fora do código. Os arquivos de apoio são `ecosystem.config.js` e `deploy/nginx/studyflow.conf`.
 
 ### 1. Preparar a VPS
 
@@ -123,7 +123,7 @@ pm2 start ecosystem.config.js
 pm2 save
 pm2 startup    # só se ainda não estiver configurado por causa do CRM; siga a instrução impressa
 pm2 logs studyflow --lines 30
-curl -I http://127.0.0.1:3001/login    # deve responder 200
+curl -I http://127.0.0.1:3002/login    # deve responder 200
 sudo ss -tlnp                          # só o Nginx em 0.0.0.0 (ver "Notas de produção")
 ```
 
@@ -150,7 +150,7 @@ git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 restart 
 ### Notas de produção
 
 - **Nunca** rode `npm run db:seed` nem `npm run db:migrate` (`prisma migrate dev`) em produção: o seed substitui os dados do superusuário e o `migrate dev` pode resetar o banco. Em produção só `prisma migrate deploy`.
-- A porta 3001 escuta só em `127.0.0.1`; só 80/443 ficam públicas. O Nginx precisa repassar o `Host` original (o app compara o cabeçalho `Origin` com o `Host`) e `X-Forwarded-Proto`/`X-Forwarded-Host`; o `deploy/nginx/studyflow.conf` já faz isso, não o altere para reescrever o `Host`.
+- A porta 3002 escuta só em `127.0.0.1`; só 80/443 ficam públicas. O Nginx precisa repassar o `Host` original (o app compara o cabeçalho `Origin` com o `Host`) e `X-Forwarded-Proto`/`X-Forwarded-Host`; o `deploy/nginx/studyflow.conf` já faz isso, não o altere para reescrever o `Host`.
 - Cliente de IA: o servidor só chama gateways **https** cujo nome resolve apenas para endereços públicos. `STUDYFLOW_AI_ALLOW_PRIVATE=1` relaxa essa regra (para um gateway local em desenvolvimento) e **não** deve ser definido na VPS. As variáveis `HTTP_PROXY`/`HTTPS_PROXY` de saída são ignoradas pelo cliente de IA; a VPS precisa ter saída direta para o gateway.
 - **Resíduo do SSRF (serviços ligados em 0.0.0.0).** A política de destino do gateway de IA trata o IP público da própria VPS como "público". Do próprio servidor, uma conexão ao IP público da VPS sai pelo loopback e o `ufw` não a filtra; assim, qualquer serviço com TLS escutando em `0.0.0.0` e protegido só pelo firewall externo ficaria alcançável pelo recurso de gateway de IA. Por isso, serviços internos (o CRM na 3000, a Evolution API na 8081 etc.) precisam escutar em `127.0.0.1`. Não há código no StudyFlow para cobrir isso; é configuração da VPS. Faça a verificação abaixo no deploy e sempre que um serviço novo for instalado.
 - **Verificação do deploy (portas):** rode `sudo ss -tlnp` e confirme que nada além do Nginx (80/443) escuta em `0.0.0.0` ou `[::]`. Todo o resto deve aparecer em `127.0.0.1:<porta>`. Se algum serviço aparecer em `0.0.0.0`, mude o endereço de escuta dele (ou não o exponha) antes de liberar o uso do recurso de IA.
