@@ -139,7 +139,7 @@ describe("pasta física", () => {
     const result = await createStudyRecord({ ...input, pasta: "Matemática" });
     expect(result).toEqual({
       ok: false,
-      fieldErrors: { pasta: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo." },
+      fieldErrors: { pasta: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo." },
     });
     expect(await db.studyRecord.count()).toBe(0);
   });

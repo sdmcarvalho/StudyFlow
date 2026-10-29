@@ -130,7 +130,7 @@ describe("GET /api/pastas", () => {
   it("caminho inválido devolve 400 com a mensagem", async () => {
     const response = await get("Matemática");
     expect(response.status).toBe(400);
-    expect((await response.json()).message).toBe("Informe um caminho absoluto, como C:\\Estudos\\Cálculo.");
+    expect((await response.json()).message).toBe("Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo.");
   });
 
   it.each([null, "example.com", "8.8.8.8:3000", "evil.com:3000"])("Host %s fora da rede local recebe 403", async (host) => {

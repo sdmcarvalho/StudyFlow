@@ -42,7 +42,7 @@ describe("parseStudyRecordInput", () => {
   it("rejeita pasta que não é caminho absoluto", () => {
     expect(parseStudyRecordInput({ ...valid, pasta: "Matemática" })).toEqual({
       ok: false,
-      fieldErrors: { pasta: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo." },
+      fieldErrors: { pasta: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo." },
     });
   });
 

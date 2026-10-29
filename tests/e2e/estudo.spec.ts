@@ -93,7 +93,7 @@ test("Pasta relativa mostra a mensagem de caminho absoluto no modal", async ({ p
   await page.getByLabel("Pasta").fill("Matemática");
   await page.getByRole("button", { name: "Salvar" }).click();
 
-  await expect(page.getByText("Informe um caminho absoluto, como C:\\Estudos\\Cálculo.")).toBeVisible();
+  await expect(page.getByText("Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo.")).toBeVisible();
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 

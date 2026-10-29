@@ -52,7 +52,7 @@ function handle(url: string, init?: RequestInit) {
   }
   if (caminho === null) return json(200, { path: null, parent: null, folders: [], drives: DRIVES } satisfies View);
   const folders = disk[caminho.toLowerCase()];
-  if (!folders) return json(400, { message: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo." });
+  if (!folders) return json(400, { message: "Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo." });
   return json(200, { path: caminho, parent: parentOf(caminho), folders: [...folders], drives: DRIVES } satisfies View);
 }
 

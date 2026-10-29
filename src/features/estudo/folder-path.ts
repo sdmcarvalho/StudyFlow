@@ -3,13 +3,18 @@
 
 export const MAX_FOLDER_CHARS = 260;
 
-const ABSOLUTE_PATH_MESSAGE = "Informe um caminho absoluto, como C:\\Estudos\\Cálculo.";
+const ABSOLUTE_PATH_MESSAGE =
+  "Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo.";
+
+/** Sabor do caminho: Windows (unidade ou UNC) ou POSIX (raiz `/`). */
+export type PathFlavor = "win32" | "posix";
 
 export type FolderPathResult = { ok: true; path: string } | { ok: false; message: string };
 
 const invalid = (message: string): FolderPathResult => ({ ok: false, message });
 
 const DRIVE_PREFIX = /^[A-Za-z]:\\/;
+const DRIVE_START = /^[A-Za-z]:[\\/]/;
 const UNC_PREFIX = /^\\\\[^\\]+\\[^\\]+/;
 // Caracteres proibidos em nomes do Windows, incluindo os de controle (U+0000 a U+001F).
 const FORBIDDEN_CHARS = /[<>:"|?*\u0000-\u001f]/;
@@ -37,10 +42,18 @@ function hasValidSegments(rest: string): boolean {
   return segments.every(isValidSegment);
 }
 
-export function normalizeFolderPath(input: string): FolderPathResult {
-  const trimmed = input.trim();
-  if (trimmed === "") return invalid("Informe uma pasta.");
+/**
+ * Sabor do caminho, olhando só o prefixo do texto aparado (não valida o resto): unidade (`C:\` ou `C:/`)
+ * ou `\\`/`//` => win32; começa com `/` => posix; qualquer outra coisa => null.
+ */
+export function flavorOf(path: string): PathFlavor | null {
+  const trimmed = path.trim();
+  if (DRIVE_START.test(trimmed) || trimmed.startsWith("\\\\") || trimmed.startsWith("//")) return "win32";
+  if (trimmed.startsWith("/")) return "posix";
+  return null;
+}
 
+function normalizeWin32(trimmed: string): FolderPathResult {
   const path = trimmed.replaceAll("/", "\\");
 
   let prefix: string; // raiz da unidade (C:\) ou do compartilhamento UNC (\\servidor\pasta)
@@ -69,8 +82,97 @@ export function normalizeFolderPath(input: string): FolderPathResult {
   return { ok: true, path: normalized };
 }
 
-/** Chave de comparação: caminho normalizado em minúsculas (o Windows ignora maiúsculas/minúsculas). */
+function normalizePosix(trimmed: string): FolderPathResult {
+  // Barras repetidas colapsam; "\" não é separador no POSIX e fica proibido (portabilidade entre sabores).
+  const segments = trimmed.split("/").filter((segment) => segment !== "");
+  if (!segments.every((segment) => !segment.includes("\\") && isValidSegment(segment))) {
+    return invalid(ABSOLUTE_PATH_MESSAGE);
+  }
+
+  const normalized = `/${segments.join("/")}`;
+  if (normalized.length > MAX_FOLDER_CHARS) return invalid(`Use no máximo ${MAX_FOLDER_CHARS} caracteres.`);
+  return { ok: true, path: normalized };
+}
+
+export function normalizeFolderPath(input: string): FolderPathResult {
+  const trimmed = input.trim();
+  if (trimmed === "") return invalid("Informe uma pasta.");
+
+  const flavor = flavorOf(trimmed);
+  if (flavor === "win32") return normalizeWin32(trimmed);
+  if (flavor === "posix") return normalizePosix(trimmed);
+  return invalid(ABSOLUTE_PATH_MESSAGE);
+}
+
+/**
+ * Chave de comparação: caminho normalizado; em minúsculas no Windows (ignora caixa) e exato no POSIX
+ * (que diferencia maiúsculas de minúsculas).
+ */
 export function folderKey(path: string): string {
   const result = normalizeFolderPath(path);
-  return (result.ok ? result.path : path.trim()).toLowerCase();
+  const text = result.ok ? result.path : path.trim();
+  return flavorOf(text) === "posix" ? text : text.toLowerCase();
+}
+
+/** `target` é a própria `root` ou está dentro dela? Falso se algum for inválido ou os sabores diferirem. */
+export function isInsideFolder(root: string, target: string): boolean {
+  const normalizedRoot = normalizeFolderPath(root);
+  const normalizedTarget = normalizeFolderPath(target);
+  if (!normalizedRoot.ok || !normalizedTarget.ok) return false;
+
+  const flavor = flavorOf(normalizedRoot.path);
+  if (flavor !== flavorOf(normalizedTarget.path)) return false;
+
+  const separator = flavor === "posix" ? "/" : "\\";
+  const base = flavor === "posix" ? normalizedRoot.path : normalizedRoot.path.toLowerCase();
+  const candidate = flavor === "posix" ? normalizedTarget.path : normalizedTarget.path.toLowerCase();
+  return candidate === base || candidate.startsWith(base.endsWith(separator) ? base : `${base}${separator}`);
+}
+
+/** Separador do sabor; caminho sem sabor (não absoluto) segue a convenção histórica do Windows. */
+const separatorOf = (path: string) => (flavorOf(path) === "posix" ? "/" : "\\");
+
+/** Junta `name` ao fim de `parent` com o separador do sabor de `parent`. Não valida nada. */
+export function joinFolder(parent: string, name: string): string {
+  const separator = separatorOf(parent);
+  return parent.endsWith(separator) ? `${parent}${name}` : `${parent}${separator}${name}`;
+}
+
+/** Garante a barra final (útil para prefixos): `C:\S` => `C:\S\`, `/var` => `/var/`. */
+export function withTrailingSeparator(folder: string): string {
+  const separator = separatorOf(folder);
+  return folder.endsWith(separator) ? folder : `${folder}${separator}`;
+}
+
+export type Crumb = { label: string; path: string };
+
+/**
+ * Trechos clicáveis do caminho: a raiz (a informada, quando o caminho está dentro dela; senão `C:\`,
+ * `\\servidor\pasta` ou `/`) e cada subpasta. Devolve `[]` se `path` não for um caminho válido.
+ */
+export function folderCrumbs(path: string, rootPath?: string): Crumb[] {
+  const normalized = normalizeFolderPath(path);
+  if (!normalized.ok) return [];
+  const full = normalized.path;
+  const flavor = flavorOf(full);
+  const separator = flavor === "posix" ? "/" : "\\";
+
+  const normalizedRoot = rootPath === undefined ? null : normalizeFolderPath(rootPath);
+  let root: string;
+  if (normalizedRoot?.ok && isInsideFolder(normalizedRoot.path, full)) {
+    root = full.slice(0, normalizedRoot.path.length);
+  } else if (flavor === "posix") {
+    root = "/";
+  } else {
+    root = UNC_PREFIX.exec(full)?.[0] ?? full.slice(0, 3);
+  }
+
+  const crumbs: Crumb[] = [{ label: root, path: root }];
+  let current = root;
+  for (const segment of full.slice(root.length).split(separator)) {
+    if (segment === "") continue;
+    current = current.endsWith(separator) ? `${current}${segment}` : `${current}${separator}${segment}`;
+    crumbs.push({ label: segment, path: current });
+  }
+  return crumbs;
 }

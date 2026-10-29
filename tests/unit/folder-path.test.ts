@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { folderKey, MAX_FOLDER_CHARS, normalizeFolderPath } from "@/features/estudo/folder-path";
 
-const ABSOLUTE_MESSAGE = "Informe um caminho absoluto, como C:\\Estudos\\Cálculo.";
+const ABSOLUTE_MESSAGE = "Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo.";
 
 describe("normalizeFolderPath", () => {
   it.each([
