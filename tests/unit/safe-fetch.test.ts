@@ -3,7 +3,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createAiClient, type AiClientConfig } from "@/features/ai/client";
-import { BlockedDestinationError, GATEWAY_BLOCKED_MESSAGE, createSafeFetch } from "@/features/ai/url-policy";
+import { BlockedDestinationError, GATEWAY_BLOCKED_MESSAGE, agentOptions, createSafeFetch } from "@/features/ai/url-policy";
 
 let server: http.Server;
 let port: number;
@@ -61,7 +61,7 @@ describe("createSafeFetch (modo estrito)", () => {
     },
   );
 
-  it("https://localhost:<porta> com servidor local real recusa com a mensagem, não 'fetch failed'", async () => {
+  it("https://localhost:<porta> é recusado já na checagem da URL (sem resolver DNS nem tocar o servidor local), com a mensagem da política", async () => {
     const before = hits;
     const error = await rejection(createSafeFetch()(`https://localhost:${port}/`));
     expect(error).toBeInstanceOf(BlockedDestinationError);
@@ -103,6 +103,16 @@ describe("createSafeFetch (modo estrito)", () => {
     const result = await client.testConnection();
     expect(result).toMatchObject({ ok: false, error: GATEWAY_BLOCKED_MESSAGE });
     await expect(client.chat("s", "u")).rejects.toThrow(/^Endereço do gateway não permitido\.$/);
+  });
+});
+
+describe("agentOptions", () => {
+  it("desliga os limites internos do undici (300 s) para o AbortSignal do chamador ser o único limite", () => {
+    const options = agentOptions();
+    expect(options.headersTimeout).toBe(0);
+    expect(options.bodyTimeout).toBe(0);
+    expect(typeof options.connect).toBe("object");
+    expect(typeof (options.connect as { lookup?: unknown }).lookup).toBe("function");
   });
 });
 

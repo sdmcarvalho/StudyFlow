@@ -150,7 +150,7 @@ describe("recusa da política na conexão (DNS para endereço privado)", () => {
     fetchMock.mockRejectedValueOnce(new BlockedDestinationError());
     const response = await postModels({ baseUrl: "https://gw.exemplo.com/v1", apiKey: "sk-x" });
     expect(response.status).toBe(502);
-    expect((await response.json()).message).toBe(`Não foi possível listar os modelos: ${BLOCKED}`);
+    expect((await response.json()).message).toBe(BLOCKED);
   });
 });
 

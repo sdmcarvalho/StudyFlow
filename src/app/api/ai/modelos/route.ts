@@ -2,6 +2,7 @@
 import { createGatewayClient } from "@/features/ai/gateway";
 import { resolveAiConfig } from "@/features/ai/resolve-config";
 import { rejectUnsafePost } from "@/features/ai/route-guard";
+import { GATEWAY_BLOCKED_MESSAGE } from "@/features/ai/url-policy";
 
 export async function POST(request: Request): Promise<Response> {
   const rejected = rejectUnsafePost(request);
@@ -20,6 +21,11 @@ export async function POST(request: Request): Promise<Response> {
   try {
     return Response.json({ models: await createGatewayClient(resolved.config).listModels() });
   } catch (error) {
+    // Recusa da política de destino: o cliente a repassa como AiError com a mensagem da política, que já é a do
+    // usuário e vai sem o prefixo.
+    if (error instanceof Error && (error.name === "BlockedDestinationError" || error.message === GATEWAY_BLOCKED_MESSAGE)) {
+      return Response.json({ message: error.message }, { status: 502 });
+    }
     const detail = error instanceof Error ? error.message : String(error);
     return Response.json({ message: `Não foi possível listar os modelos: ${detail}` }, { status: 502 });
   }

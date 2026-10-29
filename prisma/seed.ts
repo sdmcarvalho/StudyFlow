@@ -1,6 +1,7 @@
 import "dotenv/config";
-import path from "node:path";
-import { baseFolder, ensureFolder } from "../src/features/estudo/folders";
+import { joinFolder } from "../src/features/estudo/folder-path";
+import { userRoot } from "../src/features/estudo/folder-scope";
+import { ensureFolder } from "../src/features/estudo/folders";
 import { db } from "../src/lib/db";
 import { clearUserDataForSeed } from "./seed-guard";
 
@@ -30,9 +31,9 @@ async function main() {
   // Recusa (sem apagar nada) se o superusuário já tem dados, a menos que SEED_FORCE=1 (só em bancos de teste).
   await clearUserDataForSeed(userId, { force: process.env.SEED_FORCE === "1" });
   // Pastas reais em <STUDYFLOW_BASE_DIR>\<pasta do usuário>\<nome>; as que já existem ficam como estão (nada é apagado).
-  const base = path.win32.join(baseFolder(), superuser.folderName);
+  const base = userRoot({ folderName: superuser.folderName });
   for (const { atualizado, pasta: nome, ...record } of records) {
-    const pasta = path.win32.join(base, nome);
+    const pasta = joinFolder(base, nome);
     if (!(await ensureFolder(pasta))) throw new Error(`Não foi possível criar a pasta ${pasta}.`);
     await db.studyRecord.create({
       data: { userId, ...record, pasta, createdAt: noonLocal(record.dataInicial), updatedAt: noonLocal(atualizado) },

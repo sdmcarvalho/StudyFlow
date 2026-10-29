@@ -173,9 +173,16 @@ export function createSafeLookup(resolve: Resolver = defaultResolve): LookupFunc
 
 let sharedDispatcher: Agent | undefined;
 
+/** Opções do `Agent`: o `lookup` validado e SEM os limites internos do undici (headersTimeout e bodyTimeout valem
+ *  300 s e cortariam um `chat` com `timeout` maior, como "fetch failed"). O único limite é o `AbortSignal` do chamador.
+ *  Exportada só para o teste conferir a configuração. */
+export function agentOptions(resolve?: Resolver): Agent.Options {
+  return { connect: { lookup: createSafeLookup(resolve) }, headersTimeout: 0, bodyTimeout: 0 };
+}
+
 function dispatcherFor(resolve: Resolver | undefined): Agent {
-  if (resolve) return new Agent({ connect: { lookup: createSafeLookup(resolve) } });
-  sharedDispatcher ??= new Agent({ connect: { lookup: createSafeLookup() } });
+  if (resolve) return new Agent(agentOptions(resolve));
+  sharedDispatcher ??= new Agent(agentOptions());
   return sharedDispatcher;
 }
 
