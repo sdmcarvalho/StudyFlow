@@ -3,15 +3,27 @@
 // O app só cria pastas e arquivos: nada aqui apaga ou sobrescreve o que já existe no disco.
 import { constants } from "node:fs";
 import fs from "node:fs/promises";
-import path from "node:path";
-import { normalizeFolderPath } from "./folder-path";
+import { flavorOf, joinFolder, normalizeFolderPath } from "./folder-path";
+import { isForeignPath, platformFlavor } from "./path-api";
 
-const DEFAULT_BASE_DIR = "C:\\StudyFlow";
+const DEFAULT_BASE_DIR = { win32: "C:\\StudyFlow", posix: "/var/lib/studyflow" } as const;
 
-/** Pasta base dos Estudos: `STUDYFLOW_BASE_DIR` (normalizada quando válida) ou `C:\StudyFlow`. */
-export function baseFolder(): string {
+/**
+ * Pasta base dos Estudos: `STUDYFLOW_BASE_DIR` (normalizada quando válida) ou o padrão da plataforma
+ * (`C:\StudyFlow` no Windows, `/var/lib/studyflow` nas demais). Lança se a variável for de outro sabor
+ * que o da plataforma (ex.: `C:\Estudos` num servidor Linux): é configuração errada, não um caminho.
+ */
+export function baseFolder(platform: NodeJS.Platform = process.platform): string {
+  const flavor = platformFlavor(platform);
   const value = process.env.STUDYFLOW_BASE_DIR?.trim();
-  if (!value) return DEFAULT_BASE_DIR;
+  if (!value) return DEFAULT_BASE_DIR[flavor];
+  const valueFlavor = flavorOf(value);
+  if (valueFlavor !== null && valueFlavor !== flavor) {
+    throw new Error(
+      `STUDYFLOW_BASE_DIR (${value}) é um caminho ${valueFlavor === "win32" ? "do Windows" : "POSIX"}, ` +
+        `mas o servidor roda em ${flavor === "win32" ? "Windows" : "um sistema POSIX"}.`,
+    );
+  }
   const normalized = normalizeFolderPath(value);
   return normalized.ok ? normalized.path : value;
 }
@@ -30,13 +42,17 @@ export async function existingBaseFolderNames(): Promise<string[]> {
   }
 }
 
-/** `<pasta>\imagens`, onde ficam as imagens do Estudo. */
+/** `<pasta>\imagens` (ou `<pasta>/imagens` no POSIX), onde ficam as imagens do Estudo. */
 export function imagesDir(folder: string): string {
-  return path.win32.join(folder, "imagens");
+  return joinFolder(folder, "imagens");
 }
 
-/** Cria a pasta (e as intermediárias) se não existir. `false` quando não é possível, sem lançar. */
+/**
+ * Cria a pasta (e as intermediárias) se não existir. `false` quando não é possível, sem lançar.
+ * Caminho de outro sabor que o da plataforma (ex.: `/x` no Windows, que viraria `C:\x`) nem chega ao disco.
+ */
 export async function ensureFolder(folder: string): Promise<boolean> {
+  if (isForeignPath(folder)) return false;
   try {
     await fs.mkdir(folder, { recursive: true });
     return (await fs.stat(folder)).isDirectory();
@@ -54,6 +70,8 @@ function isErrorCode(error: unknown, code: string): boolean {
  * destino. Sem `imagens` na origem não faz nada. A origem fica intacta.
  */
 export async function copyImages(fromFolder: string, toFolder: string): Promise<void> {
+  // Caminho de outro sabor que o da plataforma seria lido/gravado em outro lugar: não copia nada.
+  if (isForeignPath(fromFolder) || isForeignPath(toFolder)) return;
   const source = imagesDir(fromFolder);
   let entries;
   try {
@@ -69,7 +87,7 @@ export async function copyImages(fromFolder: string, toFolder: string): Promise<
     if (!entry.isFile()) continue;
     try {
       // COPYFILE_EXCL: falha com EEXIST em vez de sobrescrever um arquivo do destino.
-      await fs.copyFile(path.join(source, entry.name), path.join(target, entry.name), constants.COPYFILE_EXCL);
+      await fs.copyFile(joinFolder(source, entry.name), joinFolder(target, entry.name), constants.COPYFILE_EXCL);
     } catch (error) {
       if (!isErrorCode(error, "EEXIST")) throw error;
     }

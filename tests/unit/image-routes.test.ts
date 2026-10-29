@@ -198,6 +198,18 @@ describe("POST /estudo/[id]/imagens", () => {
     expect(await fs.readdir(process.cwd())).toEqual(cwdBefore);
   });
 
+  it("Estudo com pasta de outro sabor que o da plataforma devolve 400 e não grava", async () => {
+    // No Windows, `/x` seria gravado em `C:\x`; no Linux, `C:\x` viraria um caminho relativo.
+    const foreign = process.platform === "win32" ? `/studyflow-teste-${Date.now()}` : "C:\\studyflow-teste";
+    const { id } = await createStudy({ pasta: foreign });
+    const response = await upload(id, pngFile());
+    expect(response.status).toBe(400);
+    expect((await response.json()).message).toBe("Defina uma pasta válida para usar imagens");
+    if (process.platform === "win32") {
+      await expect(fs.stat(path.resolve(foreign))).rejects.toThrow();
+    }
+  });
+
   it("pasta inacessível devolve 500 com a mensagem de erro de disco", async () => {
     const { id, pasta } = await createStudy();
     await fs.mkdir(pasta, { recursive: true });
@@ -262,6 +274,16 @@ describe("GET /estudo/[id]/imagens/[arquivo]", () => {
 
   it("Estudo com pasta antiga (relativa) devolve 404", async () => {
     const { id } = await createStudy({ pasta: "Matemática" });
+    expect((await download(id, "a.png")).status).toBe(404);
+  });
+
+  it("Estudo com pasta de outro sabor que o da plataforma devolve 404", async () => {
+    const real = path.join(base, `Estudo${++counter}`);
+    await fs.mkdir(path.join(real, "imagens"), { recursive: true });
+    await fs.writeFile(path.join(real, "imagens", "a.png"), PNG_BYTES);
+    // No Windows, a mesma pasta escrita como POSIX (`/Users/...`, sem a letra) apontaria para ela.
+    const foreign = process.platform === "win32" ? real.slice(2).replaceAll("\\", "/") : `C:${real}`;
+    const { id } = await createStudy({ pasta: foreign });
     expect((await download(id, "a.png")).status).toBe(404);
   });
 });

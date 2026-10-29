@@ -1,9 +1,9 @@
-// Envio de imagem para `<pasta>\imagens` do Estudo. Nunca sobrescreve: grava com a flag `wx`.
+// Envio de imagem para `<pasta>\imagens` (ou `<pasta>/imagens`) do Estudo. Nunca sobrescreve: grava com a flag `wx`.
 import fs from "node:fs/promises";
-import path from "node:path";
 import { authErrorResponse } from "@/lib/auth-response";
-import { normalizeFolderPath } from "@/features/estudo/folder-path";
+import { joinFolder, normalizeFolderPath } from "@/features/estudo/folder-path";
 import { ensureFolder, imagesDir } from "@/features/estudo/folders";
+import { isForeignPath } from "@/features/estudo/path-api";
 import { MAX_IMAGE_BYTES, cleanImageStem, detectImageKind, safeImageName } from "@/features/estudo/images";
 import { getStudyFolder } from "@/features/estudo/queries";
 
@@ -18,13 +18,15 @@ function isErrorCode(error: unknown, code: string): boolean {
 
 /** Grava `bytes` em `dir` com um nome livre (`nome.ext`, `nome-2.ext`…), sem sobrescrever nada. */
 async function writeUnique(dir: string, fileName: string, bytes: Uint8Array): Promise<string | null> {
+  // O nome é juntado à pasta: um separador (de qualquer sabor) sairia de `imagens`.
+  if (/[\\/]/.test(fileName)) return null;
   const dot = fileName.lastIndexOf(".");
   const stem = fileName.slice(0, dot);
   const extension = fileName.slice(dot);
   for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt++) {
     const candidate = attempt === 1 ? fileName : `${stem}-${attempt}${extension}`;
     try {
-      await fs.writeFile(path.win32.join(dir, candidate), bytes, { flag: "wx" });
+      await fs.writeFile(joinFolder(dir, candidate), bytes, { flag: "wx" });
       return candidate;
     } catch (error) {
       if (!isErrorCode(error, "EEXIST")) throw error;
@@ -47,9 +49,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     throw error;
   }
   if (pasta === null) return fail(404, "Registro não encontrado.");
-  // Pastas antigas (relativas) nunca são resolvidas contra a pasta de trabalho do servidor.
+  // Pastas antigas (relativas) nunca são resolvidas contra a pasta de trabalho do servidor; pasta de
+  // outro sabor que o da plataforma (ex.: `/x` no Windows, que viraria `C:\x`) também não.
   const folder = normalizeFolderPath(pasta);
-  if (!folder.ok) return fail(400, "Defina uma pasta válida para usar imagens");
+  if (!folder.ok || isForeignPath(folder.path)) return fail(400, "Defina uma pasta válida para usar imagens");
 
   let file: FormDataEntryValue | null;
   try {

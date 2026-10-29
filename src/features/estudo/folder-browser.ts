@@ -3,9 +3,9 @@
 import { execFile } from "node:child_process";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
-import path from "node:path";
 import { promisify } from "node:util";
-import { folderKey, isValidSegment, normalizeFolderPath } from "./folder-path";
+import { flavorOf, folderKey, isValidSegment, joinFolder, normalizeFolderPath } from "./folder-path";
+import { pathApi } from "./path-api";
 
 export type FolderListing =
   | { ok: true; path: string | null; parent: string | null; folders: string[] }
@@ -65,8 +65,15 @@ async function queryDrives(): Promise<string> {
   return stdout;
 }
 
-/** Unidades do PC, como `C:\`, em ordem. Falha na consulta devolve lista vazia (o campo de texto continua valendo). */
-export async function listDrives(query: () => Promise<string> = queryDrives): Promise<string[]> {
+/**
+ * Unidades do PC, como `C:\`, em ordem. Falha na consulta devolve lista vazia (o campo de texto continua
+ * valendo). Fora do Windows não há unidades: lista vazia sem consultar nada.
+ */
+export async function listDrives(
+  query: () => Promise<string> = queryDrives,
+  platform: NodeJS.Platform = process.platform,
+): Promise<string[]> {
+  if (platform !== "win32") return [];
   let output: string;
   try {
     output = await query();
@@ -81,10 +88,16 @@ export async function listDrives(query: () => Promise<string> = queryDrives): Pr
   return [...letters].sort();
 }
 
-/** Pai de uma pasta, ou `null` na raiz de uma unidade ou de um compartilhamento UNC. */
-function parentOf(folder: string): string | null {
-  const parent = path.win32.dirname(folder);
-  const root = path.win32.parse(folder).root;
+/**
+ * Pai de uma pasta (com a API de caminhos do sabor dela), ou `null` na raiz `/`, na raiz de uma unidade
+ * ou de um compartilhamento UNC, e para caminho sem sabor.
+ */
+export function parentOf(folder: string): string | null {
+  const flavor = flavorOf(folder);
+  if (flavor === null) return null;
+  const api = pathApi(flavor);
+  const parent = api.dirname(folder);
+  const root = api.parse(folder).root;
   return parent === folder || folder.length <= root.length || parent.length < root.length ? null : parent;
 }
 
@@ -146,7 +159,7 @@ export async function createSubfolder(parent: string, rawName: string): Promise<
 
   const base = normalizeFolderPath(parent);
   if (!base.ok) return base;
-  const target = normalizeFolderPath(path.win32.join(base.path, name));
+  const target = normalizeFolderPath(joinFolder(base.path, name));
   if (!target.ok) return target;
 
   try {
