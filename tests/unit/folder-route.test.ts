@@ -40,7 +40,8 @@ beforeEach(async () => {
 });
 
 const LOCAL = "localhost:3000";
-const FORBIDDEN = "O seletor de pastas só funciona neste computador ou na rede local.";
+const PUBLIC = "estudo.aiontecno.com.br";
+const FORBIDDEN = "Origem não permitida.";
 
 function get(caminho: string | null, host: string | null = LOCAL) {
   const url = new URL("http://localhost:3000/api/pastas");
@@ -133,14 +134,19 @@ describe("GET /api/pastas", () => {
     expect((await response.json()).message).toBe("Informe um caminho absoluto, como C:\\Estudos\\Cálculo ou /var/estudos/calculo.");
   });
 
-  it.each([null, "example.com", "8.8.8.8:3000", "evil.com:3000"])("Host %s fora da rede local recebe 403", async (host) => {
-    const response = await get(base, host);
-    expect(response.status).toBe(403);
-    expect((await response.json()).message).toBe(FORBIDDEN);
+  it("aceita o domínio público (a proteção é a sessão e a raiz do usuário, não o Host)", async () => {
+    const response = await get(base, PUBLIC);
+    expect(response.status).toBe(200);
+    expect((await response.json()).path).toBe(base);
   });
 
-  it("aceita IP da rede local", async () => {
+  it("aceita qualquer Host com sessão, inclusive IP da rede local", async () => {
     expect((await get(base, "192.168.10.97:3000")).status).toBe(200);
+  });
+
+  it("domínio público sem sessão continua devolvendo 401", async () => {
+    signOut();
+    expect((await get(base, PUBLIC)).status).toBe(401);
   });
 });
 
@@ -194,13 +200,21 @@ describe("POST /api/pastas", () => {
   it("Origin de outro site devolve 403 sem criar nada", async () => {
     const response = await post({ pai: base, nome: "Invasor" }, { origin: "http://evil.com" });
     expect(response.status).toBe(403);
+    expect((await response.json()).message).toBe(FORBIDDEN);
     await expect(fs.stat(path.join(base, "Invasor"))).rejects.toThrow();
   });
 
-  it("Host fora da rede local devolve 403", async () => {
-    const response = await post({ pai: base, nome: "Invasor2" }, { host: "evil.com" });
+  it("no domínio público, Origin de outro site devolve 403 mesmo com sessão", async () => {
+    const response = await post({ pai: base, nome: "Invasor2" }, { host: PUBLIC, origin: "https://evil.example" });
     expect(response.status).toBe(403);
+    expect((await response.json()).message).toBe(FORBIDDEN);
     await expect(fs.stat(path.join(base, "Invasor2"))).rejects.toThrow();
+  });
+
+  it("no domínio público, Origin do próprio app segue o fluxo normal", async () => {
+    const response = await post({ pai: base, nome: "Publica" }, { host: PUBLIC, origin: `https://${PUBLIC}` });
+    expect(response.status).toBe(201);
+    expect((await fs.stat(path.join(base, "Publica"))).isDirectory()).toBe(true);
   });
 
   it("corpo que não é JSON (formulário de outro site) devolve 415 sem criar nada", async () => {

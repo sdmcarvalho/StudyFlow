@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 const LOCAL = "localhost:3000";
+const PUBLIC = "estudo.aiontecno.com.br";
 const SAVED_KEY = "sk-salva-1234567890";
 const URL_REQUIRED = "Informe uma URL http ou https válida para o gateway.";
 const OTHER_URL_NEEDS_KEY = "Para testar outra Base URL, digite a API key junto (ou salve antes).";
@@ -68,16 +69,30 @@ describe.each([
   ["testar", post],
   ["modelos", postModels],
 ])("proteções de %s", (_name, send) => {
-  it("recusa Host que não é local", async () => {
-    const response = await send({}, { host: "exemplo.com" });
+  it("no domínio público, Origin igual ao Host não é barrado (chega à configuração)", async () => {
+    const response = await send({}, { host: PUBLIC, origin: `https://${PUBLIC}` });
+    expect(response.status).toBe(400);
+    expect((await response.json()).message).toBe(URL_REQUIRED);
+  });
+
+  it("no domínio público, Origin de outro site recebe 403", async () => {
+    const response = await send({}, { host: PUBLIC, origin: "https://evil.example" });
     expect(response.status).toBe(403);
-    expect((await response.json()).message).toBe("A configuração de IA só funciona neste computador ou na rede local.");
+    expect((await response.json()).message).toBe("Origem não permitida.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("no domínio público, sem sessão devolve 401", async () => {
+    signOut();
+    const response = await send({}, { host: PUBLIC, origin: `https://${PUBLIC}` });
+    expect(response.status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("recusa Origin de outro site", async () => {
     const response = await send({}, { origin: "http://outro-site.com" });
     expect(response.status).toBe(403);
+    expect((await response.json()).message).toBe("Origem não permitida.");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,6 @@
 // Seletor de pastas do campo Pasta: lista as subpastas (GET) e cria uma subpasta (POST).
-// Só responde quando o Host é este PC ou a rede local, para quem tem sessão, e nunca sai da raiz do
-// usuário (`<STUDYFLOW_BASE_DIR>\<folderName>`); o POST também exige JSON e Origin do próprio app.
+// Só responde para quem tem sessão e nunca sai da raiz do usuário (`<STUDYFLOW_BASE_DIR>/<folderName>`);
+// o POST também exige JSON e Origin do próprio app.
 import { folderKey, normalizeFolderPath } from "@/features/estudo/folder-path";
 import { ensureUserRoot, isFolderAllowed, isInsideRoot } from "@/features/estudo/folder-scope";
 import {
@@ -10,7 +10,6 @@ import {
   OPEN_FAILED,
   SLOW_FOLDER,
   createSubfolder,
-  isLocalHost,
   listFolder,
 } from "@/features/estudo/folder-browser";
 import type { SessionUser } from "@/features/auth/types";
@@ -18,7 +17,7 @@ import { authErrorResponse } from "@/lib/auth-response";
 import { AuthError, getCurrentUser } from "@/lib/current-user";
 import { isSameOrigin } from "@/lib/same-origin";
 
-const FORBIDDEN = "O seletor de pastas só funciona neste computador ou na rede local.";
+const FORBIDDEN = "Origem não permitida.";
 const OUTSIDE_ROOT = "Essa pasta fica fora da sua pasta de estudos.";
 
 const fail = (status: number, message: string) => Response.json({ message }, { status });
@@ -46,7 +45,6 @@ async function sessionUser(): Promise<{ user: SessionUser } | { response: Respon
 }
 
 export async function GET(request: Request): Promise<Response> {
-  if (!isLocalHost(request.headers.get("host"))) return fail(403, FORBIDDEN);
   const session = await sessionUser();
   if ("response" in session) return session.response;
 
@@ -69,7 +67,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (!isLocalHost(request.headers.get("host")) || !isSameOrigin(request)) return fail(403, FORBIDDEN);
+  if (!isSameOrigin(request)) return fail(403, FORBIDDEN);
   const session = await sessionUser();
   if ("response" in session) return session.response;
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {

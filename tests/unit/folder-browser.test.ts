@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createSubfolder, isLocalHost, listDrives, listFolder } from "@/features/estudo/folder-browser";
+import { createSubfolder, listDrives, listFolder } from "@/features/estudo/folder-browser";
 
 let base: string;
 
@@ -166,37 +166,5 @@ describe("createSubfolder", () => {
   it("pai inválido é recusado", async () => {
     const result = await createSubfolder("Matemática", "Filha");
     expect(result.ok).toBe(false);
-  });
-});
-
-describe("isLocalHost", () => {
-  it.each([
-    "localhost",
-    "localhost:3000",
-    "127.0.0.1:3000",
-    "127.10.0.1",
-    "[::1]:3000",
-    "10.0.0.5:3000",
-    "192.168.10.97:3000",
-    "172.16.0.1",
-    "172.31.255.255:80",
-    "169.254.1.2",
-    "meu-pc.local:3000",
-  ])("aceita %s", (host) => {
-    expect(isLocalHost(host)).toBe(true);
-  });
-
-  it.each([
-    null,
-    "",
-    "example.com",
-    "localhost.example.com",
-    "172.32.0.1",
-    "8.8.8.8:3000",
-    "192.169.0.1",
-    "10.0.0.5.evil.com",
-    "[2001:db8::1]:3000",
-  ])("recusa %s", (host) => {
-    expect(isLocalHost(host)).toBe(false);
   });
 });

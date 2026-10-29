@@ -169,32 +169,3 @@ export async function createSubfolder(parent: string, rawName: string): Promise<
     return { ok: false, message: errorCode(error) === "EEXIST" ? FOLDER_EXISTS : CREATE_FAILED };
   }
 }
-
-const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-
-function isPrivateIpv4(host: string): boolean {
-  const match = IPV4.exec(host);
-  if (!match) return false;
-  const [a, b, c, d] = match.slice(1).map(Number);
-  if ([a, b, c, d].some((octet) => octet > 255)) return false;
-  return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254);
-}
-
-/**
- * O cabeçalho Host aponta para este PC ou para a rede local (localhost, IP privado, nome `.local`)?
- * Bloqueia sites externos (DNS rebinding) e acessos por domínio público; o Next não expõe o IP de
- * quem faz a requisição, então um programa na rede que forje o Host não é barrado por aqui.
- */
-export function isLocalHost(hostHeader: string | null): boolean {
-  if (!hostHeader) return false;
-  let host = hostHeader.trim().toLowerCase();
-  if (host.startsWith("[")) {
-    const end = host.indexOf("]");
-    if (end === -1) return false;
-    host = host.slice(1, end);
-    return host === "::1" || /^fe[89ab][0-9a-f]?:/.test(host) || /^f[cd][0-9a-f]{0,2}:/.test(host);
-  }
-  host = host.replace(/:\d+$/, "");
-  if (host === "localhost" || /^[a-z0-9-]+\.local$/.test(host)) return true;
-  return isPrivateIpv4(host);
-}
