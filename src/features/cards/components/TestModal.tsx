@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { completeSchedule } from "@/features/agenda/actions";
+import { checkStudyHasActiveSchedules, completeSchedule, createSchedules } from "@/features/agenda/actions";
+import { ScheduleConfirmModal } from "@/features/agenda/components/ScheduleConfirmModal";
 import { getCardAccuracy, recordCardResult, updateLastTested } from "../actions";
 import type { CardRow } from "../types";
 import styles from "./TestModal.module.css";
@@ -20,6 +20,8 @@ evaluated: boolean;
 correct: boolean | null;
 accuracy: number | null;
 };
+const ACTIVE_WARNING = "Este estudo já possui agendamentos ativos. Confirmar cria novos agendamentos mesmo assim.";
+const CHECK_ERROR = "Não foi possível verificar os agendamentos deste estudo.";
 const SAVE_WARNING = "Teste concluído, mas não foi possível registrar o resultado no histórico/na agenda.";
 // Uma ação que falha ou lança não pode impedir a tela de conclusão: devolve só se deu certo.
 async function succeeded(run: () => Promise<{ ok: boolean }>): Promise<boolean> {
@@ -28,6 +30,15 @@ return (await run()).ok;
 } catch {
 return false;
 }
+}
+// Shuffle array randomly
+function shuffleArray<T>(array: T[]): T[] {
+const shuffled = [...array];
+for (let i = shuffled.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+}
+return shuffled;
 }
 export function TestModal({ studyId, studyName, mode, scheduleId, onClose }: TestModalProps) {
 const [cards, setCards] = useState<CardState[]>([]);
@@ -38,6 +49,12 @@ const [finishing, setFinishing] = useState(false);
 const [saveWarning, setSaveWarning] = useState(false);
 const [error, setError] = useState<string | null>(null);
 const busyRef = useRef(false);
+const [checkingSchedules, setCheckingSchedules] = useState(false);
+const [confirmOpen, setConfirmOpen] = useState(false);
+const [hasActiveSchedules, setHasActiveSchedules] = useState(false);
+const [scheduled, setScheduled] = useState(false);
+const [scheduleError, setScheduleError] = useState<string | null>(null);
+const checkingRef = useRef(false);
 const [sessionResults, setSessionResults] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
 // Load cards via API
 useEffect(() => {
@@ -71,15 +88,6 @@ return () => {
 cancelled = true;
 };
 }, [studyId, mode]);
-// Shuffle array randomly
-function shuffleArray<T>(array: T[]): T[] {
-const shuffled = [...array];
-for (let i = shuffled.length - 1; i > 0; i--) {
-const j = Math.floor(Math.random() * (i + 1));
-[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-}
-return shuffled;
-}
 const handleShowAnswer = () => {
 setCards((prev) =>
 prev.map((item, idx) => (idx === currentIndex ? { ...item, showAnswer: true } : item))
@@ -141,7 +149,34 @@ succeeded(() => updateLastTested(studyId)),
 scheduleId ? succeeded(() => completeSchedule(scheduleId)) : Promise.resolve(true),
 ]);
 setSaveWarning(saved.includes(false));
+setFinishing(false);
 setCompleted(true);
+};
+// Enquanto o salvamento final roda, fechar dispararia o router.refresh() do pai antes das ações terminarem.
+const handleClose = () => {
+if (finishing) return;
+onClose();
+};
+const handleSchedule = async () => {
+if (checkingRef.current || scheduled) return;
+checkingRef.current = true;
+setCheckingSchedules(true);
+setScheduleError(null);
+try {
+setHasActiveSchedules(await checkStudyHasActiveSchedules(studyId));
+setConfirmOpen(true);
+} catch {
+setScheduleError(CHECK_ERROR);
+} finally {
+checkingRef.current = false;
+setCheckingSchedules(false);
+}
+};
+const handleConfirmSchedule = async (): Promise<{ ok: true } | { ok: false; message: string }> => {
+const result = await createSchedules({ studyId, studyName, force: hasActiveSchedules });
+if (!result.ok) return { ok: false, message: result.message };
+setScheduled(true);
+return { ok: true };
 };
 const currentCard = cards[currentIndex];
 const accuracy =
@@ -157,11 +192,11 @@ return (
 }
 if (cards.length === 0) {
 return (
-<div className={styles.overlay} onClick={onClose}>
+<div className={styles.overlay} onClick={handleClose}>
 <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
 <div className={styles.header}>
 <h2 className={styles.title}>{studyName}</h2>
-<button className={styles.closeBtn} onClick={onClose} aria-label="Fechar">
+<button className={styles.closeBtn} onClick={handleClose} disabled={finishing} aria-label="Fechar">
 ×
 </button>
 </div>
@@ -172,11 +207,11 @@ return (
 }
 if (completed) {
 return (
-<div className={styles.overlay} onClick={onClose}>
+<div className={styles.overlay} onClick={handleClose}>
 <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
 <div className={styles.header}>
 <h2 className={styles.title}>Teste Concluído</h2>
-<button className={styles.closeBtn} onClick={onClose} aria-label="Fechar">
+<button className={styles.closeBtn} onClick={handleClose} disabled={finishing} aria-label="Fechar">
 ×
 </button>
 </div>
@@ -192,20 +227,35 @@ Você acertou {sessionResults.correct} de {sessionResults.total} cards.
 <div className={styles.accuracyValue}>{accuracy}%</div>
 </div>
 )}
+{scheduleError && <p role="alert" className={styles.error}>{scheduleError}</p>}
+{scheduled && <p role="status">Agendamentos criados.</p>}
+<div className={styles.actions}>
+<Button variant="secondary" onClick={handleSchedule} disabled={scheduled || checkingSchedules}>
+Agendar revisões
+</Button>
 <Button variant="primary" onClick={onClose}>
 Fechar
 </Button>
+</div>
+<ScheduleConfirmModal
+open={confirmOpen}
+studyId={studyId}
+studyName={studyName}
+warning={hasActiveSchedules ? ACTIVE_WARNING : undefined}
+onClose={() => setConfirmOpen(false)}
+onConfirm={handleConfirmSchedule}
+/>
 </div>
 </div>
 </div>
 );
 }
 return (
-<div className={styles.overlay} onClick={onClose}>
+<div className={styles.overlay} onClick={handleClose}>
 <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
 <div className={styles.header}>
 <h2 className={styles.title}>{studyName}</h2>
-<button className={styles.closeBtn} onClick={onClose} aria-label="Fechar">
+<button className={styles.closeBtn} onClick={handleClose} disabled={finishing} aria-label="Fechar">
 ×
 </button>
 </div>

@@ -10,7 +10,7 @@
 //   pm2 save
 //
 // Deploy de uma atualização:
-//   git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 restart studyflow
+//   git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js
 //
 // "-H 127.0.0.1": o Node só escuta no localhost; quem fica público é o Nginx.
 
@@ -25,6 +25,8 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
+        // As datas de agendamento são calculadas no fuso do servidor; sem o TZ a VPS (UTC) mudaria o dia às 21h.
+        TZ: "America/Sao_Paulo",
       },
       max_memory_restart: "500M",
       restart_delay: 3000,

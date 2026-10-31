@@ -3,6 +3,7 @@ import { authActionMessage } from "@/lib/auth-response";
 import { getCurrentUserId, isAuthError } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { toIsoDate } from "@/lib/dates";
+import { REVIEW_SESSIONS, reviewDateFor } from "./sessions";
 
 type ActionResult<T = undefined> =
   | { ok: true; data: T }
@@ -54,27 +55,14 @@ export async function createSchedules(
     }
 
     // Calcula as datas de revisão
-    const sessions = [
-      { session: "Imediata", days: 0 },
-      { session: "24 horas", days: 1 },
-      { session: "3 dias", days: 3 },
-      { session: "1 semana", days: 7 },
-      { session: "1 mês", days: 30 },
-      { session: "6 meses", days: 180 },
-    ];
-
-    const schedulesToCreate = sessions.map(({ session, days }) => {
-      const reviewDate = new Date(now);
-      reviewDate.setDate(reviewDate.getDate() + days);
-      return {
-        studyId: input.studyId,
-        userId,
-        reviewDate: toIsoDate(reviewDate),
-        createdAt: today,
-        session,
-        status: "Ativo",
-      };
-    });
+    const schedulesToCreate = REVIEW_SESSIONS.map(({ session, days }) => ({
+      studyId: input.studyId,
+      userId,
+      reviewDate: reviewDateFor(now, days),
+      createdAt: today,
+      session,
+      status: "Ativo",
+    }));
 
     // Cria todos os agendamentos em uma transação
     await db.schedule.createMany({

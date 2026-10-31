@@ -127,6 +127,8 @@ curl -I http://127.0.0.1:3002/login    # deve responder 200
 sudo ss -tlnp                          # só o Nginx em 0.0.0.0 (ver "Notas de produção")
 ```
 
+O `ecosystem.config.js` define `TZ=America/Sao_Paulo` para o processo: as datas dos agendamentos usam o fuso do servidor, e sem isso a VPS (UTC) mudaria o dia às 21h de Brasília. A variável só é aplicada ao processo quando o PM2 lê o arquivo, então a atualização usa `pm2 startOrReload ecosystem.config.js` (um `pm2 restart studyflow` mantém o ambiente antigo).
+
 ### 5. Nginx e HTTPS
 
 Aponte o DNS de `estudo.aiontecno.com.br` para o IP da VPS e então:
@@ -144,7 +146,7 @@ O Certbot acrescenta o bloco `:443` e o redirecionamento http -> https no própr
 
 ```bash
 cd /opt/studyflow
-git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 restart studyflow
+git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js
 ```
 
 ### Notas de produção
