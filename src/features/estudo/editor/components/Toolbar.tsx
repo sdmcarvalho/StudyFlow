@@ -200,7 +200,7 @@ export function Toolbar({
           </>
         ) : null}
         <div className={styles.end}>
-          <span role="status" aria-live="polite" className={`${styles.status} ${statusClass}`}>
+          <span role="status" aria-live="polite" data-save-status className={`${styles.status} ${statusClass}`}>
             {statusText}
           </span>
           <button

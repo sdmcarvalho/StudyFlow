@@ -24,7 +24,9 @@ async function openStudy(page: Page, descricao = PROGRAMACAO) {
 const cells = (page: Page) => page.getByRole("group", { name: /^Célula \d+ de \d+$/ });
 const cell = (page: Page, n: number) => page.getByRole("group", { name: new RegExp(`^Célula ${n} de \\d+$`) });
 const markdown = (page: Page, n: number) => page.getByLabel(`Markdown da célula ${n}`, { exact: true });
-const saveStatus = (page: Page) => page.getByRole("toolbar", { name: "Barra de ferramentas" }).getByRole("status");
+// A barra tem duas regiões role="status" (salvamento e "Resumindo…"); `data-save-status` marca a do salvamento.
+const saveStatus = (page: Page) =>
+  page.getByRole("toolbar", { name: "Barra de ferramentas" }).locator("[data-save-status]");
 const toolbarButton = (page: Page, name: string) =>
   page.getByRole("toolbar", { name: "Barra de ferramentas" }).getByRole("button", { name, exact: true });
 
