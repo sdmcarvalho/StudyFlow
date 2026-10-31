@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { generateCardAnswer, generateCardQuestion } from "@/features/ai/actions";
 import { createCard, updateCard, type CardResult } from "../actions";
 import { parseCardInput, type CardFieldErrors } from "../schema";
 import type { CardRow } from "../types";
@@ -19,7 +20,6 @@ type CardFormModalProps = {
   onSaved: (card: CardRow) => void;
   onError: (message: string) => void;
   beforeCreate?: () => Promise<boolean>;
-  onAi?: (card: import("../schema").CardInput) => void;
 };
 
 export function CardFormModal({
@@ -33,15 +33,23 @@ export function CardFormModal({
   onSaved,
   onError,
   beforeCreate,
-  onAi,
 }: CardFormModalProps) {
   const [tema, setTema] = useState(editingCard?.tema ?? descricaoEstudo);
   const [pergunta, setPergunta] = useState(editingCard?.pergunta ?? initialPergunta);
   const [resposta, setResposta] = useState(editingCard?.resposta ?? "");
   const [errors, setErrors] = useState<CardFieldErrors>({});
   const [pending, setPending] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const mountedRef = useRef(true);
   const respostaRef = useRef<HTMLTextAreaElement>(null);
   const perguntaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const shouldFocusResposta = Boolean(editingCard?.pergunta ?? initialPergunta);
 
@@ -85,9 +93,40 @@ export function CardFormModal({
     }
   }
 
-  function handleAi() {
-    if (onAi) onAi({ tema, pergunta, resposta });
-    else onError("A IA será ligada em breve.");
+  async function handleAi() {
+    if (generating) return;
+    setGenerating(true);
+    try {
+      let clipboard = "";
+      try {
+        clipboard = (await navigator.clipboard.readText()).trim();
+      } catch {
+        clipboard = "";
+      }
+      if (!clipboard) {
+        onError("Não foi possível ler a área de transferência. Copie o texto (Ctrl+C) e tente de novo.");
+        return;
+      }
+
+      const question = await generateCardQuestion(clipboard);
+      if (!question.ok) {
+        onError(question.message);
+        return;
+      }
+      if (mountedRef.current) setPergunta(question.text);
+
+      const answer = await generateCardAnswer(question.text);
+      if (!answer.ok) {
+        if (mountedRef.current) setResposta("");
+        onError(answer.message);
+        return;
+      }
+      if (mountedRef.current) setResposta(answer.text);
+    } catch {
+      onError("Não foi possível usar a IA. Tente novamente.");
+    } finally {
+      if (mountedRef.current) setGenerating(false);
+    }
   }
 
   if (!open) return null;
@@ -140,14 +179,14 @@ export function CardFormModal({
         </div>
 
         <div className={styles.actions}>
-          <Button variant="secondary" onClick={handleAi} type="button">
-            IA
+          <Button variant="secondary" onClick={handleAi} type="button" disabled={generating || pending}>
+            {generating ? "Gerando…" : "IA"}
           </Button>
           <div className={styles.right}>
             <Button variant="secondary" onClick={onClose} type="button" disabled={pending}>
               Cancelar
             </Button>
-            <Button variant="primary" type="submit" disabled={pending}>
+            <Button variant="primary" type="submit" disabled={pending || generating}>
               Salvar
             </Button>
           </div>
