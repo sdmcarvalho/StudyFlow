@@ -10,7 +10,9 @@
 //   pm2 save
 //
 // Deploy de uma atualização:
-//   git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js
+//   git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js && pm2 save
+//   (o "pm2 save" é necessário: o dump salvo é o que o "pm2 resurrect" usa após um reboot da VPS;
+//    sem ele o processo voltaria sem o TZ, em UTC. Confira com "pm2 show studyflow | grep -i TZ".)
 //
 // "-H 127.0.0.1": o Node só escuta no localhost; quem fica público é o Nginx.
 

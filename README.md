@@ -123,11 +123,12 @@ pm2 start ecosystem.config.js
 pm2 save
 pm2 startup    # só se ainda não estiver configurado por causa do CRM; siga a instrução impressa
 pm2 logs studyflow --lines 30
+pm2 show studyflow | grep -i TZ        # confirma TZ=America/Sao_Paulo no processo (ou: pm2 env <id> | grep TZ)
 curl -I http://127.0.0.1:3002/login    # deve responder 200
 sudo ss -tlnp                          # só o Nginx em 0.0.0.0 (ver "Notas de produção")
 ```
 
-O `ecosystem.config.js` define `TZ=America/Sao_Paulo` para o processo: as datas dos agendamentos usam o fuso do servidor, e sem isso a VPS (UTC) mudaria o dia às 21h de Brasília. A variável só é aplicada ao processo quando o PM2 lê o arquivo, então a atualização usa `pm2 startOrReload ecosystem.config.js` (um `pm2 restart studyflow` mantém o ambiente antigo).
+O `ecosystem.config.js` define `TZ=America/Sao_Paulo` para o processo: as datas dos agendamentos usam o fuso do servidor, e sem isso a VPS (UTC) mudaria o dia às 21h de Brasília. A variável só é aplicada ao processo quando o PM2 lê o arquivo, então a atualização usa `pm2 startOrReload ecosystem.config.js` (um `pm2 restart studyflow` mantém o ambiente antigo). Depois de recarregar, rode sempre `pm2 save`: o `pm2 resurrect` do boot usa o dump salvo, e um dump antigo traria o StudyFlow de volta em UTC.
 
 ### 5. Nginx e HTTPS
 
@@ -146,7 +147,8 @@ O Certbot acrescenta o bloco `:443` e o redirecionamento http -> https no própr
 
 ```bash
 cd /opt/studyflow
-git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js
+git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js && pm2 save
+pm2 show studyflow | grep -i TZ    # confirma TZ=America/Sao_Paulo (ou: pm2 env <id> | grep TZ)
 ```
 
 ### Notas de produção
@@ -154,6 +156,7 @@ git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrR
 - **Nunca** rode `npm run db:seed` nem `npm run db:migrate` (`prisma migrate dev`) em produção: o seed substitui os dados do superusuário e o `migrate dev` pode resetar o banco. Em produção só `prisma migrate deploy`.
 - A porta 3002 escuta só em `127.0.0.1`; só 80/443 ficam públicas. O Nginx precisa repassar o `Host` original (o app compara o cabeçalho `Origin` com o `Host`) e `X-Forwarded-Proto`/`X-Forwarded-Host`; o `deploy/nginx/studyflow.conf` já faz isso, não o altere para reescrever o `Host`.
 - Cliente de IA: o servidor só chama gateways **https** cujo nome resolve apenas para endereços públicos. `STUDYFLOW_AI_ALLOW_PRIVATE=1` relaxa essa regra (para um gateway local em desenvolvimento) e **não** deve ser definido na VPS. As variáveis `HTTP_PROXY`/`HTTPS_PROXY` de saída são ignoradas pelo cliente de IA; a VPS precisa ter saída direta para o gateway.
+- Cliente de IA e custos: as chamadas de IA usam o gateway e a chave que cada usuário salvou em Configuração (não existe chave compartilhada do servidor), então o custo recai sobre quem chamou.
 - **Resíduo do SSRF (serviços ligados em 0.0.0.0).** A política de destino do gateway de IA trata o IP público da própria VPS como "público". Do próprio servidor, uma conexão ao IP público da VPS sai pelo loopback e o `ufw` não a filtra; assim, qualquer serviço com TLS escutando em `0.0.0.0` e protegido só pelo firewall externo ficaria alcançável pelo recurso de gateway de IA. Por isso, serviços internos (o CRM na 3000, a Evolution API na 8081 etc.) precisam escutar em `127.0.0.1`. Não há código no StudyFlow para cobrir isso; é configuração da VPS. Faça a verificação abaixo no deploy e sempre que um serviço novo for instalado.
 - **Verificação do deploy (portas):** rode `sudo ss -tlnp` e confirme que nada além do Nginx (80/443) escuta em `0.0.0.0` ou `[::]`. Todo o resto deve aparecer em `127.0.0.1:<porta>`. Se algum serviço aparecer em `0.0.0.0`, mude o endereço de escuta dele (ou não o exponha) antes de liberar o uso do recurso de IA.
 - O banco (`/opt/studyflow-data`) e as pastas dos Estudos (`/var/lib/studyflow`) ficam fora de `/opt/studyflow`, então um `git pull` ou reclone não os afeta. O backup deles é responsabilidade do operador (fora do escopo deste projeto).
