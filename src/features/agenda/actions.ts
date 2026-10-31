@@ -110,6 +110,32 @@ export async function completeSchedule(scheduleId: string): Promise<ActionResult
 }
 
 /**
+ * Exclui de vez um agendamento do usuário, Ativo ou Realizado. Não há exclusão lógica: o registro é só
+ * um lembrete de revisão e nada mais aponta para ele.
+ */
+export async function deleteSchedule(scheduleId: string): Promise<ActionResult<void>> {
+  if (typeof scheduleId !== "string" || !scheduleId.length) {
+    return { ok: false, message: "ID do agendamento inválido." };
+  }
+
+  try {
+    const userId = await getCurrentUserId();
+    const { count } = await db.schedule.deleteMany({ where: { id: scheduleId, userId } });
+
+    if (!count) {
+      return { ok: false, message: "Agendamento não encontrado." };
+    }
+
+    return { ok: true, data: undefined };
+  } catch (error) {
+    const authMessage = authActionMessage(error);
+    if (authMessage) return { ok: false, message: authMessage };
+    console.error("Erro ao excluir agendamento:", error);
+    return { ok: false, message: "Não foi possível excluir o agendamento." };
+  }
+}
+
+/**
  * Lista todos os agendamentos de um usuário, ordenados por data de revisão.
  * Sem sessão válida lança AuthError (a página já redirecionou para o login antes de chamar).
  */

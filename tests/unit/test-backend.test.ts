@@ -4,7 +4,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => import("./helpers/next-headers"));
 
-import { completeSchedule } from "@/features/agenda/actions";
+import { completeSchedule, deleteSchedule } from "@/features/agenda/actions";
 import { getCardAccuracy, recordCardResult, updateLastTested } from "@/features/cards/actions";
 import { listStudyTestSummaries } from "@/features/cards/queries";
 import { db } from "@/lib/db";
@@ -235,6 +235,36 @@ describe("completeSchedule", () => {
     const before = await db.schedule.findUniqueOrThrow({ where: { id: sch.id } });
     expect(await completeSchedule(sch.id)).toEqual({ ok: false, message: "Agendamento não encontrado." });
     expect(await db.schedule.findUniqueOrThrow({ where: { id: sch.id } })).toEqual(before);
+  });
+});
+
+describe("deleteSchedule", () => {
+  const schedule = (userId: string, studyId: string, status: string) =>
+    db.schedule.create({
+      data: { userId, studyId, reviewDate: "2026-11-01", createdAt: "2026-10-31", session: "24 horas", status },
+    });
+
+  it("apaga o agendamento do usuário, Ativo ou Realizado, e só ele", async () => {
+    const s = await study(me.id);
+    const active = await schedule(me.id, s.id, "Ativo");
+    const done = await schedule(me.id, s.id, "Realizado");
+    const kept = await schedule(me.id, s.id, "Ativo");
+    expect(await deleteSchedule(active.id)).toEqual({ ok: true, data: undefined });
+    expect(await deleteSchedule(done.id)).toEqual({ ok: true, data: undefined });
+    expect((await db.schedule.findMany({ select: { id: true } })).map((r) => r.id)).toEqual([kept.id]);
+  });
+
+  it("não apaga agendamento de outro usuário nem um id inexistente", async () => {
+    const foreignStudy = await study(other.id);
+    const foreign = await schedule(other.id, foreignStudy.id, "Ativo");
+    expect(await deleteSchedule(foreign.id)).toEqual({ ok: false, message: "Agendamento não encontrado." });
+    expect(await deleteSchedule("nao-existe")).toEqual({ ok: false, message: "Agendamento não encontrado." });
+    expect(await db.schedule.count({ where: { id: foreign.id } })).toBe(1);
+  });
+
+  it("recusa id vazio ou que não é texto", async () => {
+    expect((await deleteSchedule("")).ok).toBe(false);
+    expect((await deleteSchedule(undefined as unknown as string)).ok).toBe(false);
   });
 });
 

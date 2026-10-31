@@ -16,6 +16,7 @@ import { GET as getSummary } from "@/app/api/testes/resumo/route";
 import {
   checkStudyHasActiveSchedules,
   completeSchedule,
+  deleteSchedule,
   createSchedules,
   listUserSchedules,
 } from "@/features/agenda/actions";
@@ -230,6 +231,8 @@ describe("um usuário não enxerga nem altera os dados de outro", () => {
   it("Agenda: listUserSchedules, completeSchedule, createSchedules e checkStudyHasActiveSchedules", async () => {
     expect(await listUserSchedules()).toEqual([]);
     expect(await completeSchedule(ids.schedule)).toEqual({ ok: false, message: "Agendamento não encontrado." });
+    expect(await deleteSchedule(ids.schedule)).toEqual({ ok: false, message: "Agendamento não encontrado." });
+    expect(await db.schedule.count({ where: { id: ids.schedule } })).toBe(1);
     expect(await checkStudyHasActiveSchedules(ids.study)).toBe(false);
 
     const created = await createSchedules({ studyId: ids.study, studyName: "Estudo de A", force: true });
@@ -329,6 +332,7 @@ describe("controle: A, com a própria sessão, continua vendo e editando o que �
     expect((await restoreCard(ids.trashedCard)).ok).toBe(true);
     expect((await deleteCard(ids.card)).ok).toBe(true);
     expect((await completeSchedule(ids.schedule)).ok).toBe(true);
+    expect((await deleteSchedule(ids.schedule)).ok).toBe(true);
     expect((await createSchedules({ studyId: ids.study, studyName: "Estudo de A", force: true })).ok).toBe(true);
     expect((await restoreStudyRecord(ids.trashedStudy)).ok).toBe(true);
     expect((await deleteStudyRecord(ids.study)).ok).toBe(true);

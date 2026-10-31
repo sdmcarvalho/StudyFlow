@@ -106,4 +106,19 @@ test("teste, agendamento das revisões e conclusão pela Agenda", async ({ page 
   await expect(tableRows(page).first().getByRole("link", { name: /^Fazer teste de/ })).toHaveCount(0);
   await expect(page.locator("tbody tr td:nth-child(5)").filter({ hasText: /^Ativo$/ })).toHaveCount(5);
   await expect(page.getByRole("link", { name: /^Fazer teste de/ })).toHaveCount(5);
+
+  // Excluir: cancelar não apaga; confirmar apaga só a linha escolhida (a Imediata, já Realizada).
+  const excluir = page.getByRole("button", { name: `Excluir agendamento de ${STUDY_NAME}` });
+  await expect(excluir).toHaveCount(6);
+  await excluir.first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar" }).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(tableRows(page)).toHaveCount(6);
+
+  await excluir.first().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Excluir", exact: true }).click();
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(tableRows(page)).toHaveCount(5);
+  await expect(page.locator("tbody tr td:nth-child(5)").filter({ hasText: /^Ativo$/ })).toHaveCount(5);
+  await expect(page.getByText("Realizado", { exact: true })).toHaveCount(0);
 });

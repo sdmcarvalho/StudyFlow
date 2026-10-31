@@ -106,6 +106,12 @@
   }
 }
 
+.table .deleteBtn:hover {
+  background: var(--color-error-soft);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
 /* O link "Fazer" usa o estilo do botão secundário, sem o sublinhado padrão de link. */
 .table .doLink {
   text-decoration: none;

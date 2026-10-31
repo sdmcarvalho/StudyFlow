@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { formatDateBR } from "@/lib/dates";
 import type { ScheduleRow } from "../types";
+import { ScheduleDeleteModal } from "./ScheduleDeleteModal";
 import buttonStyles from "@/components/ui/Button.module.css";
 import styles from "./ScheduleList.module.css";
 
@@ -14,7 +16,9 @@ schedules: ScheduleRow[];
 };
 
 export function ScheduleList({ schedules }: ScheduleListProps) {
+const router = useRouter();
 const [activeFilter, setActiveFilter] = useState<FilterType>("todos");
+const [toDelete, setToDelete] = useState<ScheduleRow | null>(null);
 
 const today = new Date();
 today.setHours(0, 0, 0, 0);
@@ -116,6 +120,7 @@ schedule.status === "Ativo" ? styles.statusActive : styles.statusCompleted
 </span>
 </td>
 <td>
+<div className={styles.actions}>
 {schedule.status === "Ativo" && (
 <Link
 className={`${buttonStyles.btn} ${buttonStyles.secondary} ${styles.doLink}`}
@@ -125,6 +130,15 @@ href={`/testes?study=${encodeURIComponent(schedule.studyId)}&schedule=${encodeUR
 Fazer
 </Link>
 )}
+<Button
+variant="secondary"
+className={styles.deleteBtn}
+aria-label={`Excluir agendamento de ${schedule.studyName}`}
+onClick={() => setToDelete(schedule)}
+>
+Excluir
+</Button>
+</div>
 </td>
 </tr>
 ))}
@@ -132,6 +146,7 @@ Fazer
 </table>
 </div>
 )}
+<ScheduleDeleteModal schedule={toDelete} onClose={() => setToDelete(null)} onDeleted={() => router.refresh()} />
 </div>
 );
 }

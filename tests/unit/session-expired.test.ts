@@ -58,6 +58,7 @@ const actionCalls: Record<string, () => Promise<unknown>> = {
   "cards.updateLastTested": () => cards.updateLastTested("id-1"),
   "agenda.createSchedules": () => agenda.createSchedules({ studyId: "id-1", studyName: "Estudo" }),
   "agenda.completeSchedule": () => agenda.completeSchedule("id-1"),
+  "agenda.deleteSchedule": () => agenda.deleteSchedule("id-1"),
   "ai.saveAiSettings": () => ai.saveAiSettings(aiInput),
   "ai.generateCardQuestion": () => ai.generateCardQuestion("Texto"),
   "ai.generateCardAnswer": () => ai.generateCardAnswer("Pergunta?"),
@@ -130,7 +131,7 @@ describe("cobertura da lista de entradas", () => {
     ].sort();
     const covered = [...Object.keys(actionCalls), "agenda.listUserSchedules", "agenda.checkStudyHasActiveSchedules"].sort();
     expect(exported).toEqual(covered);
-    expect(Object.keys(actionCalls)).toHaveLength(18);
+    expect(Object.keys(actionCalls)).toHaveLength(19);
   });
 });
 
