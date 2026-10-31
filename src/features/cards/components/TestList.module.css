@@ -31,6 +31,11 @@
   vertical-align: middle;
 }
 
+.highlighted {
+  background: var(--color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 .studyName {
   font-weight: 500;
 }

@@ -6,17 +6,17 @@ test.beforeEach(async ({ page }) => {
   await login(page);
 });
 
-for (const [label, path] of [
-  ["Testes", "/testes"],
-  ["Agenda", "/agenda"],
+for (const [label, path, emptyState] of [
+  ["Testes", "/testes", "Nenhum estudo com cards cadastrados encontrado."],
+  ["Agenda", "/agenda", "Nenhum agendamento encontrado para este filtro."],
 ] as const) {
-  test(`${label}: mostra "Em breve" e marca o item ativo`, async ({ page }) => {
+  test(`${label}: mostra o estado vazio e marca o item ativo`, async ({ page }) => {
     await page.goto("/estudo");
     await page.getByRole("navigation", { name: "Navegação principal" }).getByRole("link", { name: label }).click();
 
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await expect(page.getByRole("heading", { name: label, level: 1 })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Em breve" })).toBeVisible();
+    await expect(page.getByText(emptyState)).toBeVisible();
     await expect(page.getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
   });
 }

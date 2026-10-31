@@ -1,8 +1,10 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { formatDateBR } from "@/lib/dates";
 import type { ScheduleRow } from "../types";
+import buttonStyles from "@/components/ui/Button.module.css";
 import styles from "./ScheduleList.module.css";
 
 type FilterType = "todos" | "atrasados" | "hoje" | "semana" | "mes";
@@ -115,14 +117,12 @@ schedule.status === "Ativo" ? styles.statusActive : styles.statusCompleted
 </td>
 <td>
 {schedule.status === "Ativo" && (
-<Button
-variant="secondary"
-onClick={() => {
-window.location.href = `/testes?study=${schedule.studyId}`;
-}}
+<Link
+className={`${buttonStyles.btn} ${buttonStyles.secondary}`}
+href={`/testes?study=${encodeURIComponent(schedule.studyId)}&schedule=${encodeURIComponent(schedule.id)}`}
 >
 Fazer
-</Button>
+</Link>
 )}
 </td>
 </tr>

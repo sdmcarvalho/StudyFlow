@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { completeSchedule } from "@/features/agenda/actions";
 import { getCardAccuracy, recordCardResult, updateLastTested } from "../actions";
 import type { CardRow } from "../types";
 import styles from "./TestModal.module.css";
@@ -9,6 +10,7 @@ type TestModalProps = {
 studyId: string;
 studyName: string;
 mode: "all" | "half" | "quarter";
+scheduleId?: string | null;
 onClose: () => void;
 };
 type CardState = {
@@ -18,11 +20,24 @@ evaluated: boolean;
 correct: boolean | null;
 accuracy: number | null;
 };
-export function TestModal({ studyId, studyName, mode, onClose }: TestModalProps) {
+const SAVE_WARNING = "Teste concluído, mas não foi possível registrar o resultado no histórico/na agenda.";
+// Uma ação que falha ou lança não pode impedir a tela de conclusão: devolve só se deu certo.
+async function succeeded(run: () => Promise<{ ok: boolean }>): Promise<boolean> {
+try {
+return (await run()).ok;
+} catch {
+return false;
+}
+}
+export function TestModal({ studyId, studyName, mode, scheduleId, onClose }: TestModalProps) {
 const [cards, setCards] = useState<CardState[]>([]);
 const [currentIndex, setCurrentIndex] = useState(0);
 const [loading, setLoading] = useState(true);
 const [completed, setCompleted] = useState(false);
+const [finishing, setFinishing] = useState(false);
+const [saveWarning, setSaveWarning] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const busyRef = useRef(false);
 const [sessionResults, setSessionResults] = useState<{ correct: number; total: number }>({ correct: 0, total: 0 });
 // Load cards via API
 useEffect(() => {
@@ -72,16 +87,29 @@ prev.map((item, idx) => (idx === currentIndex ? { ...item, showAnswer: true } : 
 };
 const handleEvaluate = async (correct: boolean) => {
 const currentCard = cards[currentIndex];
-if (!currentCard || currentCard.evaluated) return;
+if (!currentCard || currentCard.evaluated || busyRef.current) return;
+busyRef.current = true;
+try {
+setError(null);
 // Record result on server
-const result = await recordCardResult(currentCard.card.id, studyId, correct);
+let result;
+try {
+result = await recordCardResult(currentCard.card.id, studyId, correct);
+} catch {
+result = { ok: false as const, message: "Não foi possível registrar o resultado." };
+}
 if (!result.ok) {
-console.error(result.message);
+setError(result.message ?? "Não foi possível registrar o resultado.");
 return;
 }
 // Get updated accuracy for this card
+let accuracy: number | null = null;
+try {
 const accuracyResult = await getCardAccuracy(currentCard.card.id);
-const accuracy = accuracyResult.ok ? accuracyResult.data.accuracyPercent : null;
+accuracy = accuracyResult.ok ? accuracyResult.data.accuracyPercent : null;
+} catch {
+accuracy = null;
+}
 // Update local state
 setCards((prev) =>
 prev.map((item, idx) =>
@@ -92,6 +120,9 @@ setSessionResults((prev) => ({
 correct: prev.correct + (correct ? 1 : 0),
 total: prev.total + 1,
 }));
+} finally {
+busyRef.current = false;
+}
 };
 const handleNext = () => {
 if (currentIndex < cards.length - 1) {
@@ -102,7 +133,14 @@ finishSession();
 }
 };
 const finishSession = async () => {
-await updateLastTested(studyId);
+if (busyRef.current) return;
+busyRef.current = true;
+setFinishing(true);
+const saved = await Promise.all([
+succeeded(() => updateLastTested(studyId)),
+scheduleId ? succeeded(() => completeSchedule(scheduleId)) : Promise.resolve(true),
+]);
+setSaveWarning(saved.includes(false));
 setCompleted(true);
 };
 const currentCard = cards[currentIndex];
@@ -147,6 +185,7 @@ return (
 <p>
 Você acertou {sessionResults.correct} de {sessionResults.total} cards.
 </p>
+{saveWarning && <p role="status">{SAVE_WARNING}</p>}
 {accuracy && (
 <div className={styles.accuracyDisplay}>
 <div className={styles.accuracyLabel}>Precisão da sessão</div>
@@ -192,6 +231,8 @@ Ver resposta
 </div>
 </div>
 {!currentCard.evaluated ? (
+<>
+{error && <p role="alert" className={styles.error}>{error}</p>}
 <div className={styles.actions}>
 <Button variant="secondary" onClick={() => handleEvaluate(true)}>
 Acertei
@@ -200,6 +241,7 @@ Acertei
 Errei
 </Button>
 </div>
+</>
 ) : (
 <>
 <div className={styles.accuracyDisplay}>
@@ -214,7 +256,7 @@ Precisão histórica: {currentCard.accuracy.toFixed(1)}%
 )}
 </div>
 <div className={styles.actions}>
-<Button variant="primary" onClick={handleNext}>
+<Button variant="primary" onClick={handleNext} disabled={finishing}>
 {currentIndex < cards.length - 1 ? "Próximo" : "Finalizar"}
 </Button>
 </div>

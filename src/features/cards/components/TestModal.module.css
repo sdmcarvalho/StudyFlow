@@ -143,3 +143,9 @@
   color: var(--color-text-secondary);
   margin: 0;
 }
+
+.error {
+  margin: 0.5rem 0;
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
