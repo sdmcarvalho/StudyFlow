@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { formatDateBR } from "@/lib/dates";
+import { formatDateTimeBR } from "@/lib/dates";
 import type { StudyTestSummary } from "../types";
 import styles from "./TestList.module.css";
 import { TestModal } from "./TestModal";
@@ -61,10 +61,10 @@ className={study.studyId === highlightStudyId ? styles.highlighted : undefined}
 >
 <td className={styles.studyName}>{study.studyName}</td>
 <td className={styles.date}>
-{study.lastCardCreated ? formatDateBR(study.lastCardCreated) : "—"}
+{study.lastCardCreated ? formatDateTimeBR(study.lastCardCreated) : "—"}
 </td>
 <td className={styles.date}>
-{study.lastTested ? formatDateBR(study.lastTested) : "—"}
+{study.lastTested ? formatDateTimeBR(study.lastTested) : "—"}
 </td>
 <td className={styles.accuracy}>
 {study.accuracyPercent !== null

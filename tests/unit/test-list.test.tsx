@@ -1,3 +1,5 @@
+process.env.TZ = "America/Sao_Paulo";
+
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,7 +25,7 @@ import type { StudyTestSummary } from "@/features/cards/types";
 const study = (studyId: string): StudyTestSummary => ({
   studyId,
   studyName: `Estudo ${studyId}`,
-  lastCardCreated: "2026-10-01",
+  lastCardCreated: new Date(2026, 9, 1, 12, 0).toISOString(),
   lastTested: null,
   totalCards: 4,
   correctAnswers: 0,
@@ -76,6 +78,15 @@ describe("TestList", () => {
     await userEvent.click(screen.getByRole("button", { name: "fechar-modal" }));
     expect(router.refresh).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("mostra as datas ISO completas como dd/mm/aaaa locais e — quando não há teste", () => {
+    const tested = { ...study("S3"), lastTested: new Date(2026, 8, 10, 12, 0).toISOString() };
+    render(<TestList studies={[tested, study("S1")]} />);
+    const tested3 = within(rowOf("Estudo S3")).getAllByRole("cell");
+    expect(tested3[1]).toHaveTextContent("01/10/2026");
+    expect(tested3[2]).toHaveTextContent("10/09/2026");
+    expect(within(rowOf("Estudo S1")).getAllByRole("cell")[2]).toHaveTextContent("—");
   });
 
   it("mostra o estado vazio sem Estudos", () => {

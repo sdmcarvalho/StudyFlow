@@ -5,6 +5,13 @@ export function formatDateBR(iso: string): string {
   return `${day}/${month}/${year}`;
 }
 
+/** Formata um instante ISO completo (`Date#toISOString`) como DD/MM/AAAA na data local; "—" se não for uma data válida. */
+export function formatDateTimeBR(isoDatetime: string): string {
+  const date = new Date(isoDatetime);
+  if (Number.isNaN(date.getTime())) return "—";
+  return formatDateBR(toIsoDate(date));
+}
+
 export function toIsoDate(date: Date): string {
   const year = String(date.getFullYear()).padStart(4, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");

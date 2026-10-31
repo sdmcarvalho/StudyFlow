@@ -1,9 +1,26 @@
+process.env.TZ = "America/Sao_Paulo";
+
 import { describe, expect, it } from "vitest";
-import { formatDateBR, isValidIsoDate, toIsoDate } from "@/lib/dates";
+import { formatDateBR, formatDateTimeBR, isValidIsoDate, toIsoDate } from "@/lib/dates";
 
 describe("formatDateBR", () => {
   it("converte YYYY-MM-DD para DD/MM/AAAA", () => {
     expect(formatDateBR("2026-10-25")).toBe("25/10/2026");
+  });
+});
+
+describe("formatDateTimeBR", () => {
+  it("mostra a data local de um instante ISO completo (toISOString)", () => {
+    expect(formatDateTimeBR(new Date(2026, 8, 10, 12, 0).toISOString())).toBe("10/09/2026");
+  });
+
+  it("usa o dia local, não o dia UTC, perto da meia-noite", () => {
+    // 23:30 em Brasília já é o dia seguinte em UTC.
+    expect(formatDateTimeBR(new Date(2026, 9, 31, 23, 30).toISOString())).toBe("31/10/2026");
+  });
+
+  it.each(["", "lixo", "2026-13-45T99:00:00Z"])("devolve — para %j sem lançar erro", (value) => {
+    expect(formatDateTimeBR(value)).toBe("—");
   });
 });
 
