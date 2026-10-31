@@ -16,8 +16,9 @@ const row = (id: string, status: string): ScheduleRow => ({
 describe("ScheduleList", () => {
   it("mostra Fazer como link com study e schedule só para agendamentos Ativos", () => {
     render(<ScheduleList schedules={[row("A1", "Ativo"), row("A2", "Realizado")]} />);
-    const links = screen.getAllByRole("link", { name: "Fazer" });
+    const links = screen.getAllByRole("link", { name: /^Fazer teste de/ });
     expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName("Fazer teste de Estudo A1");
     expect(links[0]).toHaveAttribute("href", "/testes?study=S1&schedule=A1");
   });
 });

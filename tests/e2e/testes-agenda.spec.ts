@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { formatDateBR, todayIso } from "../../src/lib/dates";
 import { insertCard, insertStudy, login, resetData, tableRows } from "./helpers";
 
 const STUDY_NAME = "Estudo de Testes e2e";
@@ -72,7 +73,7 @@ test("teste, agendamento das revisões e conclusão pela Agenda", async ({ page 
 
   // Fechar o teste atualiza "Último teste" e "% de acertos" (1 de 2 = 50%).
   await closeTest(page);
-  await expect(row.getByRole("cell").nth(2)).not.toHaveText("—");
+  await expect(row.getByRole("cell").nth(2)).toHaveText(formatDateBR(todayIso()));
   await expect(row.getByRole("cell").nth(3)).toHaveText("50.00%");
 
   // Agenda: 6 linhas "Ativo", a primeira é a revisão Imediata.
@@ -84,7 +85,7 @@ test("teste, agendamento das revisões e conclusão pela Agenda", async ({ page 
   await expect(tableRows(page).first()).toContainText(STUDY_NAME);
 
   // "Fazer" leva ao Teste do Estudo, com a linha destacada.
-  await tableRows(page).first().getByRole("link", { name: "Fazer" }).click();
+  await tableRows(page).first().getByRole("link", { name: /^Fazer teste de/ }).click();
   await expect(page).toHaveURL(new RegExp(`/testes\\?study=${studyId}&schedule=[^&]+$`));
   await expect(studyRow(page)).toHaveAttribute("data-highlighted", "true");
 
@@ -102,7 +103,7 @@ test("teste, agendamento das revisões e conclusão pela Agenda", async ({ page 
   await expect(tableRows(page)).toHaveCount(6);
   await expect(tableRows(page).first()).toContainText("Imediata");
   await expect(tableRows(page).first().getByText("Realizado", { exact: true })).toBeVisible();
-  await expect(tableRows(page).first().getByRole("link", { name: "Fazer" })).toHaveCount(0);
+  await expect(tableRows(page).first().getByRole("link", { name: /^Fazer teste de/ })).toHaveCount(0);
   await expect(page.locator("tbody tr td:nth-child(5)").filter({ hasText: /^Ativo$/ })).toHaveCount(5);
-  await expect(page.getByRole("link", { name: "Fazer" })).toHaveCount(5);
+  await expect(page.getByRole("link", { name: /^Fazer teste de/ })).toHaveCount(5);
 });

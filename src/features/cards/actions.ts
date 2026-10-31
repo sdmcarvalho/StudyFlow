@@ -131,6 +131,10 @@ export async function getCardAccuracy(
 /**
  * Marca a data do último Teste do Estudo sem mexer na "Data atualização": o `@updatedAt` do Prisma
  * só é preservado quando o valor atual vai explícito no `data`.
+ *
+ * Ler o `updatedAt` e regravá-lo na mesma transação só é seguro porque o SQLite trava o banco para escrita
+ * dentro da transação (nenhuma outra escrita se intercala). Se o banco mudar, coloque `updatedAt` no `where`
+ * como concorrência otimista, senão uma edição concorrente teria o `updatedAt` revertido.
  */
 export async function updateLastTested(studyId: string): Promise<CardResult> {
   if (!validId(studyId)) return NOT_FOUND;

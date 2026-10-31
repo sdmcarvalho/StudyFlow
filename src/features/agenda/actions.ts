@@ -82,7 +82,8 @@ export async function createSchedules(
 }
 
 /**
- * Marca um agendamento como realizado após concluir os testes.
+ * Marca um agendamento como realizado após concluir os testes. Só vale para agendamentos "Ativo":
+ * concluir um que já está "Realizado" devolve "não encontrado" e não altera nada.
  */
 export async function completeSchedule(scheduleId: string): Promise<ActionResult<void>> {
   if (typeof scheduleId !== "string" || !scheduleId.length) {
@@ -92,7 +93,7 @@ export async function completeSchedule(scheduleId: string): Promise<ActionResult
   try {
     const userId = await getCurrentUserId();
     const { count } = await db.schedule.updateMany({
-      where: { id: scheduleId, userId },
+      where: { id: scheduleId, userId, status: "Ativo" },
       data: { status: "Realizado" },
     });
 

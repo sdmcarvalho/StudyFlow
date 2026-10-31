@@ -118,7 +118,8 @@ schedule.status === "Ativo" ? styles.statusActive : styles.statusCompleted
 <td>
 {schedule.status === "Ativo" && (
 <Link
-className={`${buttonStyles.btn} ${buttonStyles.secondary}`}
+className={`${buttonStyles.btn} ${buttonStyles.secondary} ${styles.doLink}`}
+aria-label={`Fazer teste de ${schedule.studyName}`}
 href={`/testes?study=${encodeURIComponent(schedule.studyId)}&schedule=${encodeURIComponent(schedule.id)}`}
 >
 Fazer

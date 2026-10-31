@@ -105,3 +105,8 @@
     display: none;
   }
 }
+
+/* O link "Fazer" usa o estilo do botão secundário, sem o sublinhado padrão de link. */
+.table .doLink {
+  text-decoration: none;
+}

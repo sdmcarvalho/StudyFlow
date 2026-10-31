@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => import("./helpers/next-headers"));
 
+import { completeSchedule } from "@/features/agenda/actions";
 import { getCardAccuracy, recordCardResult, updateLastTested } from "@/features/cards/actions";
 import { listStudyTestSummaries } from "@/features/cards/queries";
 import { db } from "@/lib/db";
@@ -205,6 +206,35 @@ describe("getCardAccuracy", () => {
     expect((await getCardAccuracy(foreign.id)).ok).toBe(false);
     expect((await getCardAccuracy(trashed.id)).ok).toBe(false);
     expect((await getCardAccuracy("")).ok).toBe(false);
+  });
+
+  it("recusa card ativo dentro de um Estudo excluído", async () => {
+    const trashedStudy = await study(me.id, { deletedAt: new Date() });
+    const c = await card(me.id, trashedStudy.id);
+    await result(me.id, trashedStudy.id, c.id, true);
+    expect((await getCardAccuracy(c.id)).ok).toBe(false);
+  });
+});
+
+describe("completeSchedule", () => {
+  const schedule = (studyId: string, status: string) =>
+    db.schedule.create({
+      data: { userId: me.id, studyId, reviewDate: "2026-11-01", createdAt: "2026-10-31", session: "24 horas", status },
+    });
+
+  it("conclui um agendamento Ativo", async () => {
+    const s = await study(me.id);
+    const sch = await schedule(s.id, "Ativo");
+    expect(await completeSchedule(sch.id)).toEqual({ ok: true, data: undefined });
+    expect((await db.schedule.findUniqueOrThrow({ where: { id: sch.id } })).status).toBe("Realizado");
+  });
+
+  it("concluir um agendamento que já está Realizado devolve 'não encontrado' e não altera nada", async () => {
+    const s = await study(me.id);
+    const sch = await schedule(s.id, "Realizado");
+    const before = await db.schedule.findUniqueOrThrow({ where: { id: sch.id } });
+    expect(await completeSchedule(sch.id)).toEqual({ ok: false, message: "Agendamento não encontrado." });
+    expect(await db.schedule.findUniqueOrThrow({ where: { id: sch.id } })).toEqual(before);
   });
 });
 
