@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { formatDateBR } from "@/lib/dates";
-import type { StudyTestSummary } from "../queries";
+import type { StudyTestSummary } from "../types";
 import styles from "./TestList.module.css";
 import { TestModal } from "./TestModal";
 type TestListProps = {

@@ -17,7 +17,7 @@ import * as agenda from "@/features/agenda/actions";
 import * as ai from "@/features/ai/actions";
 import { getAiSettings } from "@/features/ai/queries";
 import * as cards from "@/features/cards/actions";
-import { listStudyCards } from "@/features/cards/queries";
+import { listStudyCards, listStudyTestSummaries } from "@/features/cards/queries";
 import * as estudo from "@/features/estudo/actions";
 import { getStudyDocument, getStudyFolder, listStudyRecords } from "@/features/estudo/queries";
 import { AuthError } from "@/lib/current-user";
@@ -53,6 +53,9 @@ const actionCalls: Record<string, () => Promise<unknown>> = {
   "cards.updateCard": () => cards.updateCard("id-1", cardInput),
   "cards.deleteCard": () => cards.deleteCard("id-1"),
   "cards.restoreCard": () => cards.restoreCard("id-1"),
+  "cards.recordCardResult": () => cards.recordCardResult("id-1", "id-2", true),
+  "cards.getCardAccuracy": () => cards.getCardAccuracy("id-1"),
+  "cards.updateLastTested": () => cards.updateLastTested("id-1"),
   "agenda.createSchedules": () => agenda.createSchedules({ studyId: "id-1", studyName: "Estudo" }),
   "agenda.completeSchedule": () => agenda.completeSchedule("id-1"),
   "ai.saveAiSettings": () => ai.saveAiSettings(aiInput),
@@ -66,6 +69,7 @@ const throwingCalls: Record<string, () => Promise<unknown>> = {
   "queries.getStudyDocument": () => getStudyDocument("id-1"),
   "queries.getStudyFolder": () => getStudyFolder("id-1"),
   "queries.listStudyCards": () => listStudyCards("id-1"),
+  "queries.listStudyTestSummaries": () => listStudyTestSummaries(),
   "queries.getAiSettings": () => getAiSettings(),
 };
 
@@ -123,7 +127,7 @@ describe("cobertura da lista de entradas", () => {
     ].sort();
     const covered = [...Object.keys(actionCalls), "agenda.listUserSchedules", "agenda.checkStudyHasActiveSchedules"].sort();
     expect(exported).toEqual(covered);
-    expect(Object.keys(actionCalls)).toHaveLength(12);
+    expect(Object.keys(actionCalls)).toHaveLength(15);
   });
 });
 

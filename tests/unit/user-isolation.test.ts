@@ -21,8 +21,16 @@ import {
 } from "@/features/agenda/actions";
 import { saveAiSettings } from "@/features/ai/actions";
 import { getAiSettings } from "@/features/ai/queries";
-import { createCard, deleteCard, restoreCard, updateCard } from "@/features/cards/actions";
-import { listStudyCards } from "@/features/cards/queries";
+import {
+  createCard,
+  deleteCard,
+  getCardAccuracy,
+  recordCardResult,
+  restoreCard,
+  updateCard,
+  updateLastTested,
+} from "@/features/cards/actions";
+import { listStudyCards, listStudyTestSummaries } from "@/features/cards/queries";
 import {
   deleteStudyRecord,
   restoreStudyRecord,
@@ -189,6 +197,15 @@ describe("um usuário não enxerga nem altera os dados de outro", () => {
     expect(await db.card.count({ where: { userId: userB.id } })).toBe(0);
   });
 
+  it("Testes: listStudyTestSummaries, recordCardResult, getCardAccuracy e updateLastTested em dados de A falham", async () => {
+    expect(await listStudyTestSummaries()).toEqual([]);
+    expect(await recordCardResult(ids.card, ids.study, true)).toEqual(CARD_NOT_FOUND);
+    expect(await getCardAccuracy(ids.card)).toEqual(CARD_NOT_FOUND);
+    expect(await updateLastTested(ids.study)).toEqual(CARD_NOT_FOUND);
+    await expectAUntouched();
+    expect(await db.cardResult.count({ where: { userId: userB.id } })).toBe(0);
+  });
+
   it("GET /api/cards?studyId=<A> devolve lista vazia", async () => {
     const response = await getCards(new NextRequest(`http://localhost/api/cards?studyId=${ids.study}`));
     expect(response.status).toBe(200);
@@ -295,6 +312,8 @@ describe("controle: A, com a própria sessão, continua vendo e editando o que �
     expect(((await cards.json()) as { id: string }[]).map((card) => card.id)).toEqual([ids.card]);
     const summary = (await (await getSummary()).json()) as { studyId: string; totalAttempts: number }[];
     expect(summary).toMatchObject([{ studyId: ids.study, totalAttempts: 1 }]);
+    expect(await listStudyTestSummaries()).toMatchObject([{ studyId: ids.study, totalCards: 1, accuracyPercent: 100 }]);
+    expect(await getCardAccuracy(ids.card)).toEqual({ ok: true, data: { accuracyPercent: 100, attempts: 1 } });
 
     const image = await getImage(new Request("http://localhost/x"), {
       params: Promise.resolve({ id: ids.study, arquivo: "foto.png" }),
@@ -305,6 +324,8 @@ describe("controle: A, com a própria sessão, continua vendo e editando o que �
   it("edita os próprios dados", async () => {
     expect((await saveStudyContent(ids.study, [{ id: "c1", texto: "novo" }])).ok).toBe(true);
     expect((await updateCard(ids.card, { tema: "Novo", pergunta: "P", resposta: "R" })).ok).toBe(true);
+    expect((await recordCardResult(ids.card, ids.study, false)).ok).toBe(true);
+    expect((await updateLastTested(ids.study)).ok).toBe(true);
     expect((await restoreCard(ids.trashedCard)).ok).toBe(true);
     expect((await deleteCard(ids.card)).ok).toBe(true);
     expect((await completeSchedule(ids.schedule)).ok).toBe(true);

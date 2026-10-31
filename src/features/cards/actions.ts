@@ -84,3 +84,67 @@ export async function restoreCard(cardId: string): Promise<CardResult<CardRow>> 
     });
   } catch (error) { return failure(error); }
 }
+
+/** Registra uma resposta do Teste: o card precisa ser do usuário, estar ativo e pertencer ao Estudo informado. */
+export async function recordCardResult(cardId: string, studyId: string, correct: boolean): Promise<CardResult> {
+  if (!validId(cardId) || !validId(studyId)) return NOT_FOUND;
+  if (typeof correct !== "boolean") return { ok: false, message: "Resultado inválido." };
+  try {
+    const userId = await getCurrentUserId();
+    return await db.$transaction(async (tx) => {
+      const card = await tx.card.findFirst({
+        where: { id: cardId, studyId, userId, deletedAt: null, study: { userId, deletedAt: null } },
+        select: { id: true },
+      });
+      if (!card) return NOT_FOUND;
+      await tx.cardResult.create({ data: { cardId, studyId, userId, correct } });
+      return { ok: true, data: undefined } as const;
+    });
+  } catch (error) { return failure(error); }
+}
+
+/** Taxa de acerto de um card ativo do usuário; `null` quando ainda não houve tentativa. */
+export async function getCardAccuracy(
+  cardId: string,
+): Promise<CardResult<{ accuracyPercent: number | null; attempts: number }>> {
+  if (!validId(cardId)) return NOT_FOUND;
+  try {
+    const userId = await getCurrentUserId();
+    return await db.$transaction(async (tx) => {
+      const card = await tx.card.findFirst({
+        where: { id: cardId, userId, deletedAt: null, study: { userId, deletedAt: null } },
+        select: { id: true },
+      });
+      if (!card) return NOT_FOUND;
+      const groups = await tx.cardResult.groupBy({
+        by: ["correct"],
+        where: { cardId, userId },
+        _count: { _all: true },
+      });
+      const attempts = groups.reduce((sum, group) => sum + group._count._all, 0);
+      const correct = groups.find((group) => group.correct)?._count._all ?? 0;
+      return { ok: true, data: { accuracyPercent: attempts > 0 ? (correct / attempts) * 100 : null, attempts } } as const;
+    });
+  } catch (error) { return failure(error); }
+}
+
+/**
+ * Marca a data do último Teste do Estudo sem mexer na "Data atualização": o `@updatedAt` do Prisma
+ * só é preservado quando o valor atual vai explícito no `data`.
+ */
+export async function updateLastTested(studyId: string): Promise<CardResult> {
+  if (!validId(studyId)) return NOT_FOUND;
+  try {
+    const userId = await getCurrentUserId();
+    return await db.$transaction(async (tx) => {
+      const where = { id: studyId, userId, deletedAt: null };
+      const study = await tx.studyRecord.findFirst({ where, select: { updatedAt: true } });
+      if (!study) return NOT_FOUND;
+      const { count } = await tx.studyRecord.updateMany({
+        where,
+        data: { lastTestedAt: new Date(), updatedAt: study.updatedAt },
+      });
+      return count ? { ok: true, data: undefined } as const : NOT_FOUND;
+    });
+  } catch (error) { return failure(error); }
+}
