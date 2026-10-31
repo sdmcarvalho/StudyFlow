@@ -56,6 +56,16 @@ export function insertStudy(record: { descricao: string; pasta: string }): strin
     .trim();
 }
 
+/** Insere um card em um Estudo direto no banco e2e (sem o editor). Devolve o id criado. */
+export function insertCard(studyId: string, card: { tema: string; pergunta: string; resposta: string }): string {
+  return execSync("npx tsx tests/e2e/insert-card.ts", {
+    stdio: "pipe",
+    env: { ...E2E_ENV, E2E_CARD: JSON.stringify({ studyId, ...card }) },
+  })
+    .toString()
+    .trim();
+}
+
 /** Entra pela tela /login (padrão: o superusuário e2e) e espera sair dela. */
 export async function login(page: Page, credentials: { email: string; password: string } = E2E_SUPER): Promise<void> {
   await page.goto("/login");
