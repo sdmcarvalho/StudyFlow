@@ -187,13 +187,16 @@ export function Toolbar({
               type="button"
               className={styles.action}
               aria-label="Resumir"
-              title={canSummarize ? "Resumir a célula atual com IA" : "Selecione uma célula"}
+              title={summarizing ? "Resumindo…" : canSummarize ? "Resumir a célula atual com IA" : "Selecione uma célula"}
               disabled={!canSummarize || summarizing}
               onClick={onSummarize}
             >
               Resumir
             </button>
-            {summarizing ? <span className={styles.status}>Resumindo…</span> : null}
+            {/* Região viva sempre presente: o leitor de tela anuncia o texto que entra e sai dela. */}
+            <span role="status" aria-live="polite" className={styles.status}>
+              {summarizing ? "Resumindo…" : ""}
+            </span>
           </>
         ) : null}
         <div className={styles.end}>
