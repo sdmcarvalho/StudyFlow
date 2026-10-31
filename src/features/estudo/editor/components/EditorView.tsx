@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toast, useToast } from "@/components/ui/Toast";
+import { summarizeText } from "@/features/ai/actions";
 import { CardFormModal } from "@/features/cards/components/CardFormModal";
 import { CellCardsModal } from "@/features/cards/components/CellCardsModal";
 import type { CardRow } from "@/features/cards/types";
@@ -38,6 +39,8 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
   // Célula que recebe a imagem enquanto o diálogo está aberto; o ref é lido nos eventos de foco.
   const [imageTarget, setImageTarget] = useState<string | null>(null);
   const imageOpenRef = useRef(false);
+  const summarizingRef = useRef(false);
+  const [summarizing, setSummarizing] = useState(false);
   const textareasRef = useRef(new Map<string, HTMLTextAreaElement>());
   const [cards, setCards] = useState<CardRow[]>(initialCards);
   const [cardForm, setCardForm] = useState<{ cellId: string; pergunta: string; card?: CardRow } | null>(null);
@@ -168,6 +171,54 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
     [remove, undoRemove, show, hide],
   );
 
+  // Célula atual para a IA: a mesma do botão de card (em edição ou a última focada).
+  const currentId = exists(editingId) ? editingId : exists(focusedId) ? focusedId : null;
+
+  // Depois do `await` da IA, `cells` do fechamento está velho: o ref diz se a célula ainda existe.
+  const cellsRef = useRef(cells);
+  useEffect(() => {
+    cellsRef.current = cells;
+  }, [cells]);
+
+  async function handleSummarize() {
+    if (summarizingRef.current || currentId === null) return;
+    const sourceId = currentId;
+    const text = cells.find((cell) => cell.id === sourceId)?.texto ?? "";
+    if (cells.length >= MAX_CELLS) {
+      show("O documento já está no limite de células.");
+      return;
+    }
+    if (text.trim() === "") {
+      show("A célula está vazia.");
+      return;
+    }
+    summarizingRef.current = true;
+    setSummarizing(true);
+    try {
+      const result = await summarizeText(text);
+      if (!result.ok) {
+        show(result.message);
+        return;
+      }
+      if (!cellsRef.current.some((cell) => cell.id === sourceId)) {
+        show("A célula foi excluída; o resumo foi descartado.");
+        return;
+      }
+      const newId = addBelow(sourceId);
+      if (newId === null) {
+        show("O documento já está no limite de células.");
+        return;
+      }
+      changeText(newId, result.text);
+      show("Resumo criado abaixo da célula.");
+    } catch {
+      show("Não foi possível usar a IA. Tente novamente.");
+    } finally {
+      summarizingRef.current = false;
+      setSummarizing(false);
+    }
+  }
+
   const handleImageError = useCallback((message: string) => show(message), [show]);
 
   function handleModeChange(next: EditorMode) {
@@ -225,6 +276,9 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
         }}
         onCard={() => void openCard()}
         canCreateCard={exists(editingId) || exists(focusedId)}
+        onSummarize={() => void handleSummarize()}
+        canSummarize={currentId !== null && !summarizing}
+        summarizing={summarizing}
         onImage={openImage}
         imageDisabled={!imagesEnabled}
         state={saveState}

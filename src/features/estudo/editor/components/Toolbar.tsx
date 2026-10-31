@@ -38,6 +38,9 @@ type ToolbarProps = {
   onSave: () => void;
   onCard?: () => void;
   canCreateCard?: boolean;
+  onSummarize?: () => void;
+  canSummarize?: boolean;
+  summarizing?: boolean;
 };
 
 type FormatButton = { action: FormatAction; label: string; icon: ReactNode };
@@ -107,6 +110,9 @@ export function Toolbar({
   onSave,
   onCard,
   canCreateCard = false,
+  onSummarize,
+  canSummarize = false,
+  summarizing = false,
 }: ToolbarProps) {
   const disabled = !canFormat;
 
@@ -175,6 +181,21 @@ export function Toolbar({
           disabled={!canCreateCard} onClick={onCard}>
           <CardIcon /><span>Card</span>
         </button>
+        {onSummarize ? (
+          <>
+            <button
+              type="button"
+              className={styles.action}
+              aria-label="Resumir"
+              title={canSummarize ? "Resumir a célula atual com IA" : "Selecione uma célula"}
+              disabled={!canSummarize || summarizing}
+              onClick={onSummarize}
+            >
+              Resumir
+            </button>
+            {summarizing ? <span className={styles.status}>Resumindo…</span> : null}
+          </>
+        ) : null}
         <div className={styles.end}>
           <span role="status" aria-live="polite" className={`${styles.status} ${statusClass}`}>
             {statusText}
