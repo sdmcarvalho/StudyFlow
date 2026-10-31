@@ -270,6 +270,10 @@ export function Cell({
           >
             <TrashIcon />
           </button>
+          {/* Só mostra a posição (o grupo já anuncia "Célula N de M" ao leitor de tela). */}
+          <span className={styles.number} aria-hidden="true">
+            {number}
+          </span>
         </div>
       )}
 

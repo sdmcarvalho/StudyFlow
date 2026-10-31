@@ -101,6 +101,19 @@
   height: 14px;
 }
 
+/* Número da célula: não é botão; aparece junto com os controles. */
+.number {
+  width: 32px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-tertiary);
+  user-select: none;
+  pointer-events: none;
+}
+
 .trash:hover {
   background: var(--color-error-soft);
   border-color: var(--color-error);

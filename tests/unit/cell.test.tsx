@@ -165,6 +165,27 @@ describe("Cell — modo padrão", () => {
     setup({ index: 1, total: 4 });
     expect(screen.getByRole("group", { name: "Célula 2 de 4" })).toBeInTheDocument();
   });
+
+  it("mostra o número da célula (posição + 1) abaixo da lixeira, sem ser botão", () => {
+    setup({ index: 1, total: 4 });
+    const group = screen.getByRole("group", { name: "Célula 2 de 4" });
+    const number = within(group).getByText("2");
+    const trash = within(group).getByRole("button", { name: "Excluir célula" });
+
+    expect(number.compareDocumentPosition(trash) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(number.parentElement).toBe(trash.parentElement);
+    expect(number.closest("button")).toBeNull();
+    expect(number).not.toHaveAttribute("tabindex");
+    expect(number).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("o número acompanha a posição quando a célula muda de lugar", () => {
+    const { rerender, props } = setup({ index: 0, total: 3 });
+    expect(screen.getByText("1")).toBeInTheDocument();
+    rerender(<Cell {...props} index={2} />);
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.queryByText("1")).not.toBeInTheDocument();
+  });
 });
 
 describe("Cell — modos dividida e preview", () => {
@@ -182,6 +203,7 @@ describe("Cell — modos dividida e preview", () => {
     expect(screen.queryByRole("button", { name: "Arrastar célula" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Excluir célula" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Adicionar célula abaixo" })).not.toBeInTheDocument();
+    expect(within(group).queryByText("1")).not.toBeInTheDocument();
     expect(group.querySelector("[aria-describedby]")).toBeNull();
     expect(group.querySelector("[tabindex='0']")).toBeNull();
     await userEvent.click(container.querySelector("strong")!);
