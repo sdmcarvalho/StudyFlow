@@ -55,9 +55,13 @@ describe("ScheduleConfirmModal", () => {
     );
     renderModal({ onConfirm });
 
+    // Os dois cliques no mesmo act: o React não re-renderiza (nem desabilita o botão) entre eles,
+    // então só o guarda por ref impede a segunda chamada.
     const button = screen.getByRole("button", { name: "Confirmar" });
-    fireEvent.click(button);
-    fireEvent.click(button);
+    act(() => {
+      button.click();
+      button.click();
+    });
     await act(async () => release());
 
     expect(onConfirm).toHaveBeenCalledTimes(1);

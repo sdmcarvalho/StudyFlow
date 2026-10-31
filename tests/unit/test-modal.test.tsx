@@ -153,8 +153,11 @@ describe("TestModal", () => {
     await answer("Acertei");
 
     const finish = screen.getByRole("button", { name: "Finalizar" });
-    fireEvent.click(finish);
-    fireEvent.click(finish);
+    // Os dois cliques no mesmo act: só o guarda por ref (busyRef) impede a segunda chamada.
+    act(() => {
+      finish.click();
+      finish.click();
+    });
     await act(async () => release());
 
     expect(await screen.findByRole("heading", { name: "Teste Concluído" })).toBeInTheDocument();
@@ -221,6 +224,27 @@ describe("TestModal", () => {
 
       expect(createSchedules).toHaveBeenCalledWith({ studyId: "S1", studyName: "Estudo S1", force: true });
       expect(await screen.findByText("Agendamentos criados.")).toBeInTheDocument();
+    });
+
+    it("não verifica os agendamentos duas vezes com dois cliques rápidos em Agendar revisões", async () => {
+      let release!: () => void;
+      vi.mocked(checkStudyHasActiveSchedules).mockReturnValue(
+        new Promise((resolve) => {
+          release = () => resolve(false);
+        }),
+      );
+      await finishTest();
+
+      // Os dois cliques no mesmo act: só o guarda por ref (checkingRef) barra o segundo.
+      const button = screen.getByRole("button", { name: "Agendar revisões" });
+      act(() => {
+        button.click();
+        button.click();
+      });
+      await act(async () => release());
+
+      expect(checkStudyHasActiveSchedules).toHaveBeenCalledTimes(1);
+      expect(await screen.findByRole("dialog", { name: "Confirmar Agendamentos" })).toBeInTheDocument();
     });
 
     it("mostra a mensagem de createSchedules no modal quando falha", async () => {
