@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { authActionMessage } from "@/lib/auth-response";
 import { getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { AiError } from "./client";
+import { createGatewayClient } from "./gateway";
 import { toPublicSettings } from "./queries";
+import { resolveAiConfig } from "./resolve-config";
 import { normalizeBaseUrl, parseAiSettingsInput } from "./schema";
 import type { AiFieldErrors, AiSettingsPublic } from "./types";
 import { checkGatewayUrlSyntax } from "./url-policy";
@@ -52,4 +55,61 @@ export async function saveAiSettings(input: unknown): Promise<SaveAiSettingsResu
     const message = authActionMessage(error);
     return message ? { ok: false, message } : SAVE_FAILED;
   }
+}
+
+export type AiTextResult = { ok: true; text: string } | { ok: false; message: string };
+
+/** Limite do texto enviado à IA (vai a um modelo de terceiros pelo gateway do usuário). */
+const MAX_INPUT_LENGTH = 20_000;
+/** Limite dos campos do card (pergunta/resposta em cards/schema.ts). */
+const MAX_OUTPUT_LENGTH = 5_000;
+
+const MSG_EMPTY_INPUT = "Não há texto para enviar à IA.";
+const MSG_INPUT_TOO_LONG = "O texto é grande demais (máximo de 20 000 caracteres).";
+const MSG_NO_MODEL = "Escolha o modelo em Configuração antes de usar a IA.";
+const MSG_EMPTY_REPLY = "A IA não devolveu nenhum texto.";
+const MSG_FAILED = "Não foi possível gerar o texto.";
+
+const SYSTEM_PROMPT =
+  "Você é um assistente de estudo. Responda em português do Brasil apenas com o texto pedido, " +
+  "sem introdução, sem comentários e sem formatação extra.";
+
+/** Valida a entrada, chama a IA com a configuração salva e devolve só o texto (ou um motivo sem detalhes internos). */
+async function runAiText(input: unknown, buildPrompt: (text: string) => string): Promise<AiTextResult> {
+  if (typeof input !== "string") return { ok: false, message: MSG_EMPTY_INPUT };
+  const text = input.trim();
+  if (text === "") return { ok: false, message: MSG_EMPTY_INPUT };
+  if (text.length > MAX_INPUT_LENGTH) return { ok: false, message: MSG_INPUT_TOO_LONG };
+
+  try {
+    // Sem sessão válida, resolveAiConfig já devolve a mensagem padrão de sessão expirada/sem permissão.
+    const resolved = await resolveAiConfig({}, { requireModel: false });
+    if (!resolved.ok) return { ok: false, message: resolved.message };
+    if (resolved.config.model.trim() === "") return { ok: false, message: MSG_NO_MODEL };
+
+    const reply = await createGatewayClient(resolved.config).chat(SYSTEM_PROMPT, buildPrompt(text));
+    const output = reply.text.trim();
+    if (output === "") return { ok: false, message: MSG_EMPTY_REPLY };
+    return { ok: true, text: output.slice(0, MAX_OUTPUT_LENGTH) };
+  } catch (error) {
+    // AiError já vem sem a chave (o cliente a mascara); o resto pode ter detalhes internos. O AuthError não
+    // chega aqui: resolveAiConfig o converte na mensagem de sessão expirada/sem permissão.
+    if (error instanceof AiError) return { ok: false, message: error.message };
+    return { ok: false, message: MSG_FAILED };
+  }
+}
+
+/** Gera a pergunta de um card a partir de um trecho de texto. */
+export async function generateCardQuestion(text: string): Promise<AiTextResult> {
+  return runAiText(text, (t) => `Faça uma pergunta com um parágrafo curto do texto: ${t}`);
+}
+
+/** Gera a resposta de um card a partir da pergunta. */
+export async function generateCardAnswer(question: string): Promise<AiTextResult> {
+  return runAiText(question, (q) => `Responda em um parágrafo curto a pergunta ${q}`);
+}
+
+/** Resume o texto de uma célula do Estudo. */
+export async function summarizeText(text: string): Promise<AiTextResult> {
+  return runAiText(text, (t) => `Resuma em um parágrafo curto o texto: ${t}`);
 }

@@ -3,13 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/current-user", () => ({ getCurrentUserId: vi.fn().mockResolvedValue("test-user") }));
 vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/features/ai/resolve-config", () => ({ resolveAiConfig: vi.fn() }));
-vi.mock("@/features/ai/client", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/ai/client")>()),
-  createAiClient: vi.fn(),
-}));
+vi.mock("@/features/ai/gateway", () => ({ createGatewayClient: vi.fn() }));
 
 import { generateCardAnswer, generateCardQuestion, summarizeText } from "@/features/ai/actions";
-import { AiError, createAiClient, type AiClientConfig } from "@/features/ai/client";
+import { AiError, type AiClientConfig } from "@/features/ai/client";
+import { createGatewayClient } from "@/features/ai/gateway";
 import { resolveAiConfig } from "@/features/ai/resolve-config";
 
 const config: AiClientConfig = {
@@ -30,7 +28,7 @@ function mockChatReply(text: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(resolveAiConfig).mockResolvedValue({ ok: true, config });
-  vi.mocked(createAiClient).mockReturnValue({ chat } as unknown as ReturnType<typeof createAiClient>);
+  vi.mocked(createGatewayClient).mockReturnValue({ chat } as unknown as ReturnType<typeof createGatewayClient>);
   mockChatReply("Resposta da IA");
 });
 
@@ -50,7 +48,7 @@ describe("generateCardQuestion", () => {
     await generateCardQuestion("texto");
 
     expect(resolveAiConfig).toHaveBeenCalledWith({}, { requireModel: false });
-    expect(createAiClient).toHaveBeenCalledWith(config);
+    expect(createGatewayClient).toHaveBeenCalledWith(config);
   });
 
   it("recusa texto vazio ou em branco sem chamar a IA", async () => {

@@ -59,6 +59,9 @@ const actionCalls: Record<string, () => Promise<unknown>> = {
   "agenda.createSchedules": () => agenda.createSchedules({ studyId: "id-1", studyName: "Estudo" }),
   "agenda.completeSchedule": () => agenda.completeSchedule("id-1"),
   "ai.saveAiSettings": () => ai.saveAiSettings(aiInput),
+  "ai.generateCardQuestion": () => ai.generateCardQuestion("Texto"),
+  "ai.generateCardAnswer": () => ai.generateCardAnswer("Pergunta?"),
+  "ai.summarizeText": () => ai.summarizeText("Texto"),
 };
 
 /** Exports que não devolvem `ActionResult`: deixam o AuthError subir para o chamador. */
@@ -127,7 +130,7 @@ describe("cobertura da lista de entradas", () => {
     ].sort();
     const covered = [...Object.keys(actionCalls), "agenda.listUserSchedules", "agenda.checkStudyHasActiveSchedules"].sort();
     expect(exported).toEqual(covered);
-    expect(Object.keys(actionCalls)).toHaveLength(15);
+    expect(Object.keys(actionCalls)).toHaveLength(18);
   });
 });
 
