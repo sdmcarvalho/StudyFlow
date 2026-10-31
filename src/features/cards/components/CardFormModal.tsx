@@ -113,7 +113,11 @@ export function CardFormModal({
         onError(question.message);
         return;
       }
-      if (mountedRef.current) setPergunta(question.text);
+      // Sem modal não há onde aplicar o texto, e a segunda chamada seria paga à toa.
+      if (!mountedRef.current) return;
+      setPergunta(question.text);
+      // A resposta antiga não vale para a pergunta nova: se a segunda chamada falhar, não pode sobrar um par trocado.
+      setResposta("");
 
       const answer = await generateCardAnswer(question.text);
       if (!answer.ok) {
