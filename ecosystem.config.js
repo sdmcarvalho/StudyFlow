@@ -10,7 +10,9 @@
 //   pm2 save
 //
 // Deploy de uma atualização:
-//   git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js && pm2 save
+//   git pull && npm ci && npx prisma migrate deploy && npm run voz:install && npm run build && pm2 startOrReload ecosystem.config.js && pm2 save
+//   ("npm run voz:install" é idempotente e opcional: instala/atualiza o Piper e as vozes; ver a seção
+//    "Voz (ler e gravar em MP3)" do README, que também lista as variáveis da Voz — nenhuma é definida aqui.)
 //   (o "pm2 save" é necessário: o dump salvo é o que o "pm2 resurrect" usa após um reboot da VPS;
 //    sem ele o processo voltaria sem o TZ, em UTC. Confira com "pm2 show studyflow | grep -i TZ".)
 //

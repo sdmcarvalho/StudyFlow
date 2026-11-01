@@ -54,10 +54,51 @@ export function planInstall({ platform, dir, voices = DEFAULT_VOICES, systemPyth
   };
 }
 
-function defaultBaseDir(platform) {
-  const fromEnv = process.env.STUDYFLOW_BASE_DIR?.trim();
-  if (fromEnv) return fromEnv;
-  return isWindows(platform) ? "C:\\StudyFlow" : "/var/lib/studyflow";
+/**
+ * Valor de uma variável de ambiente sem espaços nas pontas; vazia ou só com espaços conta como ausente.
+ * @param {string} name
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {string | undefined}
+ */
+export function envValue(name, env = process.env) {
+  return env[name]?.trim() || undefined;
+}
+
+function defaultBaseDir(platform, env) {
+  return envValue("STUDYFLOW_BASE_DIR", env) ?? (isWindows(platform) ? "C:\\StudyFlow" : "/var/lib/studyflow");
+}
+
+/**
+ * Pasta da instalação e Python do sistema (puro). `--dir` e `--python` vencem as variáveis; variável vazia conta
+ * como ausente. `isDefault`: a pasta é a mesma que o app calcula sozinho (`<STUDYFLOW_BASE_DIR>/voz`).
+ * @param {{ platform: string, args?: { dir?: string, python?: string }, env?: Record<string, string | undefined> }} options
+ */
+export function resolveInstall({ platform, args = {}, env = process.env }) {
+  const custom = args.dir || envValue("STUDYFLOW_VOZ_DIR", env);
+  return {
+    dir: custom ?? joinFor(platform, defaultBaseDir(platform, env), "voz"),
+    isDefault: !custom,
+    systemPython: args.python || envValue("STUDYFLOW_VOZ_SYSTEM_PYTHON", env),
+  };
+}
+
+/**
+ * Mensagem do fim (pura). Na pasta padrão o app acha o venv sozinho: nada a configurar. Numa pasta fora do
+ * padrão o app precisa das mesmas variáveis no ambiente dele (`.env`).
+ * @param {{ dir: string, python: string, isDefault: boolean }} options
+ * @returns {string[]}
+ */
+export function finalMessage({ dir, python, isDefault }) {
+  if (isDefault) {
+    return [
+      `Pronto. Instalado na pasta padrão (${dir}): o app usa esta instalação sozinho, nada a configurar.`,
+      "Se o app define STUDYFLOW_BASE_DIR no .env, rode este instalador com o mesmo valor no ambiente.",
+    ];
+  }
+  return [
+    `Pronto. Instalado fora da pasta padrão. No ambiente do app (.env), defina STUDYFLOW_VOZ_DIR=${dir}`,
+    `Com isso o app usa o Python do venv dessa pasta; para indicá-lo à mão, STUDYFLOW_VOZ_PYTHON=${python} (caminho absoluto).`,
+  ];
 }
 
 function parseArgs(argv) {
@@ -127,8 +168,7 @@ async function step(title, cmd) {
 async function main() {
   const platform = process.platform;
   const args = parseArgs(process.argv.slice(2));
-  const dir = args.dir ?? process.env.STUDYFLOW_VOZ_DIR?.trim() ?? joinFor(platform, defaultBaseDir(platform), "voz");
-  const systemPython = args.python ?? process.env.STUDYFLOW_VOZ_SYSTEM_PYTHON?.trim() ?? undefined;
+  const { dir, isDefault, systemPython } = resolveInstall({ platform, args });
   const plan = planInstall({ platform, dir, systemPython });
   const base = plan.venvCmd[0];
 
@@ -188,8 +228,7 @@ async function main() {
     await step(`baixando a voz ${voice}`, cmd);
   }
 
-  console.log(`\nPronto. Para o app usar esta instalação: STUDYFLOW_VOZ_DIR=${dir}`);
-  console.log(`Python do venv (o app o usa sozinho; STUDYFLOW_VOZ_PYTHON só se quiser outro): ${plan.python}`);
+  console.log(`\n${finalMessage({ dir, python: plan.python, isDefault }).join("\n")}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

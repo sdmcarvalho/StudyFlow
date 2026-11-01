@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_VOICES, planInstall, venvStatus } from "../../scripts/voz-install.mjs";
+import { DEFAULT_VOICES, envValue, finalMessage, planInstall, resolveInstall, venvStatus } from "../../scripts/voz-install.mjs";
 
 describe("venvStatus", () => {
   const python = "/srv/voz/venv/bin/python";
@@ -79,5 +79,56 @@ describe("planInstall", () => {
         expect(part).not.toMatch(/&&|;|\||\bshell\b|\bsh\b|cmd\.exe|powershell/i);
       }
     }
+  });
+});
+
+describe("resolveInstall (pasta e Python do sistema)", () => {
+  it("sem nada definido usa <STUDYFLOW_BASE_DIR>/voz e diz que é a pasta padrão", () => {
+    expect(resolveInstall({ platform: "linux", env: {} })).toEqual({
+      dir: "/var/lib/studyflow/voz",
+      isDefault: true,
+      systemPython: undefined,
+    });
+    expect(resolveInstall({ platform: "win32", env: { STUDYFLOW_BASE_DIR: "D:\\SF" } }).dir).toBe("D:\\SF\\voz");
+  });
+
+  it("variáveis vazias ou só com espaços contam como ausentes", () => {
+    const env = { STUDYFLOW_VOZ_DIR: "", STUDYFLOW_VOZ_SYSTEM_PYTHON: "   ", STUDYFLOW_BASE_DIR: " " };
+    expect(resolveInstall({ platform: "linux", env })).toEqual({
+      dir: "/var/lib/studyflow/voz",
+      isDefault: true,
+      systemPython: undefined,
+    });
+    expect(envValue("X", { X: "" })).toBeUndefined();
+    expect(envValue("X", { X: "  a  " })).toBe("a");
+  });
+
+  it("STUDYFLOW_VOZ_DIR ou --dir é pasta fora do padrão; --dir e --python vencem as variáveis", () => {
+    const env = { STUDYFLOW_VOZ_DIR: " /opt/voz ", STUDYFLOW_VOZ_SYSTEM_PYTHON: "python3.12" };
+    expect(resolveInstall({ platform: "linux", env })).toEqual({
+      dir: "/opt/voz",
+      isDefault: false,
+      systemPython: "python3.12",
+    });
+    expect(resolveInstall({ platform: "linux", env, args: { dir: "/srv/v", python: "py" } })).toEqual({
+      dir: "/srv/v",
+      isDefault: false,
+      systemPython: "py",
+    });
+  });
+});
+
+describe("finalMessage", () => {
+  it("na pasta padrão: nada a configurar, sem pedir STUDYFLOW_VOZ_DIR nem STUDYFLOW_VOZ_PYTHON", () => {
+    const text = finalMessage({ dir: "/var/lib/studyflow/voz", python: "/var/lib/studyflow/voz/venv/bin/python", isDefault: true }).join("\n");
+    expect(text).toContain("nada a configurar");
+    expect(text).not.toContain("STUDYFLOW_VOZ_DIR");
+    expect(text).not.toContain("STUDYFLOW_VOZ_PYTHON");
+  });
+
+  it("fora da pasta padrão: pede STUDYFLOW_VOZ_DIR e cita STUDYFLOW_VOZ_PYTHON com caminho absoluto", () => {
+    const text = finalMessage({ dir: "/opt/voz", python: "/opt/voz/venv/bin/python", isDefault: false }).join("\n");
+    expect(text).toContain("STUDYFLOW_VOZ_DIR=/opt/voz");
+    expect(text).toContain("STUDYFLOW_VOZ_PYTHON=/opt/voz/venv/bin/python (caminho absoluto)");
   });
 });

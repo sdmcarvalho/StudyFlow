@@ -39,7 +39,7 @@ export const MicIcon = (p: IconProps) => (
     <path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5M7 17.5h6" />
   </Icon>
 );
-export const InboxIcon =(p: IconProps) => (
+export const InboxIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 10.5 5.5 4h9L17 10.5" />
     <path d="M3 10.5V15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4.5" />

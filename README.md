@@ -63,13 +63,16 @@ pm2 startOrReload ecosystem.config.js && pm2 save
 
 O comando roda com o mesmo usuário do PM2, para ele poder ler a pasta. Não define nenhuma variável no `ecosystem.config.js`.
 
+**O instalador não lê o `.env`.** Ele calcula a pasta com as variáveis do shell em que roda. Se `STUDYFLOW_BASE_DIR` ou `STUDYFLOW_VOZ_DIR` estão definidas só no `.env` do app, exporte os mesmos valores no shell ao rodar `npm run voz:install` (por exemplo `STUDYFLOW_BASE_DIR=/srv/sf npm run voz:install`). Os valores precisam ser iguais aos do app; senão a instalação vai para uma pasta que o app não procura e a tela Voz continua avisando que a voz não está instalada. Na pasta padrão o instalador termina dizendo que não há nada a configurar. Numa pasta fora do padrão, ele mostra o `STUDYFLOW_VOZ_DIR` que o app precisa ter.
+
 ### Variáveis de ambiente (todas opcionais)
 
 | Variável | Para que serve |
 |---|---|
 | `STUDYFLOW_VOZ_DIR` | Pasta da Voz, com `venv/`, `voices/` e `cache/`. Padrão: `voz` dentro da pasta base (`C:\StudyFlow\voz` no Windows, `/var/lib/studyflow/voz` na VPS). |
-| `STUDYFLOW_VOZ_PYTHON` | Python do ambiente do Piper. Se não definida, vale o do `venv` criado pelo instalador (`<STUDYFLOW_VOZ_DIR>\venv\Scripts\python.exe` no Windows, `<STUDYFLOW_VOZ_DIR>/venv/bin/python` no Linux). Quando definida, vence. |
+| `STUDYFLOW_VOZ_PYTHON` | Python do ambiente do Piper. Se não definida, vale o do `venv` criado pelo instalador (`<STUDYFLOW_VOZ_DIR>\venv\Scripts\python.exe` no Windows, `<STUDYFLOW_VOZ_DIR>/venv/bin/python` no Linux). Quando definida, vence. Precisa ser o **caminho absoluto** do executável do Python (p.ex. `/var/lib/studyflow/voz/venv/bin/python`). Um nome solto como `python3` faz o app dizer que a voz "não está instalada". |
 | `STUDYFLOW_VOZ_MAX_CHARS` | Limite de caracteres falados por tarefa. Padrão: 60 000 (**a confirmar na VPS**: o valor depende da velocidade do Piper nas 2 CPUs compartilhadas; reduza se a geração passar de uns 10 minutos). |
+| `STUDYFLOW_VOZ_MAX_CELL_CHARS` | Limite de caracteres falados por célula. Padrão: 20 000. O áudio de uma célula fica inteiro na memória até virar MP3 (cerca de 50 MB nesse tamanho), então este limite segura o pico de memória do app (o PM2 o reinicia acima de 500 MB). |
 | `STUDYFLOW_VOZ_JOB_TIMEOUT_MS` | Tempo máximo de uma tarefa, em milissegundos. Padrão: 20 minutos. |
 | `STUDYFLOW_VOZ_ENGINE` | `fake` seleciona um motor falso (áudio de silêncio) e **só os testes e2e definem**. **Nunca defina em produção**: o `ecosystem.config.js` não a define, e um teste unitário garante isso. |
 
@@ -78,6 +81,7 @@ O comando roda com o mesmo usuário do PM2, para ele poder ler a pasta. Não def
 - Uma geração por vez no servidor; as demais ficam "na fila".
 - Uma tarefa ativa por usuário ("Você já tem uma voz em andamento.").
 - Tempo máximo de 20 minutos por tarefa; passando disso: "A geração demorou demais.".
+- No máximo 60 000 caracteres falados por tarefa (`STUDYFLOW_VOZ_MAX_CHARS`) e 20 000 por célula (`STUDYFLOW_VOZ_MAX_CELL_CHARS`). Uma célula maior é recusada com "A célula N tem X caracteres falados; o limite por célula é 20 000. Divida a célula.".
 - Tarefas ficam em memória: reiniciar o app perde as em andamento (é só clicar de novo). Sair da tela cancela a tarefa.
 - Cache em disco (`<STUDYFLOW_VOZ_DIR>/cache`): células já geradas são reaproveitadas por 24 horas, com teto de 500 MB.
 - O MP3 de um **Gravar** concluído é descartado quando o mesmo usuário inicia outra tarefa, e tarefas concluídas somem em 1 hora. **Baixe o arquivo logo ao terminar.**

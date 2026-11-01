@@ -79,8 +79,15 @@ Regras:
   com o número de cada uma.
 - Controles: **Tocar/Pausar**, **Anterior**, **Próxima**, e clicar numa célula toca a partir dela.
 - A célula que está sendo lida fica destacada e visível (rola até ela).
-- O áudio é gerado pela mesma tarefa do Gravar, no modo `ler`; o navegador toca o MP3 de cada célula assim que ela
-  fica pronta e já busca a seguinte. Se a reprodução alcançar a geração, mostra "Gerando a próxima célula…".
+- O áudio é gerado pela mesma tarefa do Gravar, no modo `ler`. A tarefa é criada no **primeiro clique em Tocar**
+  (ou numa célula), não ao abrir a tela: é o gesto que o navegador exige para tocar áudio, e quem só abre a tela
+  não gera nada. O navegador toca o MP3 de cada célula assim que ela fica pronta e já busca a seguinte. Se a
+  reprodução alcançar a geração, mostra "Gerando a próxima célula…"; enquanto a tarefa espera outra geração
+  terminar, "Na fila — aguardando outra geração terminar…".
+- Se o áudio de uma célula falhar ao carregar, a tela confere a tarefa: se ela sumiu do servidor (reinício,
+  1 hora depois de pronta, outra tarefa do mesmo usuário em outra aba), mostra "A leitura expirou. Toque em Tocar
+  para gerar de novo." e o próximo Tocar cria outra tarefa na mesma célula (o cache torna isso barato); senão
+  mostra "Não foi possível tocar esta célula." e o próximo Tocar recarrega o áudio.
 - Células sem texto falável são mostradas e puladas na leitura.
 - Sair da tela para o áudio e cancela a tarefa.
 
@@ -133,7 +140,9 @@ como WAV à medida que termina (`onCell(n, wav)`).
   variável que só testes e e2e definem. O e2e roda `next start` (`NODE_ENV=production`), então a trava não pode
   ser o `NODE_ENV`: `ecosystem.config.js` nunca define a variável, e um teste unitário garante isso.
 - `catalog.ts`: lista as vozes instaladas e valida ids (sem `/`, `\`, `..`).
-- Configuração por ambiente: `STUDYFLOW_VOZ_PYTHON` (executável do Python do ambiente do Piper) e
+- Configuração por ambiente: `STUDYFLOW_VOZ_PYTHON` (caminho absoluto do executável do Python do ambiente do
+  Piper; sem ela vale o Python do `venv` criado por `npm run voz:install`, `<STUDYFLOW_VOZ_DIR>/venv/Scripts/python.exe`
+  no Windows e `<STUDYFLOW_VOZ_DIR>/venv/bin/python` nos demais; definida, ela vence) e
   `STUDYFLOW_VOZ_DIR` (padrão: `voz` dentro da pasta base do app, `baseFolder()`; contém `venv/`, `voices/` e
   `cache/`). Sem o Piper instalado, a tela Voz mostra "A voz não está instalada neste ambiente." e desabilita
   Ler, Gravar e Amostra; nada quebra.
@@ -157,10 +166,18 @@ células entre Ler, Gravar e repetições.
 - **Limite de tamanho**: total de caracteres falados por tarefa (padrão 60 000, ajustável por
   `STUDYFLOW_VOZ_MAX_CHARS`). A Tarefa 1 mede a velocidade do Piper na VPS e fixa o padrão. Acima do limite:
   "O trecho tem {X} caracteres; o limite é {Y}. Escolha menos células.".
-- Tempo máximo por tarefa: 20 minutos, depois "A geração demorou demais." e o processo é encerrado.
+- **Limite por célula**: 20 000 caracteres falados (ajustável por `STUDYFLOW_VOZ_MAX_CELL_CHARS`), conferido antes
+  do limite do trecho. O WAV de uma célula fica inteiro na memória até virar MP3 (~44 KB por segundo de fala), e o
+  PM2 reinicia o app acima de 500 MB. Acima do limite: "A célula {n} tem {X} caracteres falados; o limite por célula
+  é {Y}. Divida a célula." (`n` = a primeira célula que passa). O WAV vai ao worker do MP3 sem cópia (o
+  ArrayBuffer é transferido) e as rotas de áudio enviam os MP3 em fluxo, sem concatenar.
+- Tempo máximo por tarefa: 20 minutos (ajustável por `STUDYFLOW_VOZ_JOB_TIMEOUT_MS`), depois "A geração demorou
+  demais." e o processo é encerrado.
 - Estados: `na-fila`, `gerando`, `pronto`, `erro`, `cancelado`. Cada tarefa guarda `total`, `feitas` e quais células
   estão prontas.
 - Tarefa sem consulta de status por 60 s é cancelada (navegador fechado). Tarefa concluída é apagada após 1 hora.
+- Criar uma tarefa descarta as tarefas concluídas do mesmo usuário (no máximo uma guardada, com seus MP3, por
+  usuário): o MP3 de um Gravar precisa ser baixado logo ao terminar.
 
 ### Rotas (todas exigem sessão; POST e DELETE exigem a mesma origem; a tarefa só é visível ao dono)
 
