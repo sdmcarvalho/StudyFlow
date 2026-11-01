@@ -1,6 +1,8 @@
+import fs from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { login, resetData } from "./helpers";
+import { E2E_VOZ_DIR, createUserViaUi, login, logout, resetData } from "./helpers";
 
 const GATEWAY_PORT = 3299;
 const GATEWAY_URL = `http://127.0.0.1:${GATEWAY_PORT}/v1`;
@@ -145,5 +147,37 @@ test.describe("mobile", () => {
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     );
     expect(noHorizontalScroll).toBe(true);
+  });
+});
+
+test.describe("Limpeza de áudios", () => {
+  const HEX = "c".repeat(64);
+  const cacheFile = path.join(E2E_VOZ_DIR, "cache", `${HEX}.mp3`);
+
+  test("o superusuário apaga os áudios do cache; o usuário comum nem vê o painel", async ({ page }) => {
+    resetData();
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+    fs.writeFileSync(cacheFile, Buffer.alloc(2048));
+
+    await login(page);
+    await page.goto("/configuracao");
+    await expect(page.getByRole("heading", { name: "Limpeza" })).toBeVisible();
+    await page.getByRole("button", { name: "Limpar Audios" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar" }).click();
+    expect(fs.existsSync(cacheFile)).toBe(true);
+
+    await page.getByRole("button", { name: "Limpar Audios" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Apagar" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "1 arquivo apagado (2,0 KB)." })).toBeVisible();
+    expect(fs.existsSync(cacheFile)).toBe(false);
+
+    const maria = { nome: "Maria Teste", email: "maria@e2e.test", senha: "Senha5678" };
+    await createUserViaUi(page, maria);
+    await logout(page);
+    await login(page, { email: maria.email, password: maria.senha });
+    await page.goto("/configuracao");
+    await expect(page.getByRole("heading", { name: "Minha conta" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Limpeza" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Limpar Audios" })).toHaveCount(0);
   });
 });

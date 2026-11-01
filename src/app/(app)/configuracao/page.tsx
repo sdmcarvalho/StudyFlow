@@ -6,12 +6,13 @@ import { ChangePasswordForm } from "@/features/auth/components/ChangePasswordFor
 import { VoiceSettingsForm } from "@/features/voz/components/VoiceSettingsForm";
 import { listInstalledVoices } from "@/features/voz/engine/catalog";
 import { getVoiceSettings } from "@/features/voz/queries";
+import { CleanupPanel } from "@/features/voz/components/CleanupPanel";
 import { requireUser } from "@/lib/current-user";
 
 export const metadata = { title: "Configuração · StudyFlow" };
 
 export default async function ConfiguracaoPage() {
-  await requireUser();
+  const user = await requireUser();
   // Lê o banco a cada requisição: sem isto a página seria pré-renderizada no build com os dados do build.
   await connection();
   const settings = await getAiSettings();
@@ -24,6 +25,8 @@ export default async function ConfiguracaoPage() {
       <AiSettingsForm initial={settings} />
       <VoiceSettingsForm initial={voiceSettings} voices={voices} />
       <ChangePasswordForm />
+      {/* Só o superusuário recebe o painel: a verificação é aqui, no servidor, e a ação confere de novo. */}
+      {user.role === "SUPER" ? <CleanupPanel /> : null}
     </>
   );
 }

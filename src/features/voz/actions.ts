@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { authActionMessage } from "@/lib/auth-response";
-import { getCurrentUserId } from "@/lib/current-user";
+import { assertSuperuser, getCurrentUserId } from "@/lib/current-user";
 import { db } from "@/lib/db";
+import { clearAudioCache } from "./cache";
 import { isInstalledVoice } from "./engine/catalog";
+import { discardAllJobs } from "./jobs";
 import { MSG_VOICE_NOT_INSTALLED, parseVoiceSettings, type VoiceFieldErrors, type VoiceSettings } from "./settings-schema";
 
 export type SaveVoiceSettingsResult =
@@ -33,5 +35,26 @@ export async function saveVoiceSettings(input: unknown): Promise<SaveVoiceSettin
   } catch (error) {
     const message = authActionMessage(error);
     return message ? { ok: false, message } : SAVE_FAILED;
+  }
+}
+
+export type ClearAudiosResult =
+  | { ok: true; data: { files: number; bytes: number } }
+  | { ok: false; message: string };
+
+const CLEAR_FAILED = { ok: false, message: "Não foi possível limpar os áudios." } as const;
+
+/**
+ * Só o superusuário: apaga todos os MP3 do cache em disco e descarta as tarefas de voz de todos os usuários
+ * (as ativas são canceladas). Não mexe no Piper, nas vozes nem nos Estudos.
+ */
+export async function clearAudios(): Promise<ClearAudiosResult> {
+  try {
+    await assertSuperuser();
+    discardAllJobs();
+    return { ok: true, data: await clearAudioCache() };
+  } catch (error) {
+    const message = authActionMessage(error);
+    return message ? { ok: false, message } : CLEAR_FAILED;
   }
 }

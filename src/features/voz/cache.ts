@@ -103,3 +103,33 @@ export async function cachePrune(
     }
   }
 }
+
+/**
+ * Apaga todos os áudios do cache (`<sha256>.mp3` e temporários esquecidos), de qualquer idade. Só arquivos com
+ * nome de chave: subpastas e qualquer outro arquivo ficam. Devolve quantos arquivos e bytes foram apagados.
+ */
+export async function clearAudioCache(): Promise<{ files: number; bytes: number }> {
+  const dir = cacheDir();
+  let names: string[];
+  try {
+    names = await fs.readdir(dir);
+  } catch {
+    return { files: 0, bytes: 0 };
+  }
+  let files = 0;
+  let bytes = 0;
+  for (const name of names) {
+    if (!FINAL_NAME.test(name) && !TEMP_NAME.test(name)) continue;
+    const file = path.join(dir, name);
+    try {
+      const stat = await fs.stat(file);
+      if (!stat.isFile()) continue;
+      await fs.rm(file, { force: true });
+      files += 1;
+      bytes += stat.size;
+    } catch {
+      // Arquivo sumiu ou está em uso: não conta.
+    }
+  }
+  return { files, bytes };
+}

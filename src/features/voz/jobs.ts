@@ -265,6 +265,24 @@ function cancelInternal(job: Job): void {
   finish(job, "cancelado");
 }
 
+/**
+ * Limpeza do superusuário: cancela as tarefas em andamento ou na fila e esquece todas as outras, de todos os
+ * usuários, para nenhum áudio ficar na memória. Devolve quantas tarefas existiam. Amostras não entram.
+ */
+export function discardAllJobs(): number {
+  const s = store();
+  const jobs = [...s.jobs.values()];
+  for (const job of jobs) {
+    cancelInternal(job);
+    clearTimeout(job.idleTimer);
+    clearTimeout(job.maxTimer);
+    clearTimeout(job.retentionTimer);
+    job.mp3.clear();
+    s.jobs.delete(job.id);
+  }
+  return jobs.length;
+}
+
 // A entrada da fila de cada tarefa (criada uma vez, para poder tirá-la da fila ao cancelar).
 const slots = new WeakMap<Job, SlotEntry>();
 function slotOf(job: Job): SlotEntry {
