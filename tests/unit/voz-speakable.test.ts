@@ -71,6 +71,45 @@ describe("toSpeakable — ênfase, links, imagens, HTML", () => {
     expect(toSpeakable("texto\n<!-- nunca fecha\nmais texto")).toBe("texto");
   });
 
+  it("<script>, <style> e <!-- dentro de código inline não escondem o resto da célula", () => {
+    expect(toSpeakable("A tag `<script>` carrega JS. Depois vem mais texto importante.")).toBe(
+      "A tag <script> carrega JS. Depois vem mais texto importante.",
+    );
+    expect(toSpeakable("Use `<!--` para comentar. Fim do texto.")).toBe(
+      "Use <!-- para comentar. Fim do texto.",
+    );
+    expect(toSpeakable("O elemento `<style>` define CSS.\n\nOutra parte do texto.")).toBe(
+      "O elemento <style> define CSS. Outra parte do texto.",
+    );
+    expect(toSpeakable("`x` <script>alert(1)</script> fim")).toBe("x fim");
+    expect(toSpeakable("`<!--` e <!-- oculto --> fim")).toBe("<!-- e fim");
+  });
+
+  it("<script> e <!-- em código indentado ou cercado não escondem o resto", () => {
+    expect(toSpeakable("    codigo `<script>`\n\nfim")).toBe("trecho de código. fim");
+    expect(toSpeakable("    <!-- aberto\n\nfim")).toBe("trecho de código. fim");
+    expect(toSpeakable("    <script>\n\nfim")).toBe("trecho de código. fim");
+    expect(toSpeakable("```html\n<script>\n<!--\n```\n\ndepois")).toBe("trecho de código. depois");
+  });
+
+  it("só tags HTML conhecidas e bem formadas são removidas; '<' e '>' soltos ficam", () => {
+    expect(toSpeakable("x<y and y>z")).toBe("x<y and y>z");
+    expect(toSpeakable("Se a<b e c>d então")).toBe("Se a<b e c>d então");
+    expect(toSpeakable("List<String> lista")).toBe("List<String> lista");
+    expect(toSpeakable("<unknown>x</unknown>")).toBe("<unknown>x</unknown>");
+    expect(toSpeakable("se i<n && n>0 então")).toBe("se i<n && n>0 então");
+  });
+
+  it("tags conhecidas continuam sendo removidas (com atributos, auto-fechadas, fechamento)", () => {
+    expect(toSpeakable("<b>x</b>")).toBe("x");
+    expect(toSpeakable("a<br>b")).toBe("a b");
+    expect(toSpeakable("a<br/>b <br /> c")).toBe("a b c");
+    expect(toSpeakable('<img src="a.png" alt="x"> depois')).toBe("depois");
+    expect(toSpeakable("<span style='color:red'>vermelho</span>")).toBe("vermelho");
+    expect(toSpeakable("<details open><summary>Resumo</summary>texto</details>")).toBe("Resumo texto");
+    expect(toSpeakable("<b class=x>negrito</b>")).toBe("negrito");
+  });
+
   it("autolink e e-mail entre <> somem", () => {
     expect(toSpeakable("veja <https://x.com/a> ok")).toBe("veja ok");
     expect(toSpeakable("fale <a@b.com> ok")).toBe("fale ok");
@@ -271,6 +310,9 @@ describe("toSpeakable — desempenho em células enormes", () => {
     ["[](", "[]("],
     ["<", "<"],
     ["<a ", "<a "],
+    ['<b a="', '<b a="'],
+    ["<b a=x ", "<b a=x "],
+    ["`<script>", "`<script>"],
     ["`", "`"],
     ["``a", "``a"],
     ["(", "("],

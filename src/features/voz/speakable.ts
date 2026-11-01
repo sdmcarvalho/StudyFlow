@@ -27,10 +27,31 @@ const hasContent = (s: string): boolean => LETTER_OR_DIGIT.test(s);
 const PH_OPEN = "";
 const PH_CLOSE = "";
 
+// Tags de bloco: removidas e trocadas por espaço (separam palavras).
 const BLOCK_TAGS = new Set([
   "br", "p", "div", "li", "ul", "ol", "tr", "td", "th", "table", "thead", "tbody", "blockquote",
   "section", "article", "header", "footer", "hr", "pre", "h1", "h2", "h3", "h4", "h5", "h6",
+  "details", "summary", "figure", "figcaption", "nav", "main", "center", "picture", "video",
+  "audio", "iframe", "img", "source",
 ]);
+// Tags em linha: removidas sem espaço. Só nomes destas duas listas contam como HTML; qualquer
+// outro `<...>` ("x<y and y>z", "List<String>") é texto e fica como está. Falha mais segura para
+// o áudio: a fala pode soar estranha, mas nenhuma palavra some. Forma falada de "List<String>":
+// o próprio texto, sem alteração.
+const INLINE_TAGS = new Set([
+  "a", "abbr", "b", "code", "em", "i", "mark", "s", "small", "span", "strong", "sub", "sup", "u",
+  "kbd", "del", "ins", "font",
+]);
+// Atributos sem valor aceitos (`<details open>`); os demais precisam ser nome=valor. Assim
+// "a<b e c>d" (um `b` com "atributos" soltos) não é tag.
+const BOOL_ATTRS = "open|controls|autoplay|loop|muted|hidden|checked|disabled|selected|reversed|async|defer";
+const ATTR_VALUE = `(?:"[^"]*"|'[^']*'|[^\\s"'=<>\`]+)`;
+const HTML_TAG = new RegExp(
+  `<(/?)([A-Za-z][A-Za-z0-9]*)` +
+    `((?:\\s+[A-Za-z_:][\\w:.-]*\\s*=\\s*${ATTR_VALUE}|\\s+(?:${BOOL_ATTRS})(?![\\w:.-]))*)` +
+    `\\s*/?>`,
+  "g",
+);
 
 const ENTITIES: Record<string, string> = {
   nbsp: " ",
@@ -69,9 +90,13 @@ function inline(input: string): string {
 
   // Autolinks e e-mails entre <> somem; depois as tags HTML (blocos viram espaço).
   s = s.replace(/<(?:https?|ftp|mailto):[^<>\s]*>|<[^<>\s@]+@[^<>\s@]+>/gi, "");
-  s = s.replace(/<\/?([A-Za-z][A-Za-z0-9-]*)(?:\s[^<>]*)?\/?>/g, (_m, name: string) =>
-    BLOCK_TAGS.has(name.toLowerCase()) ? " " : "",
-  );
+  s = s.replace(HTML_TAG, (m, closing: string, name: string, attrs: string) => {
+    const tag = name.toLowerCase();
+    const block = BLOCK_TAGS.has(tag);
+    if (!block && !INLINE_TAGS.has(tag)) return m;
+    if (closing && attrs) return m; // "</b x>" não é tag
+    return block ? " " : "";
+  });
 
   // Ênfase: `*` some; `_` some nas bordas de palavra e vira espaço dentro da palavra
   // (snake_case). Com escape (`\*`, `\_`) o caractere é mantido.
@@ -121,6 +146,18 @@ function stripHidden(line: string, state: { until: RegExp | null }): string {
     const tag = open[0].toLowerCase();
     state.until = tag === "<!--" ? /-->/ : tag === "<script" ? /<\/script\s*>/i : /<\/style\s*>/i;
   }
+}
+
+// stripHidden sem mexer em código inline: os trechos entre crases são guardados antes e devolvidos
+// depois, então `<script>` ou `<!--` dentro de crases nunca abrem um bloco oculto.
+function stripHiddenOutsideCode(line: string, state: { until: RegExp | null }): string {
+  const spans: string[] = [];
+  const masked = line.replace(/`+[^`]*`+/g, (m) => {
+    spans.push(m);
+    return `${PH_OPEN}${spans.length - 1}${PH_CLOSE}`;
+  });
+  const out = stripHidden(masked, state);
+  return out.replace(new RegExp(`${PH_OPEN}(\\d+)${PH_CLOSE}`, "g"), (_m, i: string) => spans[Number(i)] ?? "");
 }
 
 // Remove os `>` iniciais de citação (até 3 espaços antes de cada um), sem copiar a linha a cada passo.
@@ -198,7 +235,12 @@ function headingContent(line: string): string | null {
 }
 
 export function toSpeakable(markdown: string): string {
-  const lines = markdown.split("\0").join("").split(/\r\n|\r|\n/);
+  // \0 e os marcadores de uso privado (reservados aos placeholders de código) saem da entrada.
+  const lines = markdown
+    .split("\0").join("")
+    .split(PH_OPEN).join("")
+    .split(PH_CLOSE).join("")
+    .split(/\r\n|\r|\n/);
 
   const blocks: Block[] = [];
   let para: string[] = [];
@@ -233,13 +275,22 @@ export function toSpeakable(markdown: string): string {
       continue;
     }
 
-    // Comentários, <script> e <style> (podem abrir ou fechar nesta linha).
-    const wasHidden = hidden.until !== null;
-    const before = line;
-    line = stripHidden(line, hidden);
-    if ((wasHidden || line !== before) && line.trim() === "") continue;
-
     line = stripQuote(line);
+
+    // Comentários, <script> e <style> (podem abrir ou fechar nesta linha). Não valem em código:
+    // nem inline (crases) nem em linha de código indentado.
+    const startsIndented = line.startsWith("\t") || line.startsWith("    ");
+    const isIndentedCode =
+      startsIndented &&
+      line.trim() !== "" &&
+      hidden.until === null &&
+      (indentCode !== null || (para.length === 0 && !listCtx));
+    if (!isIndentedCode) {
+      const wasHidden = hidden.until !== null;
+      const before = line;
+      line = stripHiddenOutsideCode(line, hidden);
+      if ((wasHidden || line !== before) && line.trim() === "") continue;
+    }
     const trimmed = line.trim();
 
     if (trimmed === "") {
