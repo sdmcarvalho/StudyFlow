@@ -13,6 +13,10 @@ import { POST as postImage } from "@/app/(app)/estudo/[id]/imagens/route";
 import { POST as modelos } from "@/app/api/ai/modelos/route";
 import { GET as getCards } from "@/app/api/cards/route";
 import { GET as getSummary } from "@/app/api/testes/resumo/route";
+import { GET as getVozCell } from "@/app/api/voz/jobs/[id]/cells/[n]/route";
+import { GET as downloadVozJob } from "@/app/api/voz/jobs/[id]/download/route";
+import { DELETE as deleteVozJob, GET as getVozJob } from "@/app/api/voz/jobs/[id]/route";
+import { POST as postVozJob } from "@/app/api/voz/jobs/route";
 import {
   checkStudyHasActiveSchedules,
   completeSchedule,
@@ -41,6 +45,7 @@ import {
 import { userRoot } from "@/features/estudo/folder-scope";
 import { getStudyDocument, getStudyFolder, listStudyRecords } from "@/features/estudo/queries";
 import { saveVoiceSettings } from "@/features/voz/actions";
+import { _resetJobsForTests, cancelJob, createJob, getCellMp3, getFullMp3, getJobStatus } from "@/features/voz/jobs";
 import { getVoiceSettings } from "@/features/voz/queries";
 import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
@@ -297,6 +302,68 @@ describe("um usuário não enxerga nem altera os dados de outro", () => {
     expect(await db.voiceSettings.count({ where: { userId: userB.id } })).toBe(1);
     expect(await getVoiceSettings()).toEqual({ voice: "pt_BR-faber-medium", speed: 2, volume: 0.2 });
     await expectAUntouched();
+  });
+
+  it("Voz: B não cria tarefa no Estudo de A nem consulta, baixa ou cancela a tarefa de A", async () => {
+    const savedEngine = process.env.STUDYFLOW_VOZ_ENGINE;
+    process.env.STUDYFLOW_VOZ_ENGINE = "fake";
+    _resetJobsForTests();
+    try {
+      // Estudo de A com 2 células (o do beforeEach tem só 1) e a tarefa de A, criada com a sessão dele.
+      const cells = JSON.stringify([
+        { id: "v1", texto: "Primeira de A." },
+        { id: "v2", texto: "Segunda de A." },
+      ]);
+      const vozStudy = await db.studyRecord.create({
+        data: { userId: userA.id, descricao: "Voz de A", pasta: folderA, dataInicial: "2026-08-04", conteudo: cells },
+      });
+      await signInAs(userA);
+      const created = await createJob(userA.id, { studyId: vozStudy.id, start: 1, end: 2, mode: "gravar" });
+      expect(created.ok).toBe(true);
+      const jobId = created.ok ? created.id : "";
+      const until = performance.now() + 15_000;
+      while (getJobStatus(userA.id, jobId)?.state !== "pronto" && performance.now() < until) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      expect(getJobStatus(userA.id, jobId)?.state).toBe("pronto");
+      const snapA = await snapshot(userA.id);
+
+      await signInAs(userB);
+      const notFound = { ok: false, status: 404, message: "Estudo não encontrado." };
+      expect(await createJob(userB.id, { studyId: vozStudy.id, start: 1, end: 2, mode: "gravar" })).toEqual(notFound);
+      expect(await createJob(userB.id, { studyId: ids.trashedStudy, start: 1, end: 2, mode: "ler" })).toEqual(notFound);
+      const post = await postVozJob(
+        new Request("http://localhost:3000/api/voz/jobs", {
+          method: "POST",
+          headers: { host: "localhost:3000", "content-type": "application/json" },
+          body: JSON.stringify({ studyId: vozStudy.id, start: 1, end: 2, mode: "gravar" }),
+        }),
+      );
+      expect(post.status).toBe(404);
+
+      expect(getJobStatus(userB.id, jobId)).toBeNull();
+      expect(getCellMp3(userB.id, jobId, 1)).toBeNull();
+      expect(getFullMp3(userB.id, jobId)).toBeNull();
+      expect(cancelJob(userB.id, jobId)).toBe(false);
+      const ctx = { params: Promise.resolve({ id: jobId }) };
+      const url = `http://localhost:3000/api/voz/jobs/${jobId}`;
+      const headers = { host: "localhost:3000" };
+      expect((await getVozJob(new Request(url, { headers }), ctx)).status).toBe(404);
+      expect((await deleteVozJob(new Request(url, { method: "DELETE", headers }), ctx)).status).toBe(404);
+      expect((await downloadVozJob(new Request(`${url}/download`, { headers }), ctx)).status).toBe(404);
+      const cellCtx = { params: Promise.resolve({ id: jobId, n: "1" }) };
+      expect((await getVozCell(new Request(`${url}/cells/1`, { headers }), cellCtx)).status).toBe(404);
+
+      // A tarefa de A continua pronta e baixável por A; nada de A mudou no banco.
+      await signInAs(userA);
+      expect(getJobStatus(userA.id, jobId)?.state).toBe("pronto");
+      expect(getFullMp3(userA.id, jobId)).not.toBeNull();
+      expect(await snapshot(userA.id)).toEqual(snapA);
+    } finally {
+      _resetJobsForTests();
+      if (savedEngine === undefined) delete process.env.STUDYFLOW_VOZ_ENGINE;
+      else process.env.STUDYFLOW_VOZ_ENGINE = savedEngine;
+    }
   });
 
   it("IA: a chave de A nunca é usada em chamadas de B", async () => {
