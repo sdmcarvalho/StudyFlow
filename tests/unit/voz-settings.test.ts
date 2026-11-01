@@ -19,6 +19,19 @@ import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 const VOICE = "pt_BR-faber-medium";
+
+/** Apaga tudo que referencia User (o banco de teste é compartilhado; outro arquivo pode ter deixado linhas). */
+async function clearUsers() {
+  await db.schedule.deleteMany();
+  await db.cardResult.deleteMany();
+  await db.card.deleteMany();
+  await db.studyRecord.deleteMany();
+  await db.aiSettings.deleteMany();
+  await db.voiceSettings.deleteMany();
+  await db.session.deleteMany();
+  await db.user.deleteMany();
+}
+
 const ok = (over: Record<string, unknown> = {}) => parseVoiceSettings({ voice: VOICE, speed: 1, volume: 1, ...over });
 
 describe("parseVoiceSettings", () => {
@@ -109,18 +122,14 @@ describe("saveVoiceSettings / getVoiceSettings", () => {
   });
 
   afterAll(async () => {
-    await db.voiceSettings.deleteMany();
-    await db.session.deleteMany();
-    await db.user.deleteMany();
+    await clearUsers();
     vi.unstubAllEnvs();
     await fs.rm(dir, { recursive: true, force: true });
   });
 
   beforeEach(async () => {
     vi.mocked(revalidatePath).mockClear();
-    await db.voiceSettings.deleteMany();
-    await db.session.deleteMany();
-    await db.user.deleteMany();
+    await clearUsers();
     signOut();
     await signInAs(await createTestUser());
   });
