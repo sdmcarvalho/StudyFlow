@@ -41,12 +41,15 @@ type Call = { url: string; method: string; init?: RequestInit };
 let calls: Call[];
 let polls: JobStatus[];
 let postResult: () => Promise<Response>;
+// Resposta das consultas de estado (GET), quando o teste quer outra que não a lista `polls`.
+let getResult: (() => Promise<Response>) | null;
 
 const fetchMock = vi.fn((url: string, init?: RequestInit) => {
   const method = init?.method ?? "GET";
   calls.push({ url, method, init });
   if (method === "POST") return postResult();
   if (method === "DELETE") return json({ ok: true });
+  if (getResult) return getResult();
   const next = polls.length > 1 ? polls.shift()! : polls[0];
   return json(next);
 });
@@ -55,6 +58,7 @@ const count = (method: string) => calls.filter((c) => c.method === method).lengt
 
 let playMock: ReturnType<typeof vi.spyOn>;
 let pauseMock: ReturnType<typeof vi.spyOn>;
+let loadMock: ReturnType<typeof vi.spyOn>;
 const scrollMock = vi.fn();
 
 async function tick(ms: number) {
@@ -96,12 +100,13 @@ beforeEach(() => {
   calls = [];
   polls = [statusOf("gerando", [])];
   postResult = () => json({ id: "J1" });
+  getResult = null;
   fetchMock.mockClear();
   vi.stubGlobal("fetch", fetchMock);
   // jsdom não implementa mídia nem rolagem.
   playMock = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(() => Promise.resolve());
   pauseMock = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
-  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  loadMock = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   scrollMock.mockClear();
   Element.prototype.scrollIntoView = scrollMock;
 });
@@ -541,7 +546,7 @@ describe("ReaderView: falhas e saída", () => {
     await tick(1000);
     expect(screen.getByRole("alert")).toBeInTheDocument();
 
-    polls = [statusOf("na-fila", [], { id: "J2" })];
+    polls = [statusOf("gerando", [], { id: "J2" })];
     postResult = () => json({ id: "J2" });
     await clickTocar();
     expect(count("POST")).toBe(2);
@@ -605,6 +610,107 @@ describe("ReaderView: falhas e saída", () => {
     polls = [statusOf("gerando", [])];
     await clickTocar();
     expect(count("POST")).toBe(2);
+  });
+
+  it("tarefa na fila (outra geração ocupa o servidor) mostra 'Na fila…' em vez de 'Gerando…'", async () => {
+    polls = [statusOf("na-fila", [])];
+    render(<ReaderView {...props()} />);
+    await clickTocar();
+    expect(screen.getByRole("status")).toHaveTextContent("Na fila — aguardando outra geração terminar…");
+    expect(pausar()).toBeInTheDocument();
+
+    polls = [statusOf("gerando", [])];
+    await tick(1000);
+    expect(screen.getByRole("status")).toHaveTextContent("Gerando a primeira célula…");
+    polls = [statusOf("gerando", [1])];
+    await tick(1000);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(playMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("erro ao tocar com a tarefa sumida (404 na consulta): avisa, e Tocar cria outra tarefa na mesma célula", async () => {
+    polls = [statusOf("pronto", [1, 2, 4])];
+    render(<ReaderView {...props()} />);
+    await clickTocar();
+    await tick(0);
+    await endCell(); // agora na célula 2
+    expect(srcOf(player())).toBe("/api/voz/jobs/J1/cells/2");
+    const getsBefore = count("GET");
+
+    getResult = () => json({ message: "Tarefa não encontrada." }, 404);
+    await act(async () => {
+      fireEvent.error(player());
+    });
+    await tick(0);
+    // Conferiu se a tarefa ainda existe.
+    expect(count("GET")).toBe(getsBefore + 1);
+    expect(calls.at(-1)!.url).toBe("/api/voz/jobs/J1");
+    expect(screen.getByRole("status")).toHaveTextContent("A leitura expirou. Toque em Tocar para gerar de novo.");
+    expect(tocar()).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Pausar" })).toBeNull();
+    expect(current()).toBe(item(2));
+
+    getResult = null;
+    postResult = () => json({ id: "J2" });
+    polls = [statusOf("gerando", [1], { id: "J2" })];
+    playMock.mockClear();
+    await clickTocar();
+    expect(count("POST")).toBe(2);
+    expect(current()).toBe(item(2));
+    expect(screen.getByRole("status")).toHaveTextContent("Gerando a próxima célula…");
+    expect(playMock).not.toHaveBeenCalled();
+
+    polls = [statusOf("gerando", [1, 2], { id: "J2" })];
+    await tick(1000);
+    expect(srcOf(player())).toBe("/api/voz/jobs/J2/cells/2");
+    expect(playMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(pausar()).toBeInTheDocument();
+  });
+
+  it("erro ao tocar com a tarefa viva (falha passageira): avisa, e Tocar recarrega o áudio e toca, sem nova tarefa", async () => {
+    polls = [statusOf("pronto", [1, 2, 4])];
+    render(<ReaderView {...props()} />);
+    await clickTocar();
+    await tick(0);
+    expect(playMock).toHaveBeenCalledTimes(1);
+
+    // O elemento fica em erro (ex.: MEDIA_ERR_NETWORK), como no navegador.
+    Object.defineProperty(player(), "error", { configurable: true, get: () => ({ code: 2 }) });
+    await act(async () => {
+      fireEvent.error(player());
+    });
+    await tick(0);
+    expect(screen.getByRole("status")).toHaveTextContent("Não foi possível tocar esta célula.");
+    expect(tocar()).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Pausar" })).toBeNull();
+
+    loadMock.mockClear();
+    await clickTocar();
+    expect(loadMock).toHaveBeenCalled();
+    expect(loadMock.mock.contexts.at(-1)).toBe(player());
+    expect(srcOf(player())).toBe("/api/voz/jobs/J1/cells/1");
+    expect(playMock).toHaveBeenCalledTimes(2);
+    expect(count("POST")).toBe(1);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(pausar()).toBeInTheDocument();
+  });
+
+  it("erro ao tocar sem resposta da consulta (rede) conta como passageiro", async () => {
+    polls = [statusOf("pronto", [1, 2, 4])];
+    render(<ReaderView {...props()} />);
+    await clickTocar();
+    await tick(0);
+    getResult = () => Promise.reject(new TypeError("Failed to fetch"));
+    await act(async () => {
+      fireEvent.error(player());
+    });
+    await tick(0);
+    expect(screen.getByRole("status")).toHaveTextContent("Não foi possível tocar esta célula.");
+    getResult = null;
+    await clickTocar();
+    expect(count("POST")).toBe(1);
+    expect(playMock).toHaveBeenCalledTimes(2);
   });
 
   it("ao sair da tela pausa e solta o áudio e cancela a tarefa ativa (DELETE keepalive)", async () => {

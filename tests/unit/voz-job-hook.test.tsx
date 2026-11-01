@@ -200,6 +200,70 @@ describe("useVoiceJob", () => {
     expect(count("GET")).toBe(gets);
   });
 
+  it("consulta que dá 404 (a tarefa sumiu: servidor reiniciou) avisa do reinício, limpa e para", async () => {
+    const { result } = renderHook(() => useVoiceJob());
+    await act(async () => {
+      await result.current.start(INPUT);
+    });
+    fetchMock.mockImplementationOnce((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? "GET", init });
+      return json({ message: "Tarefa não encontrada." }, 404);
+    });
+    await tick(1000);
+    expect(result.current.error).toBe("A voz foi interrompida (o servidor reiniciou). Tente de novo.");
+    expect(result.current.status).toBeNull();
+    expect(result.current.busy).toBe(false);
+    expect(count("DELETE")).toBe(1);
+    const gets = count("GET");
+    await tick(3000);
+    expect(count("GET")).toBe(gets);
+  });
+
+  it("reset solta a tarefa terminada: sem status nem erro, e um start depois cria outra", async () => {
+    polls = [statusOf("pronto", 4)];
+    const { result } = renderHook(() => useVoiceJob());
+    await act(async () => {
+      await result.current.start(INPUT);
+    });
+    expect(result.current.status?.state).toBe("pronto");
+    act(() => result.current.reset());
+    expect(result.current.status).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(result.current.busy).toBe(false);
+    expect(count("DELETE")).toBe(0); // terminada: nada a cancelar
+
+    postResult = () => json({ id: "J2" });
+    polls = [statusOf("gerando", 1, { id: "J2" })];
+    let id: string | null = null;
+    await act(async () => {
+      id = await result.current.start(INPUT);
+    });
+    expect(id).toBe("J2");
+    expect(count("POST")).toBe(2);
+  });
+
+  it("reset com tarefa ativa para de consultar, pede o cancelamento e ignora a consulta atrasada", async () => {
+    let lateResolve!: (r: Response) => void;
+    const { result } = renderHook(() => useVoiceJob());
+    await act(async () => {
+      await result.current.start(INPUT);
+    });
+    fetchMock.mockImplementationOnce((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? "GET", init });
+      return new Promise<Response>((r) => (lateResolve = r));
+    });
+    await tick(1000);
+    act(() => result.current.reset());
+    expect(count("DELETE")).toBe(1);
+    await act(async () => {
+      lateResolve(new Response(JSON.stringify(statusOf("pronto", 4)), { status: 200 }));
+    });
+    expect(result.current.status).toBeNull();
+    const gets = count("GET");
+    await tick(3000);
+    expect(count("GET")).toBe(gets);
+  });
+
   it("falha de rede ao consultar também zera o progresso", async () => {
     const { result } = renderHook(() => useVoiceJob());
     await act(async () => {

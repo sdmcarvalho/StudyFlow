@@ -8,6 +8,8 @@ export const MSG_NETWORK = "Não foi possível falar com o servidor. Tente de no
 const MSG_START_FAILED = "Não foi possível iniciar a voz.";
 const MSG_POLL_FAILED = "Não foi possível consultar a voz.";
 const MSG_JOB_FAILED = "A geração de voz falhou.";
+/** A consulta deu 404: a tarefa sumiu do servidor (reinício, p.ex. num deploy). */
+export const MSG_RESTARTED = "A voz foi interrompida (o servidor reiniciou). Tente de novo.";
 
 const POLL_MS = 1000;
 const JOBS_URL = "/api/voz/jobs";
@@ -21,6 +23,8 @@ export type VoiceJob = {
   error: string | null;
   start(input: VoiceJobInput): Promise<string | null>;
   cancel(): Promise<void>;
+  /** Esquece a tarefa (sem status nem erro); se ainda estava ativa, cancela no servidor. */
+  reset(): void;
 };
 
 const jobUrl = (id: string) => `${JOBS_URL}/${encodeURIComponent(id)}`;
@@ -104,7 +108,9 @@ export function useVoiceJob(): VoiceJob {
         let failure: string | null = null;
         try {
           const response = await fetch(jobUrl(id));
-          if (!response.ok) {
+          if (response.status === 404) {
+            failure = MSG_RESTARTED;
+          } else if (!response.ok) {
             failure = (await readMessage(response)) ?? MSG_POLL_FAILED;
           } else {
             try {
@@ -210,6 +216,17 @@ export function useVoiceJob(): VoiceJob {
     }
   }, [settle]);
 
+  // Solta a tarefa (p.ex. a tela Ler descobriu que ela sumiu do servidor): sem status nem erro, e o próximo
+  // start cria outra. Se ela ainda estava ativa, para de consultar e pede o cancelamento.
+  const reset = useCallback((): void => {
+    const id = activeId.current;
+    generation.current++;
+    settle();
+    setStatus(null);
+    setError(null);
+    if (id) cancelOnServer(id);
+  }, [settle]);
+
   useEffect(() => {
     const leave = () => {
       const id = activeId.current;
@@ -226,5 +243,5 @@ export function useVoiceJob(): VoiceJob {
     };
   }, [bumpGeneration, clearTimer]);
 
-  return { status, busy, error, start, cancel };
+  return { status, busy, error, start, cancel, reset };
 }

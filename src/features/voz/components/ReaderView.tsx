@@ -10,11 +10,13 @@ import { useVoiceJob } from "../use-voice-job";
 import styles from "./ReaderView.module.css";
 
 const NOT_INSTALLED = "A voz não está instalada neste ambiente.";
+const MSG_QUEUED = "Na fila — aguardando outra geração terminar…";
 const MSG_FIRST = "Gerando a primeira célula…";
 const MSG_NEXT = "Gerando a próxima célula…";
 const MSG_END = "Fim da leitura.";
 const MSG_TAP = "Toque em Tocar para continuar.";
 const MSG_AUDIO_FAILED = "Não foi possível tocar esta célula.";
+const MSG_EXPIRED = "A leitura expirou. Toque em Tocar para gerar de novo.";
 const MSG_CANCELLED = "A geração de voz foi cancelada.";
 
 type ReaderViewProps = {
@@ -29,7 +31,8 @@ type ReaderViewProps = {
 const NO_CELLS: number[] = [];
 const INITIAL: PlaybackState = { index: 0, playing: false, waiting: false };
 
-const cellUrl = (jobId: string, n: number) => `/api/voz/jobs/${encodeURIComponent(jobId)}/cells/${n}`;
+const jobUrl = (jobId: string) => `/api/voz/jobs/${encodeURIComponent(jobId)}`;
+const cellUrl = (jobId: string, n: number) => `${jobUrl(jobId)}/cells/${n}`;
 
 /** Solta o áudio: para e esvazia a fonte (o navegador deixa de baixar). */
 function release(audio: HTMLAudioElement | null) {
@@ -54,6 +57,8 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
   const playerRef = useRef<HTMLAudioElement>(null);
   const preloadRef = useRef<HTMLAudioElement>(null);
   const itemRefs = useRef(new Map<number, HTMLLIElement>());
+  // Cada ação do usuário troca o número: a resposta de uma checagem de erro de áudio antiga é ignorada.
+  const actionRef = useRef(0);
 
   // Números das células com texto para ler, na ordem do intervalo.
   const order = useMemo(() => cells.filter((c) => c.speakable).map((c) => c.n), [cells]);
@@ -93,6 +98,7 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
 
   /** Ação do usuário: marca a interação e limpa as mensagens do fim e do bloqueio do navegador. */
   function perform(event: PlaybackEvent) {
+    actionRef.current++;
     setEngaged(true);
     setFinished(false);
     setHint(null);
@@ -129,6 +135,27 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
     handleSelect(n);
   }
 
+  /**
+   * O áudio da célula falhou ao carregar. Se a tarefa sumiu do servidor (reinício, 1 h depois de pronta, outra
+   * tarefa do mesmo usuário em outra aba), ela é solta: o próximo Tocar cria outra na mesma célula (o cache em
+   * disco torna isso barato). Senão a falha foi passageira e o próximo Tocar recarrega o áudio.
+   */
+  async function handleAudioError(id: string | null) {
+    setHint(MSG_AUDIO_FAILED);
+    setPb((prev) => ({ index: prev.index, playing: false, waiting: false }));
+    if (id === null) return;
+    const action = actionRef.current;
+    let gone = false;
+    try {
+      gone = (await fetch(jobUrl(id))).status === 404;
+    } catch {
+      // sem resposta: conta como falha passageira
+    }
+    if (!gone || action !== actionRef.current) return;
+    job.reset();
+    setHint(MSG_EXPIRED);
+  }
+
   function handleEnded() {
     if (pb.index + 1 >= order.length) setFinished(true);
     dispatch({ type: "ended" });
@@ -144,6 +171,8 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
     }
     const src = cellUrl(jobId, currentN);
     if (audio.getAttribute("src") !== src) audio.src = src;
+    // Mesma fonte, mas o elemento ficou em erro (falha ao carregar): só tocar de novo seria recusado; recarrega.
+    else if (audio.error) audio.load();
     const result: Promise<void> | undefined = audio.play();
     result?.catch((error: unknown) => {
       // O navegador só barra quando o gesto do usuário não vale mais; as outras falhas (ex.: troca de fonte
@@ -172,7 +201,9 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
   }, []);
 
   let statusText = "";
-  if (waiting) statusText = readyCells.length === 0 ? MSG_FIRST : MSG_NEXT;
+  // `total` 0 é o estado provisório do useVoiceJob logo após criar (antes da primeira consulta): não é fila.
+  if (waiting && jobState === "na-fila" && (status?.total ?? 0) > 0) statusText = MSG_QUEUED;
+  else if (waiting) statusText = readyCells.length === 0 ? MSG_FIRST : MSG_NEXT;
   else if (hint) statusText = hint;
   else if (finished) statusText = MSG_END;
 
@@ -262,8 +293,7 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
         onEnded={handleEnded}
         onError={(event) => {
           if (!event.currentTarget.getAttribute("src")) return;
-          setHint(MSG_AUDIO_FAILED);
-          setPb((prev) => ({ index: prev.index, playing: false, waiting: false }));
+          void handleAudioError(jobId);
         }}
       />
       <audio ref={preloadRef} hidden preload="auto" src={preloadSrc} />
