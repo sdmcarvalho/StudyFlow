@@ -1,4 +1,5 @@
 // MP3 completo de uma tarefa do modo Gravar, depois de pronta, como anexo com o nome do audioFileName.
+import { bytesStream } from "@/features/voz/body";
 import { getFullMp3, getJobStatus } from "@/features/voz/jobs";
 import { authErrorResponse } from "@/lib/auth-response";
 import { getCurrentUserId } from "@/lib/current-user";
@@ -33,10 +34,11 @@ export async function GET(_request: Request, { params }: Context): Promise<Respo
     }
     const full = status.state === "pronto" ? getFullMp3(userId, id) : null;
     if (!full) return Response.json({ message: "O áudio ainda não está pronto." }, { status: 409 });
-    return new Response(new Uint8Array(full.mp3), {
+    // Sem cópia: os MP3 das células vão em fluxo, direto dos Buffers da tarefa (nada de concatenar nem copiar).
+    return new Response(bytesStream(full.parts), {
       headers: {
         "Content-Type": "audio/mpeg",
-        "Content-Length": String(full.mp3.length),
+        "Content-Length": String(full.byteLength),
         "Content-Disposition": contentDisposition(full.fileName),
         "Cache-Control": "no-store",
       },

@@ -10,12 +10,22 @@ function invalid(reason: string): never {
   throw new Error(`WAV inválido: ${reason}`);
 }
 
+/** O Int16Array lê na ordem de bytes da máquina; o WAV é little-endian (x86 e ARM também são). */
+export const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+export type WavHeader = {
+  sampleRate: number;
+  /** Onde começam as amostras, contado do início do Buffer (não do ArrayBuffer). */
+  dataOffset: number;
+  sampleCount: number;
+};
+
 /**
- * Lê um WAV PCM mono de 16 bits. Pula pedaços extras (`LIST` etc., com o byte de alinhamento dos tamanhos
- * ímpares). Se o tamanho do `data` for 0, 0xFFFFFFFF (gravação em fluxo) ou passar do fim, usa o resto do
- * arquivo. Lança `Error` se não for esse formato.
+ * Lê o cabeçalho de um WAV PCM mono de 16 bits, sem tocar nas amostras. Pula pedaços extras (`LIST` etc., com o
+ * byte de alinhamento dos tamanhos ímpares). Se o tamanho do `data` for 0, 0xFFFFFFFF (gravação em fluxo) ou
+ * passar do fim, usa o resto do arquivo. Lança `Error` se não for esse formato.
  */
-export function parseWav(buf: Buffer): { sampleRate: number; samples: Int16Array } {
+export function parseWavHeader(buf: Buffer): WavHeader {
   if (buf.length < 12) invalid("curto demais");
   if (buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") invalid("sem RIFF/WAVE");
 
@@ -39,14 +49,34 @@ export function parseWav(buf: Buffer): { sampleRate: number; samples: Int16Array
       if (!sampleRate) invalid("data antes do fmt");
       const available = buf.length - body;
       const length = size === 0 || size === 0xffffffff || size > available ? available : size;
-      const count = Math.floor(length / 2);
-      const samples = new Int16Array(count);
-      for (let i = 0; i < count; i++) samples[i] = buf.readInt16LE(body + i * 2);
-      return { sampleRate, samples };
+      return { sampleRate, dataOffset: body, sampleCount: Math.floor(length / 2) };
     }
     offset = body + size + (size % 2);
   }
   return invalid(sampleRate ? "sem data" : "sem fmt");
+}
+
+/**
+ * As amostras de um WAV já lido: uma VISTA sobre os bytes do próprio Buffer (sem cópia nem laço por amostra)
+ * quando o início dos dados cai num endereço par — sempre, no cabeçalho de 44 bytes do Piper. Num deslocamento
+ * ímpar (Buffer fatiado) só os bytes das amostras são copiados. Mexer na vista mexe no Buffer.
+ */
+export function wavSamples(buf: Buffer, header: WavHeader): Int16Array {
+  const start = buf.byteOffset + header.dataOffset;
+  const bytes = header.sampleCount * 2;
+  if (!LITTLE_ENDIAN) {
+    const samples = new Int16Array(header.sampleCount);
+    for (let i = 0; i < samples.length; i++) samples[i] = buf.readInt16LE(header.dataOffset + i * 2);
+    return samples;
+  }
+  if (start % 2 === 0) return new Int16Array(buf.buffer, start, header.sampleCount);
+  return new Int16Array(new Uint8Array(buf.buffer, start, bytes).slice().buffer);
+}
+
+/** Lê um WAV PCM mono de 16 bits (ver `parseWavHeader`); as amostras são uma vista sem cópia (`wavSamples`). */
+export function parseWav(buf: Buffer): { sampleRate: number; samples: Int16Array } {
+  const header = parseWavHeader(buf);
+  return { sampleRate: header.sampleRate, samples: wavSamples(buf, header) };
 }
 
 /** Monta um WAV PCM mono 16 bits com as amostras dadas. */

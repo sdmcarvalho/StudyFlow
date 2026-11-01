@@ -226,6 +226,8 @@ describe("tarefa: status, células, download e cancelamento", () => {
     );
     const full = Buffer.from(await file.arrayBuffer());
     expect(full.equals(Buffer.concat([getCellMp3(userA.id, id, 1)!, getCellMp3(userA.id, id, 3)!]))).toBe(true);
+    expect(file.headers.get("content-length")).toBe(String(full.length));
+    expect(c1.headers.get("content-length")).toBe(String(bytes.length));
   });
 
   it("download antes de pronto: 409; no modo ler: 404", async () => {

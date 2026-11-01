@@ -27,7 +27,13 @@ import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
 const VOICE = "pt_BR-faber-medium";
-const ENV_KEYS = ["STUDYFLOW_VOZ_ENGINE", "STUDYFLOW_VOZ_DIR", "STUDYFLOW_VOZ_MAX_CHARS", "STUDYFLOW_VOZ_JOB_TIMEOUT_MS"];
+const ENV_KEYS = [
+  "STUDYFLOW_VOZ_ENGINE",
+  "STUDYFLOW_VOZ_DIR",
+  "STUDYFLOW_VOZ_MAX_CHARS",
+  "STUDYFLOW_VOZ_MAX_CELL_CHARS",
+  "STUDYFLOW_VOZ_JOB_TIMEOUT_MS",
+];
 const NO_TEXT = "As células escolhidas não têm texto para ler.";
 const BUSY = "Você já tem uma voz em andamento.";
 const NOT_INSTALLED_ENV = "A voz não está instalada neste ambiente.";
@@ -229,12 +235,61 @@ describe("createJob: validação", () => {
   });
 
   it("o limite padrão é 60 000", async () => {
-    const studyId = await makeStudy(userA, ["a".repeat(40_000), "b".repeat(20_001)]);
-    expect(await create(userA, studyId, 1, 2)).toEqual({
+    const studyId = await makeStudy(userA, ["a".repeat(20_000), "b".repeat(20_000), "c".repeat(20_000), "d"]);
+    expect(await create(userA, studyId, 1, 4)).toEqual({
       ok: false,
       status: 400,
       message: "O trecho tem 60 001 caracteres; o limite é 60 000. Escolha menos células.",
     });
+  });
+
+  it("célula com mais de 20 000 caracteres falados dá 400 nomeando a primeira, sem chamar o motor", async () => {
+    // Célula 1 sem texto falável; a 2 está no limite; a 3 e a 4 passam dele: a 3 é a citada.
+    const studyId = await makeStudy(userA, ["![só imagem](foto.png)", "a".repeat(20_000), "b".repeat(20_001), "c".repeat(25_000)]);
+    expect(await create(userA, studyId, 1, 4)).toEqual({
+      ok: false,
+      status: 400,
+      message: "A célula 3 tem 20 001 caracteres falados; o limite por célula é 20 000. Divida a célula.",
+    });
+    await realWait(50);
+    expect(calls).toEqual([]);
+    expect(vi.mocked(getEngine)).not.toHaveBeenCalled();
+  });
+
+  it("o limite por célula vem antes do limite do trecho", async () => {
+    process.env.STUDYFLOW_VOZ_MAX_CHARS = "100";
+    const studyId = await makeStudy(userA, ["a".repeat(20_001), "b"]);
+    expect(await create(userA, studyId, 1, 2)).toMatchObject({
+      status: 400,
+      message: "A célula 1 tem 20 001 caracteres falados; o limite por célula é 20 000. Divida a célula.",
+    });
+  });
+
+  it("célula com exatamente 20 000 caracteres falados passa", async () => {
+    const gated = gatedEngine();
+    vi.mocked(getEngine).mockImplementation(async () => gated.engine);
+    const studyId = await makeStudy(userA, ["a".repeat(20_000), "Curta."]);
+    const result = await create(userA, studyId, 1, 2);
+    expect(result.ok).toBe(true);
+    if (result.ok) cancelJob(userA.id, result.id);
+  });
+
+  it("STUDYFLOW_VOZ_MAX_CELL_CHARS muda o limite por célula; inválido ou ≤ 0 volta ao padrão", async () => {
+    process.env.STUDYFLOW_VOZ_MAX_CELL_CHARS = "1000";
+    const studyId = await makeStudy(userA, ["Curta.", "x".repeat(1_500)]);
+    expect(await create(userA, studyId, 1, 2)).toEqual({
+      ok: false,
+      status: 400,
+      message: "A célula 2 tem 1 500 caracteres falados; o limite por célula é 1 000. Divida a célula.",
+    });
+    const big = await makeStudy(userA, ["Curta.", "x".repeat(20_001)]);
+    for (const raw of ["0", "-5", "abc", ""]) {
+      process.env.STUDYFLOW_VOZ_MAX_CELL_CHARS = raw;
+      expect(await create(userA, big, 1, 2)).toMatchObject({
+        status: 400,
+        message: "A célula 2 tem 20 001 caracteres falados; o limite por célula é 20 000. Divida a célula.",
+      });
+    }
   });
 
   it("sem motor dá 503", async () => {
@@ -337,7 +392,11 @@ describe("createJob: geração", () => {
 
     const full = getFullMp3(userA.id, gravar)!;
     expect(full.fileName).toBe("Física- -ondas- - células 1 a 4.mp3");
-    expect(full.mp3.equals(Buffer.concat(gravarCells))).toBe(true);
+    // Partes sem cópia: os mesmos Buffers das células, na ordem.
+    expect(full.parts).toHaveLength(3);
+    full.parts.forEach((part, i) => expect(part).toBe(getCellMp3(userA.id, gravar, [1, 3, 4][i])));
+    expect(Buffer.concat(full.parts).equals(Buffer.concat(gravarCells))).toBe(true);
+    expect(full.byteLength).toBe(Buffer.concat(gravarCells).length);
     expect(getCellMp3(userA.id, gravar, 2)).toBeNull(); // célula sem texto
     expect(getCellMp3(userA.id, gravar, 9)).toBeNull();
   });

@@ -1,7 +1,43 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
-import { parseWav, silenceWav } from "@/features/voz/wav";
-import { encodeMp3, mp3WorkerPath } from "@/features/voz/mp3";
+import { describe, expect, it, vi } from "vitest";
+import { Mp3Encoder } from "@breezystack/lamejs";
+import { parseWav, parseWavHeader, samplesFor, silenceWav } from "@/features/voz/wav";
+import { bytesStream } from "@/features/voz/body";
+import { encodeMp3, mp3WorkerPath, TRAILING_SILENCE_MS } from "@/features/voz/mp3";
+
+// O WAV grande (≈ 30 MB, 11 min) leva alguns segundos no worker.
+vi.setConfig({ testTimeout: 60_000 });
+
+/** WAV PCM mono 16 bits com `count` amostras (cabeçalho de 44 bytes, como o do Piper), sem laço por amostra. */
+function bigWav(count: number, sampleRate: number, fill?: (pcm: Int16Array) => void): Buffer {
+  const buf = Buffer.alloc(44 + count * 2);
+  buf.write("RIFF", 0, "ascii");
+  buf.writeUInt32LE(36 + count * 2, 4);
+  buf.write("WAVE", 8, "ascii");
+  buf.write("fmt ", 12, "ascii");
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(sampleRate, 24);
+  buf.writeUInt32LE(sampleRate * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write("data", 36, "ascii");
+  buf.writeUInt32LE(count * 2, 40);
+  fill?.(new Int16Array(buf.buffer, buf.byteOffset + 44, count));
+  return buf;
+}
+
+/** O algoritmo antigo (amostras + silêncio num buffer só, blocos de 1152): referência dos bytes do MP3. */
+function referenceMp3(samples: Int16Array, sampleRate: number, trailingSamples: number): Buffer {
+  const encoder = new Mp3Encoder(1, sampleRate, 64);
+  const parts: Buffer[] = [];
+  const all = new Int16Array(samples.length + trailingSamples);
+  all.set(samples, 0);
+  for (let i = 0; i < all.length; i += 1152) parts.push(Buffer.from(encoder.encodeBuffer(all.subarray(i, i + 1152))));
+  parts.push(Buffer.from(encoder.flush()));
+  return Buffer.concat(parts);
+}
 
 /** Cabeçalho WAV PCM mono 16 bits com pedaços extras opcionais antes do `data`. */
 function wavWith(samples: number[], sampleRate: number, opts: { extra?: Buffer; dataSize?: number } = {}) {
@@ -69,6 +105,32 @@ describe("wav", () => {
 
   it("data maior que o arquivo é truncado no que existe", () => {
     expect(Array.from(parseWav(wavWith([8, 9], 22050, { dataSize: 1000 })).samples)).toEqual([8, 9]);
+  });
+
+  it("sem cópia: as amostras são uma vista sobre os bytes do próprio Buffer", () => {
+    const wav = wavWith([1, -2, 3], 22050);
+    const { samples } = parseWav(wav);
+    expect(samples.buffer).toBe(wav.buffer);
+    expect(samples.byteOffset).toBe(wav.byteOffset + 44);
+  });
+
+  it("dados num deslocamento ímpar (Buffer fatiado) são copiados e lidos certo", () => {
+    const good = wavWith([1, -2, 32767, -32768], 16000);
+    const raw = Buffer.alloc(good.length + 1);
+    good.copy(raw, 1);
+    const odd = raw.subarray(1);
+    expect(odd.byteOffset % 2).toBe(1);
+    const { sampleRate, samples } = parseWav(odd);
+    expect(sampleRate).toBe(16000);
+    expect(Array.from(samples)).toEqual([1, -2, 32767, -32768]);
+  });
+
+  it("parseWavHeader dá a taxa, onde começam os dados e quantas amostras há", () => {
+    expect(parseWavHeader(wavWith([5, 6, 7], 22050, { extra: listChunk("INFOabc") }))).toEqual({
+      sampleRate: 22050,
+      dataOffset: 44 + 16,
+      sampleCount: 3,
+    });
   });
 
   it("recusa arquivo vazio, sem RIFF/WAVE, sem fmt, estéreo ou que não é 16 bits", () => {
@@ -159,5 +221,86 @@ describe("mp3", () => {
 
   it("WAV inválido rejeita", async () => {
     await expect(encodeMp3(Buffer.from("nada"))).rejects.toThrow();
+    await expect(encodeMp3(Buffer.from("nada"), { transfer: true })).rejects.toThrow();
+  });
+
+  it("mesmos bytes do algoritmo antigo (silêncio no fim em bloco separado, junção no meio de um bloco)", async () => {
+    const count = 1152 * 7 + 500;
+    const wav = bigWav(count, 22050, (pcm) => {
+      for (let i = 0; i < pcm.length; i++) pcm[i] = Math.round(Math.sin(i / 7) * 9000);
+    });
+    const expected = referenceMp3(parseWav(Buffer.from(wav)).samples, 22050, samplesFor(TRAILING_SILENCE_MS, 22050));
+    expect((await encodeMp3(wav)).equals(expected)).toBe(true);
+    expect((await encodeMp3(Buffer.from(wav), { transfer: true })).equals(expected)).toBe(true);
+    const noTail = referenceMp3(parseWav(wav).samples, 22050, 0);
+    expect((await encodeMp3(wav, { trailingSilenceMs: 0 })).equals(noTail)).toBe(true);
+  });
+
+  it("sem `transfer` o WAV de quem chamou fica intacto", async () => {
+    const wav = silenceWav(500);
+    const before = Buffer.from(wav);
+    await encodeMp3(wav);
+    expect(wav.equals(before)).toBe(true);
+  });
+
+  it("WAV grande (≈ 30 MB) com `transfer`: o ArrayBuffer vai para o worker sem cópia e o MP3 sai certo", async () => {
+    const count = 15_000_000; // ≈ 680 s a 22 050 Hz
+    const wav = bigWav(count, 22050);
+    expect(wav.byteOffset).toBe(0);
+    expect(wav.buffer.byteLength).toBe(wav.length); // dono do ArrayBuffer inteiro (não é fatia do pool)
+    const mp3 = await encodeMp3(wav, { transfer: true });
+    // Transferido: o Buffer de quem chamou fica sem bytes (o worker ficou com eles, sem cópia).
+    expect(wav.buffer.byteLength).toBe(0);
+    expect(wav.length).toBe(0);
+    const scan = scanMp3(mp3);
+    expect(scan.end).toBe(mp3.length);
+    expect(scan.sampleRate).toBe(22050);
+    expect(scan.seconds).toBeGreaterThan(count / 22050 + 0.55);
+    expect(scan.seconds).toBeLessThan(count / 22050 + 0.75);
+  });
+
+  it("com `transfer`, Buffer fatia do pool não é transferido (outros Buffers do pool ficariam sem bytes)", async () => {
+    const wav = wavWith([1, 2, 3, 4], 22050); // Buffer.concat pequeno: fatia do pool
+    expect(wav.buffer.byteLength).toBeGreaterThan(wav.length);
+    const before = Buffer.from(wav);
+    const mp3 = await encodeMp3(wav, { transfer: true });
+    expect(wav.equals(before)).toBe(true);
+    expect(scanMp3(mp3).frames).toBeGreaterThan(0);
+  });
+
+  it("com `transfer`, dados num deslocamento ímpar são copiados (só esse caso) e codificados certo", async () => {
+    const good = bigWav(1152 * 3 + 10, 16000, (pcm) => {
+      for (let i = 0; i < pcm.length; i++) pcm[i] = (i * 37) % 20000;
+    });
+    const raw = Buffer.alloc(good.length + 1);
+    good.copy(raw, 1);
+    const odd = raw.subarray(1);
+    const expected = referenceMp3(parseWav(good).samples, 16000, samplesFor(TRAILING_SILENCE_MS, 16000));
+    const mp3 = await encodeMp3(odd, { transfer: true });
+    expect(mp3.equals(expected)).toBe(true);
+    expect(raw.buffer.byteLength).toBeGreaterThan(0); // não foi transferido
+  });
+});
+
+describe("bytesStream (corpo das rotas de áudio, sem cópia)", () => {
+  it("entrega as partes na ordem, em pedaços de até 256 KB que são vistas dos Buffers originais", async () => {
+    const a = Buffer.alloc(600 * 1024, 1);
+    const b = Buffer.alloc(0);
+    const c = Buffer.from([7, 8, 9]);
+    const reader = bytesStream([a, b, c]).getReader();
+    const chunks: Uint8Array[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    expect(chunks.map((chunk) => chunk.byteLength)).toEqual([256 * 1024, 256 * 1024, 88 * 1024, 3]);
+    expect(chunks.slice(0, 3).every((chunk) => chunk.buffer === a.buffer)).toBe(true);
+    expect(chunks[3].buffer).toBe(c.buffer);
+    expect(Buffer.concat(chunks).equals(Buffer.concat([a, b, c]))).toBe(true);
+  });
+
+  it("sem partes, fluxo vazio", async () => {
+    expect((await new Response(bytesStream([])).arrayBuffer()).byteLength).toBe(0);
   });
 });

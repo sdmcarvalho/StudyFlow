@@ -43,6 +43,11 @@ export type JobStatus = {
 export type CreateJobResult = { ok: true; id: string } | { ok: false; status: number; message: string };
 
 export const DEFAULT_MAX_CHARS = 60_000;
+/**
+ * Caracteres falados por célula (STUDYFLOW_VOZ_MAX_CELL_CHARS muda). Limita o pico de memória: o WAV de uma
+ * célula de 20 000 caracteres tem ~50 MB e fica inteiro na memória até virar MP3.
+ */
+export const DEFAULT_MAX_CELL_CHARS = 20_000;
 /** Tempo máximo de geração de uma tarefa (conta a partir de quando ela sai da fila). */
 export const JOB_MAX_MS = 20 * 60 * 1000;
 /** Sem consulta de status por esse tempo, a tarefa ativa é cancelada (aba fechada). */
@@ -146,6 +151,10 @@ function positiveIntEnv(name: string, fallback: number): number {
 
 function maxChars(): number {
   return positiveIntEnv("STUDYFLOW_VOZ_MAX_CHARS", DEFAULT_MAX_CHARS);
+}
+
+function maxCellChars(): number {
+  return positiveIntEnv("STUDYFLOW_VOZ_MAX_CELL_CHARS", DEFAULT_MAX_CELL_CHARS);
 }
 
 function jobMaxMs(): number {
@@ -279,14 +288,19 @@ async function runJob(job: Job): Promise<void> {
   // Cada WAV entregue vira MP3 em ordem (encadeado), vai para o cache e só então a célula fica pronta.
   let chain: Promise<void> = Promise.resolve();
   let encodeError: unknown = null;
-  const onCell = (n: number, wav: Buffer) => {
+  const onCell = (n: number, delivered: Buffer) => {
     if (signal.aborted) return;
     const key = job.keys.get(n);
     if (key === undefined) return;
+    // Memória: o WAV (dezenas de MB numa célula longa) fica preso a este fecho só até a vez dele na fila; ao
+    // começar a codificação a referência é solta e o ArrayBuffer é transferido ao worker (sem cópia).
+    let wav: Buffer | null = delivered;
     chain = chain.then(async () => {
-      if (signal.aborted || encodeError) return;
+      const pending = wav;
+      wav = null;
+      if (!pending || signal.aborted || encodeError) return;
       try {
-        const mp3 = await encodeMp3(wav);
+        const mp3 = await encodeMp3(pending, { transfer: true });
         if (signal.aborted) return;
         await cachePut(key, mp3);
         markReady(job, n, mp3);
@@ -352,6 +366,17 @@ export async function createJob(
 
     const items = speakableItems(selectSpeakable(study.cells, range.start, range.end).items);
     if (items.length === 0) return fail(400, MSG_NO_TEXT);
+
+    // Por célula: o WAV de uma célula fica inteiro na memória até virar MP3 (~44 KB por segundo de fala).
+    const cellLimit = maxCellChars();
+    const tooLong = items.find((item) => item.text.length > cellLimit);
+    if (tooLong) {
+      return fail(
+        400,
+        `A célula ${tooLong.n} tem ${groupThousands(tooLong.text.length)} caracteres falados; ` +
+          `o limite por célula é ${groupThousands(cellLimit)}. Divida a célula.`,
+      );
+    }
 
     const chars = items.reduce((sum, item) => sum + item.text.length, 0);
     const limit = maxChars();
@@ -441,12 +466,16 @@ export function getCellMp3(userId: string, id: string, n: number): Buffer | null
   return ownJob(userId, id)?.mp3.get(n) ?? null;
 }
 
-/** MP3 completo (células na ordem), só no modo gravar e depois de pronto. */
-export function getFullMp3(userId: string, id: string): { mp3: Buffer; fileName: string } | null {
+/**
+ * MP3 completo, só no modo gravar e depois de pronto: os MP3 das células na ordem (o arquivo é a concatenação
+ * deles). Devolve as partes, sem concatenar, para a rota as enviar sem copiar (`bytesStream`).
+ */
+export function getFullMp3(userId: string, id: string): { parts: Buffer[]; byteLength: number; fileName: string } | null {
   const job = ownJob(userId, id);
   if (!job || job.mode !== "gravar" || job.state !== "pronto") return null;
   const parts = job.items.map((item) => job.mp3.get(item.n)).filter((mp3): mp3 is Buffer => mp3 !== undefined);
-  return { mp3: Buffer.concat(parts), fileName: audioFileName(job.descricao, job.start, job.end) };
+  const byteLength = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  return { parts, byteLength, fileName: audioFileName(job.descricao, job.start, job.end) };
 }
 
 /** Cancela a tarefa do usuário (sem efeito se já terminou). `false` se ela não existe para ele. */
@@ -499,7 +528,7 @@ export async function synthesizeSample(userId: string, settings: VoiceSettings):
             (async () => {
               await resolved.engine.synthesize([{ n: 1, text: SAMPLE_TEXT }], settings, controller.signal, (_n, wav) => {
                 pending = pending.then(async () => {
-                  out.mp3 = await encodeMp3(wav);
+                  out.mp3 = await encodeMp3(wav, { transfer: true });
                 });
               });
               await pending;
