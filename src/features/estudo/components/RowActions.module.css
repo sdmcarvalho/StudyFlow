@@ -16,6 +16,10 @@
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   color: var(--color-text-primary);
+  /* O Voz é um link: mesmo aspecto dos botões, sem sublinhado nem quebra do rótulo. */
+  text-decoration: none;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 .btn:hover {
   background: var(--color-bg);

@@ -33,7 +33,13 @@ export const TrashIcon = (p: IconProps) => (
     <path d="M4 6h12M8 6V4.5A1 1 0 0 1 9 3.5h2a1 1 0 0 1 1 1V6M6 6l.7 10a1 1 0 0 0 1 1h4.6a1 1 0 0 0 1-1L14 6" />
   </Icon>
 );
-export const InboxIcon = (p: IconProps) => (
+export const MicIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="7.5" y="2.5" width="5" height="9" rx="2.5" />
+    <path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5M7 17.5h6" />
+  </Icon>
+);
+export const InboxIcon =(p: IconProps) => (
   <Icon {...p}>
     <path d="M3 10.5 5.5 4h9L17 10.5" />
     <path d="M3 10.5V15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4.5" />

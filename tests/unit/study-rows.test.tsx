@@ -125,6 +125,39 @@ describe.each(variants)("$name abre o editor", ({ renderIt, container, inside })
     expect(screen.getByRole("button", { name: "Editar registro" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Excluir registro" })).toBeInTheDocument();
   });
+
+  it("tem o link Voz para /estudo/<id>/voz, com nome acessível, ícone e texto", () => {
+    renderIt();
+    const voz = screen.getByRole("link", { name: "Voz do registro" });
+    expect(voz).toHaveAttribute("href", `${HREF}/voz`);
+    expect(voz).toHaveAttribute("title", "Voz");
+    expect(voz).toHaveTextContent("Voz");
+    expect(voz.querySelector("svg")).not.toBeNull();
+  });
+
+  it("o Voz fica entre Editar e Excluir (o destrutivo continua por último)", () => {
+    renderIt();
+    const editar = screen.getByRole("button", { name: "Editar registro" });
+    const voz = screen.getByRole("link", { name: "Voz do registro" });
+    const excluir = screen.getByRole("button", { name: "Excluir registro" });
+    expect(editar.compareDocumentPosition(voz) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(voz.compareDocumentPosition(excluir) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("clicar no Voz não chama onOpen, onEdit nem onDelete", async () => {
+    renderIt();
+    await userEvent.click(screen.getByRole("link", { name: "Voz do registro" }));
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("Enter com o foco no Voz não dispara onOpen pelo contêiner", async () => {
+    renderIt();
+    screen.getByRole("link", { name: "Voz do registro" }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onOpen).not.toHaveBeenCalled();
+  });
 });
 
 describe("estilo clicável da tabela", () => {

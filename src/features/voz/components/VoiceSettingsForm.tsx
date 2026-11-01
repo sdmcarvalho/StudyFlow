@@ -2,10 +2,12 @@
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { MicIcon } from "@/components/ui/icons";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { saveVoiceSettings } from "../actions";
 import type { VoiceInfo } from "../engine/catalog";
 import {
+  parseVoiceSettings,
   SPEED_MAX,
   SPEED_MIN,
   VOLUME_MAX,
@@ -14,6 +16,7 @@ import {
   type VoiceFieldErrors,
   type VoiceSettings,
 } from "../settings-schema";
+import { useVoiceSample } from "../use-voice-sample";
 import styles from "./VoiceSettingsForm.module.css";
 
 const SAVE_FAILED = "Não foi possível salvar a configuração.";
@@ -37,6 +40,18 @@ export function VoiceSettingsForm({ initial, voices }: { initial: VoiceSettings;
   const [errors, setErrors] = useState<VoiceFieldErrors>({});
   const [busy, setBusy] = useState(false);
   const { toast, show } = useToast();
+  const sample = useVoiceSample();
+
+  /** Ouve os valores atuais do formulário (ainda não salvos). Campo inválido mostra o erro do campo, sem pedir. */
+  function handleSample() {
+    const parsed = parseVoiceSettings({ voice, speed: numberOrText(speed), volume: numberOrText(volume) });
+    if (!parsed.ok) {
+      setErrors(parsed.fieldErrors);
+      return;
+    }
+    setErrors({});
+    void sample.start(parsed.data);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,6 +135,23 @@ export function VoiceSettingsForm({ initial, voices }: { initial: VoiceSettings;
         </div>
 
         <div className={styles.actions}>
+          <div className={styles.sample}>
+            <Button
+              variant="secondary"
+              type="button"
+              icon={<MicIcon />}
+              onClick={handleSample}
+              disabled={disabled || sample.sampling}
+              aria-busy={sample.sampling || undefined}
+            >
+              {sample.sampling ? "Gerando amostra…" : "Ouvir amostra"}
+            </Button>
+            {sample.error ? (
+              <span className={styles.sampleError} role="alert">
+                {sample.error}
+              </span>
+            ) : null}
+          </div>
           <Button variant="primary" type="submit" disabled={disabled}>
             Salvar
           </Button>

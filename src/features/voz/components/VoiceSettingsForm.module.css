@@ -96,7 +96,30 @@
   margin-top: var(--space-2);
 }
 
+.sample {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-right: auto;
+  min-width: 0;
+}
+
+.sampleError {
+  font-size: 13px;
+  color: var(--color-error);
+}
+
 @media (max-width: 479.98px) {
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .sample {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+
   .panel {
     padding: var(--space-4);
   }
