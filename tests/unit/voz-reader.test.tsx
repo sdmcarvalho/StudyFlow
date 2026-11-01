@@ -463,6 +463,25 @@ describe("ReaderView: Anterior, Próxima e clique na célula", () => {
     expect(srcOf(player())).toBe("/api/voz/jobs/J1/cells/4");
   });
 
+  it("com texto selecionado, 'Tocar a partir da célula N' ainda toca; clicar no corpo da célula não", async () => {
+    polls = [statusOf("gerando", [1, 2, 4])];
+    vi.spyOn(window, "getSelection").mockReturnValue({ toString: () => "texto selecionado" } as unknown as Selection);
+    render(<ReaderView {...props()} />);
+
+    await clickCell(2);
+    expect(count("POST")).toBe(0);
+    expect(playMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Tocar a partir da célula 4" }));
+    });
+    await tick(0);
+    expect(count("POST")).toBe(1);
+    expect(current()).toBe(item(4));
+    expect(srcOf(player())).toBe("/api/voz/jobs/J1/cells/4");
+    expect(playMock).toHaveBeenCalledTimes(1);
+  });
+
   it("clicar num link dentro da célula não toca nem cria tarefa", async () => {
     render(
       <ReaderView
@@ -508,6 +527,58 @@ describe("ReaderView: falhas e saída", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     await tick(0);
     expect(srcOf(player())).toBe("/api/voz/jobs/J2/cells/1");
+  });
+
+  it("tarefa nova sem a célula atual pronta mostra 'Gerando a primeira célula…' e só toca quando ela ficar pronta", async () => {
+    // A tarefa antiga tinha a célula 1 pronta; a nova ainda não.
+    polls = [statusOf("gerando", [1])];
+    render(<ReaderView {...props()} />);
+    await clickTocar();
+    await tick(0);
+    expect(playMock).toHaveBeenCalledTimes(1);
+
+    polls = [statusOf("erro", [1], { message: "A geração de voz falhou." })];
+    await tick(1000);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    polls = [statusOf("na-fila", [], { id: "J2" })];
+    postResult = () => json({ id: "J2" });
+    await clickTocar();
+    expect(count("POST")).toBe(2);
+    expect(screen.getByRole("status")).toHaveTextContent("Gerando a primeira célula…");
+    expect(playMock).toHaveBeenCalledTimes(1);
+
+    polls = [statusOf("gerando", [1], { id: "J2" })];
+    await tick(1000);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(srcOf(player())).toBe("/api/voz/jobs/J2/cells/1");
+    expect(playMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("tarefa nova com outras células prontas mostra 'Gerando a próxima célula…' para a atual", async () => {
+    polls = [statusOf("gerando", [1, 2])];
+    render(<ReaderView {...props()} />);
+    await clickTocar();
+    await tick(0);
+    await endCell(); // agora na célula 2, pronta na tarefa antiga
+    expect(srcOf(player())).toBe("/api/voz/jobs/J1/cells/2");
+    expect(playMock).toHaveBeenCalledTimes(2);
+
+    polls = [statusOf("erro", [1, 2], { message: "A geração de voz falhou." })];
+    await tick(1000);
+
+    polls = [statusOf("gerando", [1], { id: "J2" })];
+    postResult = () => json({ id: "J2" });
+    await clickTocar();
+    expect(current()).toBe(item(2));
+    expect(screen.getByRole("status")).toHaveTextContent("Gerando a próxima célula…");
+    expect(playMock).toHaveBeenCalledTimes(2);
+
+    polls = [statusOf("gerando", [1, 2], { id: "J2" })];
+    await tick(1000);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(srcOf(player())).toBe("/api/voz/jobs/J2/cells/2");
+    expect(playMock).toHaveBeenCalledTimes(3);
   });
 
   it("erro na criação da tarefa aparece em alerta e Tocar tenta de novo", async () => {

@@ -69,8 +69,13 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
   const hasJob = status !== null && !failedState;
   const jobId = hasJob ? status.id : null;
 
-  // A célula esperada ficou pronta? Derivado a cada render (sem efeito): `cellReady` retoma a espera.
-  const pb = reducePlayback(stored, { type: "cellReady" }, { readyCells, order });
+  // `waiting` vem do que está pronto AGORA (derivado a cada render, sem efeito): o `waiting` guardado foi
+  // calculado contra as células prontas da tarefa de então e fica velho quando a tarefa é trocada.
+  const storedN: number | undefined = order[stored.index];
+  const pb: PlaybackState = {
+    ...stored,
+    waiting: stored.playing && storedN !== undefined && !readyCells.includes(storedN),
+  };
 
   // Depois de uma falha, o usuário vê "Tocar"; Tocar cria uma tarefa nova.
   const playing = pb.playing && !failed;
@@ -231,6 +236,11 @@ export function ReaderView({ studyId, descricao, cells, installed }: ReaderViewP
                     className={styles.playFrom}
                     aria-label={`Tocar a partir da célula ${cell.n}`}
                     disabled={!installed}
+                    onClick={(event) => {
+                      // Pedido explícito: vale mesmo com texto selecionado (a guarda é só do clique no corpo).
+                      event.stopPropagation();
+                      handleSelect(cell.n);
+                    }}
                   >
                     Tocar daqui
                   </button>
