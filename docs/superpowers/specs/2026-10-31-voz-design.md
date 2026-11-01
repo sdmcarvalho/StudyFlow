@@ -92,7 +92,7 @@ Tabela nova `VoiceSettings` (uma linha por usuário, `userId` único, como `AiSe
 |---|---|---|---|
 | `voice` | texto | `pt_BR-faber-medium` | um id do catálogo de vozes instaladas |
 | `speed` | número | 1.0 | 0.5 a 2.0 (passo 0.1) |
-| `volume` | número | 1.0 | 0.1 a 2.0 (passo 0.1) |
+| `volume` | número | 1.0 | 0.1 a 1.0 (passo 0.1); acima de 1.0 o Piper satura (ver Resultados da Tarefa 1) |
 
 - Sem linha salva, valem os padrões. Salvar é uma Server Action `saveVoiceSettings`, no padrão das outras
   (`ActionResult`, `getCurrentUserId()`, mensagens em pt-BR), com caso novo em `session-expired.test.ts`.
@@ -237,7 +237,7 @@ O plano B só valeria se isso falhasse; fica registrado porque o carregamento do
 | Assunto | Resultado verificado |
 |---|---|
 | Velocidade | `--length-scale` (também `--length_scale`), float. Valores menores falam mais rápido: 0,5 deu 2,40 s, 1,0 deu 3,59 s e 2,0 deu 6,46 s para a mesma frase. A relação **não é linear** (as pausas não escalam), então `length_scale = 1 / velocidade` é uma regra aproximada. Sem a flag vale o `inference.length_scale` do `.onnx.json` (1.0). |
-| Volume | `--volume` (padrão 1,0). **Por padrão o áudio é normalizado** para o pico de 32767: `--volume 0.25` deu pico 8191 (certo), mas `--volume 2.0` continua em 32767 (**satura**, não fica mais alto). Volume acima de 1,0 só funciona junto com `--no-normalize` (aí `--volume 1.0` dá pico ≈ 16642 e `--volume 1.5` dá ≈ 24995, sem saturar até ≈ 1,97). **Pendência para as Tarefas 4 e 7:** a faixa 0,1 a 2,0 da spec não funciona sem tratar isso. Opções: limitar o volume a 1,0, ou usar sempre `--no-normalize --volume <volume>` (então 1,0 fica com metade da escala, e 2,0 chega ao máximo). Decisão do controlador. |
+| Volume | `--volume` (padrão 1,0). **Por padrão o áudio é normalizado** para o pico de 32767: `--volume 0.25` deu pico 8191 (certo), mas `--volume 2.0` continua em 32767 (**satura**, não fica mais alto). Volume acima de 1,0 só funciona junto com `--no-normalize` (aí `--volume 1.0` dá pico ≈ 16642 e `--volume 1.5` dá ≈ 24995, sem saturar até ≈ 1,97). **Decisão (controlador, R6):** o volume vai de 0,1 a 1,0, com a normalização padrão (sem `--no-normalize`); para ouvir mais alto, o usuário usa o volume do player ou do sistema. |
 | Silêncio entre frases | `--sentence-silence <segundos>` (também `--sentence_silence`), padrão 0. Vale **entre as frases de uma mesma linha** (não depois da última): 3 frases com 1,0 deram +2,2 s. Não separa as células entre si (isso é o silêncio de 600 ms do `mp3.ts`). |
 | Um WAV por linha | **Sim**: `-d/--output-dir <pasta>` (cria a pasta). Cada linha não vazia da entrada vira um WAV. Linhas vazias ou só de espaços são **ignoradas** (não geram arquivo), então o índice do arquivo não é o índice da linha se houver linha vazia: a Tarefa 4 só deve enviar células com texto falável, uma por linha. |
 | Nome dos arquivos | Padrão `--output-dir-naming timestamp`: `<time.monotonic_ns()>.wav`, crescente na ordem das linhas (verificado). Não use `--output-dir-naming text` (o nome vira o texto da linha: estoura o limite de nome de arquivo e sobrescreve linhas repetidas). **Mapeamento linha para arquivo:** ler da saída de erro (stderr) as linhas `INFO:__main__:Wrote <caminho>.wav`, uma por linha concluída, na ordem; isso também dá o progresso e o "à medida que termina" do `onCell`. Alternativa: ordenar numericamente os nomes. Nada sai em stdout. |
