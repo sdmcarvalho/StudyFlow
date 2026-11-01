@@ -215,3 +215,76 @@ O texto sempre vem do banco, nunca do navegador. Erros devolvem `{ message }` em
 3. Na VPS: `apt install python3-venv`, `git pull`, `npm ci`, `npx prisma migrate deploy` (há migração nova:
    `VoiceSettings`), `npm run voz:install`, `npm run build`, `pm2 startOrReload ecosystem.config.js && pm2 save` e
    conferência pelo domínio. Cada comando de produção é mostrado antes de rodar.
+
+## Resultados da Tarefa 1
+
+Medido no Windows 10 (Ryzen 7 2700, 16 threads), com `piper-tts` 1.8.0 num venv do Python 3.14.6 (o `onnxruntime`
+1.31.1 tem wheel `cp314`, então o Python local serve; nada a instalar no sistema), rodando o `python -m piper` de
+verdade e lendo o `__main__.py` instalado. Não foi possível ouvir: a checagem é por duração e tamanho do WAV (uma
+frase de 70 caracteres deu 3,6 a 5,2 s, ou seja, 14 a 20 caracteres por segundo de áudio, coerente com o esperado).
+
+**Decisão: o Piper 1.8.0 grava um WAV por linha de entrada. Não é preciso o plano B (um processo por célula).**
+O plano B só valeria se isso falhasse; fica registrado porque o carregamento do modelo é caro (ver abaixo).
+
+### Linha de comando que a Tarefa 4 usa
+
+```
+<STUDYFLOW_VOZ_PYTHON> -I -m piper -m <id-da-voz> --data-dir <STUDYFLOW_VOZ_DIR>/voices \
+    -i <arquivo-de-celulas.txt> -d <pasta-de-saida> \
+    --length-scale <1/velocidade> --volume <volume> --sentence-silence <segundos>
+```
+
+| Assunto | Resultado verificado |
+|---|---|
+| Velocidade | `--length-scale` (também `--length_scale`), float. Valores menores falam mais rápido: 0,5 deu 2,40 s, 1,0 deu 3,59 s e 2,0 deu 6,46 s para a mesma frase. A relação **não é linear** (as pausas não escalam), então `length_scale = 1 / velocidade` é uma regra aproximada. Sem a flag vale o `inference.length_scale` do `.onnx.json` (1.0). |
+| Volume | `--volume` (padrão 1,0). **Por padrão o áudio é normalizado** para o pico de 32767: `--volume 0.25` deu pico 8191 (certo), mas `--volume 2.0` continua em 32767 (**satura**, não fica mais alto). Volume acima de 1,0 só funciona junto com `--no-normalize` (aí `--volume 1.0` dá pico ≈ 16642 e `--volume 1.5` dá ≈ 24995, sem saturar até ≈ 1,97). **Pendência para as Tarefas 4 e 7:** a faixa 0,1 a 2,0 da spec não funciona sem tratar isso. Opções: limitar o volume a 1,0, ou usar sempre `--no-normalize --volume <volume>` (então 1,0 fica com metade da escala, e 2,0 chega ao máximo). Decisão do controlador. |
+| Silêncio entre frases | `--sentence-silence <segundos>` (também `--sentence_silence`), padrão 0. Vale **entre as frases de uma mesma linha** (não depois da última): 3 frases com 1,0 deram +2,2 s. Não separa as células entre si (isso é o silêncio de 600 ms do `mp3.ts`). |
+| Um WAV por linha | **Sim**: `-d/--output-dir <pasta>` (cria a pasta). Cada linha não vazia da entrada vira um WAV. Linhas vazias ou só de espaços são **ignoradas** (não geram arquivo), então o índice do arquivo não é o índice da linha se houver linha vazia: a Tarefa 4 só deve enviar células com texto falável, uma por linha. |
+| Nome dos arquivos | Padrão `--output-dir-naming timestamp`: `<time.monotonic_ns()>.wav`, crescente na ordem das linhas (verificado). Não use `--output-dir-naming text` (o nome vira o texto da linha: estoura o limite de nome de arquivo e sobrescreve linhas repetidas). **Mapeamento linha para arquivo:** ler da saída de erro (stderr) as linhas `INFO:__main__:Wrote <caminho>.wav`, uma por linha concluída, na ordem; isso também dá o progresso e o "à medida que termina" do `onCell`. Alternativa: ordenar numericamente os nomes. Nada sai em stdout. |
+| Como passar o texto | `-i/--input-file <arquivo>` (repetível), lido como **UTF-8** em qualquer sistema. Sem `-i`, o Piper lê a **entrada padrão** (stdin), que no Windows usa a codificação do console (risco com acentos): **usar `-i`**. Texto como argumento solto também funciona, mas é proibido pela spec. |
+| Várias linhas | Cada linha é sintetizada separadamente e vira um WAV; cada linha passa por `strip()`. Por isso o texto falado de uma célula tem de ser **uma linha só** (sem `\n`, `\r`, `\0`). |
+| **Linha sem fonema derruba o Piper** | Uma linha só de pontuação (`...`, `---`, `!`) faz o processo terminar com **código 1** (`wave.Error: # channels not specified`), deixando um **WAV de 0 byte** e **abortando as linhas seguintes**. Já `12345`, `*`, `€`, `a`, `(x)` e um emoji são falados normalmente. **Exigência para `speakable.ts` e `piper.ts` (Tarefas 3 e 4):** tratar como "sem texto falável" qualquer célula sem ao menos uma letra ou dígito Unicode (`\p{L}` ou `\p{N}`); e, se o Piper sair com código diferente de 0 ou deixar um WAV vazio, a tarefa dá erro em pt-BR. |
+| Formato do WAV | PCM, **mono, 16 bits**. **A taxa depende da voz**: faber, cadu e jeff = 22 050 Hz; **edresson-low = 16 000 Hz**. O `mp3.ts` deve ler a taxa do cabeçalho de cada WAV (e calcular o silêncio de 600 ms com ela), nunca fixar 22 050. |
+| Modelo e configuração | `-m` aceita o **id da voz** quando `--data-dir` aponta a pasta; o `.onnx.json` vizinho é lido sozinho (`-c` não é necessário). `--data-dir` é repetível e, se omitido, procura na pasta atual. Voz inexistente: `ValueError: Unable to find voice`. |
+| Outras flags | `-s/--speaker` (as quatro vozes têm 1 falante), `--noise-scale`, `--noise-w-scale`, `--cuda`, `--debug`, `-f/--output-file` (concatena tudo num WAV só), `--output-raw`. O `-I` do Python (modo isolado) funciona com o venv. |
+
+### Velocidade de geração (fator de tempo real)
+
+Medição **indicativa, local, nesta máquina do Windows (8 núcleos, 16 threads), voz `pt_BR-faber-medium`;
+não representa a VPS de 2 CPUs compartilhada**.
+
+- **Carregar o modelo**: ≈ 9,4 s por processo aqui. É o que torna o plano B caro (pagaria isso a cada célula).
+- Texto de 5 017 caracteres em 22 linhas de 200 a 280 caracteres: 278,5 s de áudio (≈ 18 caracteres por segundo
+  de áudio) em 32 s de tempo total do processo, dos quais ≈ 22 s de geração. **Fator de tempo real ≈ 0,08** só
+  na geração (≈ 0,115 contando o carregamento), ou seja, ≈ 230 caracteres gerados por segundo de relógio.
+- Extrapolação **só ilustrativa**: nesse ritmo, 60 000 caracteres levariam ≈ 4 a 5 minutos neste PC. A VPS de
+  2 CPUs, compartilhada com `atcrm` e `clivet` e com prioridade reduzida, será várias vezes mais lenta.
+
+### `MAX_CHARS` padrão
+
+**60 000 caracteres** (valor da spec, mantido), **a confirmar na VPS**. A medição na VPS (≈ 5 000 caracteres em
+2 CPUs, para fixar um limite de ≈ 10 minutos de geração dentro do teto de 20) não foi feita nesta tarefa, por
+ordem do controlador: a VPS é produção compartilhada e não foi tocada. Se a VPS ficar abaixo de ≈ 100 caracteres
+por segundo de relógio, reduzir o padrão (por exemplo, 100 × 600 s = 60 000 é o limite para 10 minutos nesse
+ritmo); o valor é ajustável por `STUDYFLOW_VOZ_MAX_CHARS`.
+
+### Licenças lidas (cartões `MODEL_CARD` em `huggingface.co/rhasspy/piper-voices`, pasta `pt/pt_BR/<voz>/<qualidade>`)
+
+| Voz | Conjunto de dados | Licença do cartão | Observação |
+|---|---|---|---|
+| `pt_BR-faber-medium` | OHF-Voice/voice-datasets | **CC0** (domínio público) | Permissiva. |
+| `pt_BR-cadu-medium` | OHF-Voice/voice-datasets | **CC0** | Permissiva. |
+| `pt_BR-jeff-medium` | OHF-Voice/voice-datasets | **CC0** | Permissiva. |
+| `pt_BR-edresson-low` | Edresson/TTS-Portuguese-Corpus | **CC BY 4.0** | Permissiva, mas **exige atribuição** ao autor do corpus (citar no README). Qualidade "low" (16 kHz). |
+
+O repositório `rhasspy/piper-voices` declara `license: mit` no README. As vozes são ajustadas ("finetuned") a partir
+das vozes em inglês `lessac` (faber, cadu, jeff) e `ryan` (edresson), cujos conjuntos de dados têm termos próprios
+que **não** foram auditados aqui. Nenhuma das quatro é não permissiva: **todas ficam na lista padrão**, com a
+atribuição do corpus Edresson (CC BY 4.0) no README.
+
+### Instalação (`npm run voz:install`)
+
+`scripts/voz-install.mjs` (pasta: `--dir`, `STUDYFLOW_VOZ_DIR` ou `<STUDYFLOW_BASE_DIR | C:\StudyFlow | /var/lib/studyflow>/voz`;
+Python do sistema que cria o venv: `--python` ou `STUDYFLOW_VOZ_SYSTEM_PYTHON`) cria `venv/`, `voices/` e `cache/`,
+instala `piper-tts==1.8.0` e baixa as quatro vozes com `python -m piper.download_voices --data-dir <dir>/voices <voz>`.
+Idempotente (a segunda execução pula tudo). No Windows leva ≈ 1 minuto.
