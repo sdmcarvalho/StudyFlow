@@ -10,7 +10,8 @@
 //   FAKE_PIPER_MODE     "ok" (padrão) | "exit1" (grava a 1ª linha, deixa um WAV de 0 byte na 2ª e sai com
 //                       código 1, como a linha só de pontuação) | "zero" (o WAV da 2ª linha tem 0 byte, com "Wrote", e sai com 0) |
 //                       "missing" (sai com 0 sem gravar a última linha) | "hang" (grava o pid e fica parado) |
-//                       "garbled" (o caminho do "Wrote" sai estragado, como acento em página de código errada).
+//                       "garbled" (o caminho do "Wrote" sai estragado, como acento em página de código errada) |
+//                       "spoof" (antes de cada "Wrote" de verdade, um aviso `WARNING:x:something :Wrote nothing`).
 import fs from "node:fs";
 import path from "node:path";
 
@@ -73,6 +74,8 @@ if (mode === "hang") {
       process.stderr.write("wave.Error: # channels not specified\n");
       process.exit(1);
     }
+    // "spoof": antes de cada linha, um aviso com o texto do usuário ecoado que contém ":Wrote " no meio.
+    if (mode === "spoof") process.stderr.write(`WARNING:x:something :Wrote nothing ${lines[i]}\n`);
     const shown = mode === "garbled" ? file.replace(/\.wav$/, "�.wav") : file;
     process.stderr.write(`INFO:__main__:Wrote ${shown}\n`);
   }

@@ -180,7 +180,7 @@ function pump(): void {
   s.running = entry;
   void entry
     .run()
-    .catch(() => {})
+    .catch((error: unknown) => console.error("Falha inesperada na fila de voz:", error))
     .finally(() => {
       // Depois de um reset dos testes, a entrada antiga não mexe na fila nova.
       if (s.running === entry) {
@@ -310,7 +310,11 @@ async function runJob(job: Job): Promise<void> {
   } catch (error) {
     if (job.timedOut) finish(job, "erro", MSG_TOO_SLOW);
     else if (signal.aborted) finish(job, "cancelado");
-    else finish(job, "erro", error instanceof VoiceError ? error.message : MSG_VOICE_FAILED);
+    else {
+      // O usuário vê só a mensagem em pt-BR; o detalhe fica no log do servidor.
+      console.error("Falha na geração de voz:", error);
+      finish(job, "erro", error instanceof VoiceError ? error.message : MSG_VOICE_FAILED);
+    }
   }
 }
 
@@ -507,6 +511,7 @@ export async function synthesizeSample(userId: string, settings: VoiceSettings):
           await cachePut(key, mp3);
           settle(() => resolve(mp3));
         } catch (error) {
+          if (!controller.signal.aborted) console.error("Falha na geração da amostra de voz:", error);
           settle(() => reject(error instanceof VoiceError ? error : new VoiceError(MSG_VOICE_FAILED)));
         }
       },

@@ -32,9 +32,12 @@ export function defaultPiperCommand(): PiperCommand {
   return { file: process.env.STUDYFLOW_VOZ_PYTHON?.trim() ?? "", baseArgs: ["-I", "-m", "piper"] };
 }
 
-const WROTE = /:Wrote (.+)$/;
+// Ancorado no início: texto do usuário ecoado no stderr (aviso, traceback) não conta como progresso.
+const WROTE = /^INFO:[\w.]+:Wrote (.+)$/;
 const WAV_NAME = /^\d+\.wav$/;
 const MAX_STDERR_LINE = 64 * 1024;
+/** Quanto do fim do stderr vai para o log do servidor quando o Piper falha. */
+const STDERR_TAIL = 4 * 1024;
 
 function inside(dir: string, file: string): boolean {
   const relative = path.relative(dir, file);
@@ -169,10 +172,14 @@ export class PiperEngine implements SpeechEngine {
       let delivered = 0;
       let pending = "";
       let chain: Promise<void> = Promise.resolve();
+      // Fim do stderr, só para o log do servidor em caso de falha (o usuário vê a mensagem genérica).
+      let stderrTail = "";
+      let reason: string | null = null;
 
       const stop = () => killTree(child);
-      const fail = () => {
+      const fail = (why: string) => {
         failed = true;
+        reason ??= why;
         stop();
       };
       const onAbort = () => stop();
@@ -187,15 +194,22 @@ export class PiperEngine implements SpeechEngine {
 
       const deliver = async (index: number, reported: string) => {
         if (failed || signal.aborted) return;
+        let wav: Buffer;
         try {
           const file = await locate(outDir, cwd, reported, index);
-          const wav = await fs.readFile(file);
+          wav = await fs.readFile(file);
           if (parseWav(wav).samples.length === 0) throw new Error("WAV vazio");
-          if (failed || signal.aborted) return;
-          delivered++;
+        } catch (error) {
+          fail(`WAV da linha ${index + 1} ausente, vazio ou inválido (${error instanceof Error ? error.message : "erro"})`);
+          return;
+        }
+        if (failed || signal.aborted) return;
+        delivered++;
+        try {
           onCell(queue[index].n, wav);
-        } catch {
-          fail();
+        } catch (error) {
+          console.error("Piper: onCell lançou ao entregar a célula", queue[index].n, error);
+          fail("onCell lançou");
         }
       };
 
@@ -204,7 +218,7 @@ export class PiperEngine implements SpeechEngine {
         if (!match) return;
         const index = wrote++;
         if (index >= queue.length) {
-          fail();
+          fail(`linha "Wrote" a mais (${index + 1} para ${queue.length} itens)`);
           return;
         }
         chain = chain.then(() => deliver(index, match[1].trim()));
@@ -221,6 +235,7 @@ export class PiperEngine implements SpeechEngine {
 
       child.stderr?.setEncoding("utf8");
       child.stderr?.on("data", (chunk: string) => {
+        stderrTail = (stderrTail + chunk).slice(-STDERR_TAIL);
         pending += chunk;
         const lines = pending.split("\n");
         pending = lines.pop() ?? "";
@@ -228,19 +243,36 @@ export class PiperEngine implements SpeechEngine {
         for (const line of lines) onLine(line);
       });
 
-      child.on("error", () => {
+      child.on("error", (error) => {
         failed = true;
-        if (child.pid === undefined) settle(() => reject(new VoiceError()));
+        reason ??= `erro do processo: ${error.message}`;
+        if (child.pid === undefined) {
+          console.error("Piper falhou ao iniciar:", error.message);
+          settle(() => reject(new VoiceError()));
+        }
       });
 
-      child.on("close", (code) => {
+      child.on("close", (code, exitSignal) => {
         if (pending) onLine(pending);
         pending = "";
         void chain.then(() =>
           settle(() => {
-            if (signal.aborted) reject(new VoiceCancelledError());
-            else if (failed || code !== 0 || delivered !== queue.length) reject(new VoiceError());
-            else resolve();
+            if (signal.aborted) {
+              reject(new VoiceCancelledError());
+              return;
+            }
+            if (failed || code !== 0 || delivered !== queue.length) {
+              // Só o motivo, o código e o fim do stderr; nunca o texto de entrada.
+              console.error("Piper falhou:", {
+                reason: reason ?? (code !== 0 ? "código de saída diferente de 0" : `entregou ${delivered} de ${queue.length}`),
+                code,
+                signal: exitSignal,
+                stderr: stderrTail,
+              });
+              reject(new VoiceError());
+              return;
+            }
+            resolve();
           }),
         );
       });

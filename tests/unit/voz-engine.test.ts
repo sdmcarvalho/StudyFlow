@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { FakeEngine } from "@/features/voz/engine/fake";
 import { getEngine } from "@/features/voz/engine/index";
 import { PiperEngine, type PiperCommand } from "@/features/voz/engine/piper";
@@ -29,6 +29,7 @@ let vozRoot: string;
 let logDir: string;
 let tmpRoot: string;
 let savedEnv: Record<string, string | undefined>;
+let errorSpy: MockInstance<typeof console.error>;
 
 beforeEach(async () => {
   savedEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -45,9 +46,12 @@ beforeEach(async () => {
   await fs.writeFile(path.join(vozRoot, "voices", `${VOICE}.onnx.json`), "{}");
   process.env.STUDYFLOW_VOZ_DIR = vozRoot;
   process.env.FAKE_PIPER_LOG_DIR = logDir;
+  // As falhas do Piper vão para o log do servidor; aqui o log é conferido, não impresso.
+  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(async () => {
+  errorSpy.mockRestore();
   for (const key of ENV_KEYS) {
     if (savedEnv[key] === undefined) delete process.env[key];
     else process.env[key] = savedEnv[key];
@@ -244,6 +248,67 @@ describe("PiperEngine (contra o falso executável)", () => {
     expect(got).toEqual([1]);
     const pid = Number(await fs.readFile(path.join(logDir, "pid.txt"), "utf8"));
     expect(alive(pid)).toBe(false);
+  });
+
+  it("aviso no stderr com \":Wrote \" no meio não conta como progresso", async () => {
+    process.env.FAKE_PIPER_MODE = "spoof";
+    const items = [
+      { n: 1, text: "um" },
+      { n: 2, text: "dois dois" },
+      { n: 3, text: "três três três" },
+    ];
+    const got = await run(piper(), items);
+    expect(got.map((g) => g.n)).toEqual([1, 2, 3]);
+    got.forEach((g, i) => expect(parseWav(g.wav).samples.length).toBe(items[i].text.length * 220));
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  const pipeFailure = () =>
+    errorSpy.mock.calls.find((call) => call[0] === "Piper falhou:")?.[1] as
+      | { reason: string; code: number | null; signal: string | null; stderr: string }
+      | undefined;
+
+  it("saída com código ≠ 0: registra o código e o fim do stderr no servidor, sem o texto", async () => {
+    process.env.FAKE_PIPER_MODE = "exit1";
+    const error = await run(piper(), [
+      { n: 1, text: "segredo um" },
+      { n: 2, text: "segredo dois" },
+    ]).catch((e: unknown) => e);
+    expect((error as Error).message).toBe("A geração de voz falhou.");
+    const logged = pipeFailure();
+    expect(logged).toMatchObject({ code: 1 });
+    expect(logged?.stderr).toContain("wave.Error: # channels not specified");
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("segredo");
+  });
+
+  it("WAV de 0 byte: registra o motivo no servidor", async () => {
+    process.env.FAKE_PIPER_MODE = "zero";
+    await run(piper(), [
+      { n: 1, text: "um" },
+      { n: 2, text: "dois" },
+    ]).catch(() => {});
+    expect(pipeFailure()?.reason).toMatch(/WAV da linha 2/);
+  });
+
+  it("onCell que lança: registra no servidor e rejeita com VoiceError", async () => {
+    const error = await piper()
+      .synthesize([{ n: 5, text: "oi" }], settings, new AbortController().signal, () => {
+        throw new Error("quebrou no consumidor");
+      })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VoiceError);
+    expect(errorSpy).toHaveBeenCalledWith("Piper: onCell lançou ao entregar a célula", 5, expect.any(Error));
+    expect(pipeFailure()?.reason).toBe("onCell lançou");
+  });
+
+  it("cancelar não registra falha no servidor", async () => {
+    process.env.FAKE_PIPER_MODE = "hang";
+    const controller = new AbortController();
+    const promise = run(piper(), [{ n: 1, text: "oi" }], { signal: controller.signal });
+    await waitFor(path.join(logDir, "pid.txt"));
+    controller.abort();
+    await promise.catch(() => {});
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it("sinal já abortado: rejeita sem iniciar o processo", async () => {

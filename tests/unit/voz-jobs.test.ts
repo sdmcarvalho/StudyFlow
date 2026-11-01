@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => import("./helpers/next-headers"));
@@ -41,6 +41,8 @@ vi.setConfig({ testTimeout: 30_000 });
 let savedEnv: Record<string, string | undefined>;
 let vozRoot: string;
 let calls: SpeechItem[][];
+let errorSpy: MockInstance<typeof console.error>;
+const generationLogs = () => errorSpy.mock.calls.filter((call) => call[0] === "Falha na geração de voz:");
 
 /** FakeEngine com espião: guarda os itens de cada chamada. */
 function spyEngine(): SpeechEngine {
@@ -142,6 +144,8 @@ beforeEach(async () => {
   process.env.STUDYFLOW_VOZ_DIR = vozRoot;
   process.env.STUDYFLOW_VOZ_ENGINE = "fake";
   calls = [];
+  // Falhas de geração vão para o log do servidor; aqui o log é conferido, não impresso.
+  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   vi.mocked(getEngine).mockReset();
   vi.mocked(getEngine).mockImplementation(async () => spyEngine());
   _resetJobsForTests();
@@ -154,6 +158,7 @@ beforeEach(async () => {
 afterEach(async () => {
   _resetJobsForTests();
   vi.useRealTimers();
+  errorSpy.mockRestore();
   for (const key of ENV_KEYS) {
     if (savedEnv[key] === undefined) delete process.env[key];
     else process.env[key] = savedEnv[key];
@@ -372,6 +377,7 @@ describe("createJob: geração", () => {
     failing.release();
     expect(await waitDone(userA.id, idA)).toMatchObject({ state: "erro", message: "O Piper parou no meio." });
     expect((await waitDone(userB.id, idB)).state).toBe("pronto");
+    expect(generationLogs()).toEqual([["Falha na geração de voz:", expect.objectContaining({ message: "O Piper parou no meio." })]]);
   });
 
   it("erro que não é VoiceError vira a mensagem genérica", async () => {
@@ -381,6 +387,10 @@ describe("createJob: geração", () => {
     const id = await createOk(userA, studyId, 1, 4);
     failing.release();
     expect(await waitDone(userA.id, id)).toMatchObject({ state: "erro", message: "A geração de voz falhou." });
+    // O detalhe interno não vai para o usuário, mas fica no log do servidor.
+    expect(generationLogs()).toEqual([
+      ["Falha na geração de voz:", expect.objectContaining({ message: "detalhe interno /caminho/secreto" })],
+    ]);
   });
 
   it("cancelJob aborta a geração e o estado vira cancelado", async () => {
@@ -396,6 +406,7 @@ describe("createJob: geração", () => {
     gated.release();
     for (let i = 0; i < 20; i++) await tick();
     expect(getJobStatus(userA.id, id)).toMatchObject({ state: "cancelado", feitas: 0 });
+    expect(errorSpy).not.toHaveBeenCalled(); // cancelar não é falha
     // O slot ficou livre: outra tarefa roda.
     const next = await createOk(userA, studyId, 1, 4);
     expect((await waitDone(userA.id, next)).state).toBe("pronto");
@@ -450,6 +461,8 @@ describe("relógio: inatividade, tempo máximo e retenção", () => {
     expect(getJobStatus(userA.id, id)?.state).toBe("gerando");
     await vi.advanceTimersByTimeAsync(60_001);
     expect(getJobStatus(userA.id, id)?.state).toBe("cancelado");
+    for (let i = 0; i < 10; i++) await tick();
+    expect(errorSpy).not.toHaveBeenCalled(); // inatividade não é falha
   });
 
   it("tarefa na fila também expira por inatividade", async () => {
@@ -554,6 +567,16 @@ describe("synthesizeSample", () => {
     const again = await synthesizeSample(userA.id, settings);
     expect(again.equals(mp3)).toBe(true);
     expect(calls).toHaveLength(1);
+  });
+
+  it("falha do motor na amostra: VoiceError para a rota e registro no servidor", async () => {
+    const failing = gatedEngine(new Error("piper caiu"));
+    vi.mocked(getEngine).mockResolvedValueOnce(failing.engine);
+    failing.release();
+    const error = await synthesizeSample(userA.id, settings).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(VoiceError);
+    expect((error as Error).message).toBe("A geração de voz falhou.");
+    expect(errorSpy).toHaveBeenCalledWith("Falha na geração da amostra de voz:", expect.objectContaining({ message: "piper caiu" }));
   });
 
   it("sem motor: 503; motor real com voz não instalada: 503", async () => {
