@@ -130,7 +130,8 @@ como WAV à medida que termina (`onCell(n, wav)`).
   **Verificado na Tarefa 1** (com `--help` e teste real): se o Piper 1.8.0 não gravar um arquivo por linha, a saída
   é um processo por célula (mais lento: recarrega o modelo a cada uma).
 - `fake.ts`: gera WAV de silêncio de duração proporcional ao texto. Escolhido por `STUDYFLOW_VOZ_ENGINE=fake`,
-  **ignorado quando `NODE_ENV=production`**. Serve a testes unitários e ao e2e.
+  variável que só testes e e2e definem. O e2e roda `next start` (`NODE_ENV=production`), então a trava não pode
+  ser o `NODE_ENV`: `ecosystem.config.js` nunca define a variável, e um teste unitário garante isso.
 - `catalog.ts`: lista as vozes instaladas e valida ids (sem `/`, `\`, `..`).
 - Configuração por ambiente: `STUDYFLOW_VOZ_PYTHON` (executável do Python do ambiente do Piper) e
   `STUDYFLOW_VOZ_DIR` (padrão: `voz` dentro da pasta base do app, `baseFolder()`; contém `venv/`, `voices/` e
