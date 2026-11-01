@@ -1,0 +1,193 @@
+.panel {
+  max-width: 760px;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  margin: 0 0 var(--space-4);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.notice {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+/* Os controles ficam à vista enquanto a leitura rola pelas células. */
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.back {
+  margin-right: auto;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.back:hover,
+.back:focus-visible {
+  color: var(--color-text-primary);
+}
+
+.status {
+  min-height: 1.5em;
+  margin-top: var(--space-3);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.jobError {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.cells {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cell {
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.cell:hover {
+  background: var(--color-bg);
+}
+
+/* Célula atual: fundo e borda de destaque (não depende só da cor: a borda é mais larga). */
+.current,
+.current:hover {
+  border-color: var(--color-primary);
+  border-left-width: 8px;
+  background: var(--color-primary-soft);
+}
+
+.silent {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.cellHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.number {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.silentTag {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-text-tertiary);
+}
+
+.playFrom {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.playFrom:hover {
+  background: var(--color-bg);
+}
+
+.playFrom:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.playFrom:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mensagem de página (intervalo inválido, nada para ler). */
+.message {
+  max-width: 640px;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.messageText {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+@media (max-width: 767.98px) {
+  /* A barra do topo também fica fixa no celular. */
+  .controls {
+    top: var(--topbar-h);
+  }
+}
+
+@media (max-width: 479.98px) {
+  .panel,
+  .message {
+    padding: var(--space-4);
+  }
+
+  .controls > * {
+    flex: 1 1 auto;
+  }
+
+  .back {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+
+  .cell {
+    padding: var(--space-3);
+  }
+}
