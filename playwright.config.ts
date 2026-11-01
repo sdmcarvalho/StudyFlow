@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_BASE_DIR } from "./tests/e2e/helpers";
+import { E2E_BASE_DIR, E2E_VOZ_DIR } from "./tests/e2e/helpers";
 
 const PORT = 3200;
 const DATABASE_URL = "file:./prisma/e2e.db";
@@ -24,6 +24,13 @@ export default defineConfig({
     reuseExistingServer: false,
     // Pastas dos Estudos criadas pelo app ficam na pasta temporária e2e (ver resetData).
     // O gateway falso de configuracao.spec.ts é http em 127.0.0.1; a política contra SSRF só o aceita relaxada.
-    env: { DATABASE_URL, STUDYFLOW_BASE_DIR: E2E_BASE_DIR, STUDYFLOW_AI_ALLOW_PRIVATE: "1" },
+    // Voz: motor falso (só o e2e define; o ecosystem.config.js nunca) e pasta própria na pasta temporária e2e.
+    env: {
+      DATABASE_URL,
+      STUDYFLOW_BASE_DIR: E2E_BASE_DIR,
+      STUDYFLOW_AI_ALLOW_PRIVATE: "1",
+      STUDYFLOW_VOZ_ENGINE: "fake",
+      STUDYFLOW_VOZ_DIR: E2E_VOZ_DIR,
+    },
   },
 });

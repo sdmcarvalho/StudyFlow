@@ -48,7 +48,9 @@ const fieldUrl = (page: Page) => page.getByLabel("Gateway base URL");
 const fieldKey = (page: Page) => page.getByLabel("Gateway API key");
 const fieldModel = (page: Page) => page.getByLabel("Modelo");
 const testButton = (page: Page) => page.getByRole("button", { name: "Testar", exact: true });
-const saveButton = (page: Page) => page.getByRole("button", { name: "Salvar", exact: true });
+// A página tem outro "Salvar" (seção Voz): este é o do formulário de IA.
+const saveButton = (page: Page) =>
+  page.getByRole("region", { name: "Agente de IA" }).getByRole("button", { name: "Salvar", exact: true });
 const result = (page: Page) => page.locator("form p[role=status]");
 
 test("configura o gateway: busca modelos, testa, salva e a chave nunca volta ao navegador", async ({ page }) => {

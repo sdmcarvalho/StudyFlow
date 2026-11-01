@@ -31,6 +31,92 @@ Cada Estudo tem uma pasta real no disco (caminho absoluto do Windows, como `C:\E
 
 A variável opcional `STUDYFLOW_BASE_DIR` (padrão `C:\StudyFlow`) define a pasta base: o `npm run db:seed` cria `<base>\<nome>` para cada registro de exemplo, e o modal de novo Estudo começa com `<base>\` no campo Pasta. Na prática, as pastas de cada usuário ficam em `<base>\<pasta do usuário>` (ver Autenticação). Os testes e2e usam uma pasta temporária própria.
 
+## Voz (ler e gravar em MP3)
+
+Na tela **Estudo**, cada registro tem o botão **Voz**. Ele abre uma tela onde você escolhe um intervalo de células do Estudo (inicial e final) e então:
+
+- **Ler**: abre a tela de leitura, que mostra as células do intervalo e as lê em voz alta, célula a célula (Tocar/Pausar, Anterior, Próxima e "Tocar daqui");
+- **Gravar**: gera um MP3 do intervalo e deixa baixá-lo (`<Descrição> - células <inicial> a <final>.mp3`).
+
+A voz é sintetizada **localmente** pelo Piper (`piper-tts`; offline, sem serviço de terceiros), nas vozes pt-BR. Células sem texto para ler (só imagem, só código, só pontuação) aparecem e são puladas.
+
+### Instalação
+
+O recurso é opcional: sem a instalação o app funciona normalmente e a tela Voz avisa "A voz não está instalada neste ambiente.". O instalador (`npm run voz:install`) cria um ambiente Python próprio (`venv`), instala `piper-tts` 1.8.0 e baixa as quatro vozes pt-BR (faber, cadu, edresson e jeff). Ele é **idempotente**: uma segunda execução pula tudo o que já existe. O app usa o Python desse `venv` sozinho; não é preciso definir `STUDYFLOW_VOZ_PYTHON`.
+
+**Windows** (desenvolvimento):
+
+1. Instale o Python 3.9 ou mais novo (python.org, marcando "Add python.exe to PATH") e confira com `python --version`.
+2. Na pasta do projeto: `npm run voz:install`. Instala em `<STUDYFLOW_VOZ_DIR>`, que por padrão é `C:\StudyFlow\voz` (`voz` dentro da pasta base, ver "Pasta dos Estudos"). Leva cerca de 1 minuto.
+3. Reinicie o `npm run dev`.
+
+Para outra pasta ou outro Python: `npm run voz:install -- --dir D:\voz --python py` (ou as variáveis `STUDYFLOW_VOZ_DIR` e `STUDYFLOW_VOZ_SYSTEM_PYTHON`).
+
+**VPS** (Ubuntu/Debian):
+
+```bash
+sudo apt install -y python3-venv   # a VPS tem o Python 3, mas não o módulo venv
+cd /opt/studyflow
+npm run voz:install                # instala em /var/lib/studyflow/voz (padrão: <STUDYFLOW_BASE_DIR>/voz)
+pm2 startOrReload ecosystem.config.js && pm2 save
+```
+
+O comando roda com o mesmo usuário do PM2, para ele poder ler a pasta. Não define nenhuma variável no `ecosystem.config.js`.
+
+### Variáveis de ambiente (todas opcionais)
+
+| Variável | Para que serve |
+|---|---|
+| `STUDYFLOW_VOZ_DIR` | Pasta da Voz, com `venv/`, `voices/` e `cache/`. Padrão: `voz` dentro da pasta base (`C:\StudyFlow\voz` no Windows, `/var/lib/studyflow/voz` na VPS). |
+| `STUDYFLOW_VOZ_PYTHON` | Python do ambiente do Piper. Se não definida, vale o do `venv` criado pelo instalador (`<STUDYFLOW_VOZ_DIR>\venv\Scripts\python.exe` no Windows, `<STUDYFLOW_VOZ_DIR>/venv/bin/python` no Linux). Quando definida, vence. |
+| `STUDYFLOW_VOZ_MAX_CHARS` | Limite de caracteres falados por tarefa. Padrão: 60 000 (**a confirmar na VPS**: o valor depende da velocidade do Piper nas 2 CPUs compartilhadas; reduza se a geração passar de uns 10 minutos). |
+| `STUDYFLOW_VOZ_JOB_TIMEOUT_MS` | Tempo máximo de uma tarefa, em milissegundos. Padrão: 20 minutos. |
+| `STUDYFLOW_VOZ_ENGINE` | `fake` seleciona um motor falso (áudio de silêncio) e **só os testes e2e definem**. **Nunca defina em produção**: o `ecosystem.config.js` não a define, e um teste unitário garante isso. |
+
+### Limites
+
+- Uma geração por vez no servidor; as demais ficam "na fila".
+- Uma tarefa ativa por usuário ("Você já tem uma voz em andamento.").
+- Tempo máximo de 20 minutos por tarefa; passando disso: "A geração demorou demais.".
+- Tarefas ficam em memória: reiniciar o app perde as em andamento (é só clicar de novo). Sair da tela cancela a tarefa.
+- Cache em disco (`<STUDYFLOW_VOZ_DIR>/cache`): células já geradas são reaproveitadas por 24 horas, com teto de 500 MB.
+- O MP3 de um **Gravar** concluído é descartado quando o mesmo usuário inicia outra tarefa, e tarefas concluídas somem em 1 hora. **Baixe o arquivo logo ao terminar.**
+
+### Configuração da voz
+
+Em **Configuração**, a seção **Voz** vale para Ler e Gravar (a configuração salva é lida quando a tarefa é criada):
+
+- **Voz**: uma das instaladas (o idioma aparece como informação, derivado da voz);
+- **Velocidade**: 0,5 a 2,0 (padrão 1,0);
+- **Volume**: 0,1 a 1,0 (padrão 1,0). Para ouvir mais alto, use o volume do player ou do sistema;
+- **Tom** não existe: o Piper não tem esse controle.
+
+O botão **Ouvir amostra** toca uma frase curta com os valores do formulário, antes de salvar.
+
+### Licenças e atribuição
+
+- **Piper** (`piper-tts`): GPL-3.0-or-later (embute o espeak-ng, GPLv3). Roda como **processo separado**, instalado na máquina do próprio usuário; o StudyFlow não o linka nem o redistribui.
+- **Vozes** (baixadas do repositório `rhasspy/piper-voices`): `pt_BR-faber-medium`, `pt_BR-cadu-medium` e `pt_BR-jeff-medium` são **CC0** (domínio público). `pt_BR-edresson-low` é **CC BY 4.0** e exige atribuição: *voz baseada no corpus **TTS-Portuguese-Corpus**, de Edresson Casanova e colaboradores (https://github.com/Edresson/TTS-Portuguese-Corpus), licença CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)*. Ao usar ou compartilhar áudio gerado com essa voz, mantenha essa atribuição.
+- **`@breezystack/lamejs`** (codificador MP3 em JavaScript, dependência npm): LGPL-3.0.
+
+### Roteiro de teste manual (Piper de verdade)
+
+Os testes automáticos usam o motor falso; antes de liberar, ouça o resultado real em cada ambiente.
+
+**Windows:**
+
+1. `npm run voz:install` (confira no fim: "Pronto." e o caminho do Python do `venv`).
+2. `npm run dev`, entre e abra **Configuração**. Na seção **Voz**, clique em **Ouvir amostra** e confirme que a frase é falada.
+3. Em **Estudo**, clique em **Voz** num registro com ao menos 3 células. Deixe as células 1 e 2 e clique em **Ler**: confira que cada célula é destacada e lida, e que **Próxima** e **Anterior** mudam a célula.
+4. Volte, clique em **Gravar**, espere "Pronto", use **Baixar MP3** e toque o arquivo no player: deve ter as duas células, na ordem, com uma pausa entre elas.
+
+**VPS** (depois do deploy, com o usuário presente):
+
+1. `sudo apt install -y python3-venv` e `npm run voz:install` (como acima); `pm2 startOrReload ecosystem.config.js && pm2 save`.
+2. Em https://estudo.aiontecno.com.br, **Configuração → Voz → Ouvir amostra**.
+3. **Estudo → Voz → Ler** com 2 células, e depois **Gravar** com 2 células; baixe e toque o MP3.
+4. Anote o tempo de um trecho curto para decidir o `STUDYFLOW_VOZ_MAX_CHARS` da VPS e confira com `pm2 logs studyflow` que não houve erro do Piper.
+
 ## Autenticação
 
 O acesso é por e-mail e senha em `/login`; todas as páginas e APIs exigem sessão, e o cadastro não é aberto (não há auto-cadastro).
@@ -147,9 +233,14 @@ O Certbot acrescenta o bloco `:443` e o redirecionamento http -> https no própr
 
 ```bash
 cd /opt/studyflow
-git pull && npm ci && npx prisma migrate deploy && npm run build && pm2 startOrReload ecosystem.config.js && pm2 save
+sudo apt install -y python3-venv   # só na primeira vez (necessário para a Voz, ver "Voz (ler e gravar em MP3)")
+git pull && npm ci && npx prisma migrate deploy   # a migração add_voice_settings é nova (tabela VoiceSettings)
+npm run voz:install                # primeira vez, ou quando as vozes mudarem; idempotente (pula o que já existe)
+npm run build && pm2 startOrReload ecosystem.config.js && pm2 save
 pm2 show studyflow | grep -i TZ    # confirma TZ=America/Sao_Paulo (ou: pm2 env <id> | grep TZ)
 ```
+
+O `npm run voz:install` não é necessário para o app subir: sem ele, a tela Voz avisa que a voz não está instalada neste ambiente e nada mais é afetado.
 
 ### Notas de produção
 
