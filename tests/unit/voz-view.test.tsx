@@ -331,6 +331,35 @@ describe("VozView: Gravar", () => {
     expect(gravar()).toBeEnabled();
   });
 
+  it.each([
+    ["rede", () => Promise.reject(new TypeError("Failed to fetch")), "Não foi possível falar com o servidor. Tente de novo."],
+    ["HTTP 500", () => json({ message: "Falha interna." }, 500), "Falha interna."],
+    ["corpo que não é JSON", () => Promise.resolve(new Response("<html>", { status: 200 })), "Não foi possível consultar a voz."],
+    ["objeto sem estado", () => json({}), "Não foi possível consultar a voz."],
+  ])("falha na consulta de progresso (%s) some com Gerando…, mostra o alerta e libera o formulário", async (_name, response, message) => {
+    polls = [statusOf("gerando", 2)];
+    render(<VozView {...props()} />);
+    await clickGravar();
+    expect(screen.getByRole("status")).toHaveTextContent("Gerando… 2 de 4 células");
+    fetchMock.mockImplementationOnce((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? "GET", init });
+      return response();
+    });
+    await tick(1000);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(message);
+    const status = screen.getByRole("status");
+    expect(status).not.toHaveTextContent("Gerando");
+    expect(status).not.toHaveTextContent("Na fila");
+    expect(status).toBeEmptyDOMElement();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancelar" })).toBeNull();
+    expect(count("DELETE")).toBe(1);
+    expect(startInput()).toBeEnabled();
+    expect(endInput()).toBeEnabled();
+    expect(gravar()).toBeEnabled();
+  });
+
   it("clique duplo em Gravar cria uma tarefa só (dois cliques antes de o React re-renderizar)", async () => {
     render(<VozView {...props()} />);
     const button = gravar();

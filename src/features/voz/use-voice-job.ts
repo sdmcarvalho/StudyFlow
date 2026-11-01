@@ -39,6 +39,15 @@ async function readMessage(response: Response): Promise<string | null> {
   return null;
 }
 
+const KNOWN_STATES = ["na-fila", "gerando", "pronto", "erro", "cancelado"];
+
+/** O corpo de uma consulta só vale se for um objeto com um estado conhecido; senão é falha da consulta. */
+function parseStatus(body: unknown): JobStatus | null {
+  if (typeof body !== "object" || body === null) return null;
+  const state = (body as { state?: unknown }).state;
+  return typeof state === "string" && KNOWN_STATES.includes(state) ? (body as JobStatus) : null;
+}
+
 /** Cancela no servidor sem esperar resposta (a página pode estar sendo fechada): DELETE com keepalive. */
 function cancelOnServer(id: string): void {
   try {
@@ -81,29 +90,37 @@ export function useVoiceJob(): VoiceJob {
   // entre as respostas: nunca há duas consultas ao mesmo tempo.
   const poll = useCallback(
     async (id: string, gen: number) => {
+      // Qualquer falha da consulta deixa a tela limpa e pronta para tentar de novo: para de consultar, pede o
+      // cancelamento (senão a nova tentativa bate em "você já tem uma voz em andamento") e zera o progresso.
+      const failPoll = (message: string) => {
+        cancelOnServer(id);
+        settle();
+        setStatus(null);
+        setError(message);
+      };
+
       while (gen === generation.current) {
         let next: JobStatus | null = null;
         let failure: string | null = null;
-        let lostContact = false;
         try {
           const response = await fetch(jobUrl(id));
-          if (response.ok) next = (await response.json()) as JobStatus;
-          else failure = (await readMessage(response)) ?? MSG_POLL_FAILED;
+          if (!response.ok) {
+            failure = (await readMessage(response)) ?? MSG_POLL_FAILED;
+          } else {
+            try {
+              next = parseStatus(await response.json());
+            } catch {
+              next = null;
+            }
+            if (next === null) failure = MSG_POLL_FAILED;
+          }
         } catch {
-          lostContact = true;
+          failure = MSG_NETWORK;
         }
         if (gen !== generation.current) return;
 
-        if (lostContact || (next === null && failure === null)) {
-          // Perdeu o contato: para de consultar e pede o cancelamento para não prender o usuário na fila.
-          cancelOnServer(id);
-          settle();
-          setError(lostContact ? MSG_NETWORK : MSG_POLL_FAILED);
-          return;
-        }
         if (next === null) {
-          settle();
-          setError(failure);
+          failPoll(failure ?? MSG_POLL_FAILED);
           return;
         }
 

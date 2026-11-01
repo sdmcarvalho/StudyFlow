@@ -170,6 +170,46 @@ describe("useVoiceJob", () => {
     expect(count("GET")).toBe(gets);
   });
 
+  it.each([
+    ["HTTP 500 com mensagem", () => json({ message: "Falha interna." }, 500), "Falha interna."],
+    ["HTTP 500 sem corpo legível", () => Promise.resolve(new Response("<html>", { status: 500 })), "Não foi possível consultar a voz."],
+    ["200 com corpo que não é JSON", () => Promise.resolve(new Response("<html>", { status: 200 })), "Não foi possível consultar a voz."],
+    ["200 com objeto vazio", () => json({}), "Não foi possível consultar a voz."],
+    ["200 com estado desconhecido", () => json({ id: "J1", state: "talvez" }), "Não foi possível consultar a voz."],
+    ["200 com null", () => json(null), "Não foi possível consultar a voz."],
+  ])("consulta com falha (%s): limpa o progresso, avisa, cancela no servidor e para", async (_name, response, message) => {
+    const { result } = renderHook(() => useVoiceJob());
+    await act(async () => {
+      await result.current.start(INPUT);
+    });
+    expect(result.current.status?.state).toBe("gerando");
+    fetchMock.mockImplementationOnce((url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? "GET", init });
+      return response();
+    });
+    await tick(1000);
+    expect(result.current.error).toBe(message);
+    expect(result.current.status).toBeNull();
+    expect(result.current.busy).toBe(false);
+    const del = calls.filter((c) => c.method === "DELETE");
+    expect(del).toHaveLength(1);
+    expect(del[0].url).toBe("/api/voz/jobs/J1");
+    expect(del[0].init?.keepalive).toBe(true);
+    const gets = count("GET");
+    await tick(3000);
+    expect(count("GET")).toBe(gets);
+  });
+
+  it("falha de rede ao consultar também zera o progresso", async () => {
+    const { result } = renderHook(() => useVoiceJob());
+    await act(async () => {
+      await result.current.start(INPUT);
+    });
+    fetchMock.mockImplementationOnce(() => Promise.reject(new TypeError("Failed to fetch")));
+    await tick(1000);
+    expect(result.current.status).toBeNull();
+  });
+
   it("cancel chama DELETE da tarefa, para de consultar e ignora resposta atrasada", async () => {
     let lateResolve!: (r: Response) => void;
     const { result } = renderHook(() => useVoiceJob());
