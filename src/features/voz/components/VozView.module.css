@@ -1,0 +1,203 @@
+.panel {
+  max-width: 640px;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  margin: 0 0 var(--space-5);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.notice {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+}
+
+.field input:read-only {
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+}
+
+.field input:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hasError input {
+  border-color: var(--color-error);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-error);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.back {
+  margin-right: auto;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.back:hover,
+.back:focus-visible {
+  color: var(--color-text-primary);
+}
+
+/* Ler e Baixar MP3 são links com a aparência de botão (mesmas medidas do Button). */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.primary:hover {
+  background: #e24600;
+}
+
+.secondary {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+
+.secondary:hover {
+  background: var(--color-bg);
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabled:hover {
+  background: var(--color-surface);
+}
+
+.status {
+  min-height: 1.5em;
+  margin-top: var(--space-4);
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.bar {
+  height: 8px;
+  margin-top: var(--space-2);
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-strong);
+}
+
+.barFill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width var(--transition-fast);
+}
+
+.jobActions {
+  display: flex;
+  margin-top: var(--space-4);
+}
+
+.jobError {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+@media (max-width: 479.98px) {
+  .panel {
+    padding: var(--space-4);
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .actions > * {
+    flex: 1 1 auto;
+  }
+
+  .back {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+}
