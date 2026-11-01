@@ -189,7 +189,7 @@ async function main() {
   }
 
   console.log(`\nPronto. Para o app usar esta instalação: STUDYFLOW_VOZ_DIR=${dir}`);
-  console.log(`Python do venv (STUDYFLOW_VOZ_PYTHON): ${plan.python}`);
+  console.log(`Python do venv (o app o usa sozinho; STUDYFLOW_VOZ_PYTHON só se quiser outro): ${plan.python}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

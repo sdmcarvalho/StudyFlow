@@ -13,7 +13,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { isInstalledVoice, voicesDir } from "@/features/voz/engine/catalog";
+import { isInstalledVoice, vozDir, voicesDir } from "@/features/voz/engine/catalog";
 import { SPEED_MAX, SPEED_MIN, VOLUME_MAX, VOLUME_MIN, type VoiceSettings } from "@/features/voz/settings-schema";
 import { parseWav } from "@/features/voz/wav";
 import { speakableItems, VoiceCancelledError, VoiceError, type SpeechEngine, type SpeechItem } from "./types";
@@ -28,8 +28,20 @@ const LOW_PRIORITY = 10;
 
 export const MSG_VOICE_NOT_INSTALLED_ENGINE = "A voz escolhida não está instalada. Escolha outra em Configuração.";
 
-export function defaultPiperCommand(): PiperCommand {
-  return { file: process.env.STUDYFLOW_VOZ_PYTHON?.trim() ?? "", baseArgs: ["-I", "-m", "piper"] };
+/**
+ * Python do venv criado por `npm run voz:install` (mesmo layout de `planInstall`): `<pasta de voz>/venv/Scripts/python.exe`
+ * no Windows e `<pasta de voz>/venv/bin/python` nos demais. `platform` é injetável para teste.
+ */
+export function venvPython(platform: NodeJS.Platform = process.platform): string {
+  return platform === "win32"
+    ? path.join(vozDir(), "venv", "Scripts", "python.exe")
+    : path.join(vozDir(), "venv", "bin", "python");
+}
+
+/** `STUDYFLOW_VOZ_PYTHON` (quando definido e não vazio) vence; senão, o Python do venv da instalação (R16). */
+export function defaultPiperCommand(platform: NodeJS.Platform = process.platform): PiperCommand {
+  const file = process.env.STUDYFLOW_VOZ_PYTHON?.trim() || venvPython(platform);
+  return { file, baseArgs: ["-I", "-m", "piper"] };
 }
 
 // Ancorado no início: texto do usuário ecoado no stderr (aviso, traceback) não conta como progresso.

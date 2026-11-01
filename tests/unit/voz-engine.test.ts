@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { FakeEngine } from "@/features/voz/engine/fake";
 import { getEngine } from "@/features/voz/engine/index";
-import { PiperEngine, type PiperCommand } from "@/features/voz/engine/piper";
+import { defaultPiperCommand, PiperEngine, venvPython, type PiperCommand } from "@/features/voz/engine/piper";
 import { VoiceCancelledError, VoiceError, type SpeechItem } from "@/features/voz/engine/types";
 import type { VoiceSettings } from "@/features/voz/settings-schema";
 import { parseWav } from "@/features/voz/wav";
@@ -366,15 +366,81 @@ describe("FakeEngine", () => {
   });
 });
 
+describe("Python padrão do venv (R16)", () => {
+  it("Windows: <pasta de voz>/venv/Scripts/python.exe", () => {
+    expect(venvPython("win32")).toBe(path.join(vozRoot, "venv", "Scripts", "python.exe"));
+  });
+
+  it("POSIX: <pasta de voz>/venv/bin/python", () => {
+    expect(venvPython("linux")).toBe(path.join(vozRoot, "venv", "bin", "python"));
+    expect(venvPython("darwin")).toBe(path.join(vozRoot, "venv", "bin", "python"));
+  });
+
+  it("o padrão é o do sistema atual", () => {
+    expect(venvPython()).toBe(venvPython(process.platform));
+  });
+
+  it("defaultPiperCommand sem STUDYFLOW_VOZ_PYTHON usa o do venv; com valor (ou em branco), vale a regra", () => {
+    expect(defaultPiperCommand("win32")).toEqual({ file: venvPython("win32"), baseArgs: ["-I", "-m", "piper"] });
+    expect(defaultPiperCommand("linux").file).toBe(venvPython("linux"));
+    process.env.STUDYFLOW_VOZ_PYTHON = "   ";
+    expect(defaultPiperCommand("linux").file).toBe(venvPython("linux"));
+    process.env.STUDYFLOW_VOZ_PYTHON = "/opt/py/bin/python";
+    expect(defaultPiperCommand("linux").file).toBe("/opt/py/bin/python");
+  });
+
+  it("new PiperEngine() sem env usa o Python do venv", () => {
+    expect(new PiperEngine().command.file).toBe(venvPython());
+  });
+});
+
 describe("getEngine", () => {
+  async function createVenvPython() {
+    const file = venvPython();
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, "x");
+    return file;
+  }
+
   it("STUDYFLOW_VOZ_ENGINE=fake devolve o motor falso, mesmo sem Python", async () => {
     process.env.STUDYFLOW_VOZ_ENGINE = "fake";
     expect(await getEngine()).toBeInstanceOf(FakeEngine);
   });
 
-  it("sem STUDYFLOW_VOZ_PYTHON e sem fake: null", async () => {
+  it("sem STUDYFLOW_VOZ_PYTHON, sem venv e sem fake: null", async () => {
     expect(await getEngine()).toBeNull();
     process.env.STUDYFLOW_VOZ_ENGINE = "piper";
+    expect(await getEngine()).toBeNull();
+  });
+
+  it("sem STUDYFLOW_VOZ_PYTHON, com o Python do venv e vozes: PiperEngine com esse Python", async () => {
+    const file = await createVenvPython();
+    const engine = await getEngine();
+    expect(engine).toBeInstanceOf(PiperEngine);
+    expect((engine as PiperEngine).command.file).toBe(file);
+  });
+
+  it("STUDYFLOW_VOZ_PYTHON em branco conta como não definido (usa o venv)", async () => {
+    const file = await createVenvPython();
+    process.env.STUDYFLOW_VOZ_PYTHON = "  ";
+    expect(((await getEngine()) as PiperEngine).command.file).toBe(file);
+  });
+
+  it("Python do venv existe mas nenhuma voz instalada: null", async () => {
+    await createVenvPython();
+    await fs.rm(path.join(vozRoot, "voices"), { recursive: true });
+    expect(await getEngine()).toBeNull();
+  });
+
+  it("STUDYFLOW_VOZ_PYTHON definido vence o venv", async () => {
+    await createVenvPython();
+    process.env.STUDYFLOW_VOZ_PYTHON = process.execPath;
+    expect(((await getEngine()) as PiperEngine).command.file).toBe(process.execPath);
+  });
+
+  it("STUDYFLOW_VOZ_PYTHON inexistente não cai no venv: null", async () => {
+    await createVenvPython();
+    process.env.STUDYFLOW_VOZ_PYTHON = path.join(root, "nao-existe.exe");
     expect(await getEngine()).toBeNull();
   });
 
