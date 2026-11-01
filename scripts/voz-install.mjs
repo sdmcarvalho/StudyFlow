@@ -89,11 +89,28 @@ function run(cmd, { inherit = false } = {}) {
   });
 }
 
+/**
+ * Situação do venv: "ausente" (sem Python do venv), "ok" (o pip do venv funciona) ou "incompleto"
+ * (o Python existe mas o pip não: `python3 -m venv` sem python3-venv cria `bin/python` e falha no ensurepip,
+ * ou uma execução anterior foi interrompida). `exists` e `runCmd` são injetáveis para teste.
+ */
+export async function venvStatus(python, { exists = fs.existsSync, runCmd = run } = {}) {
+  if (!exists(python)) return "ausente";
+  const result = await runCmd([python, "-m", "pip", "--version"]);
+  return result.code === 0 ? "ok" : "incompleto";
+}
+
 async function pythonVersion(cmd) {
   const result = await run([cmd, "-c", "import sys;print('%d.%d' % sys.version_info[:2])"]);
   if (result.code !== 0) return null;
   const match = /(\d+)\.(\d+)/.exec(result.stdout);
   return match ? [Number(match[1]), Number(match[2])] : null;
+}
+
+/** Apaga só a pasta `venv` (nunca outra), para recriá-la do zero. */
+function removeVenv(venvDir) {
+  if (!/[\\/]venv$/.test(venvDir)) return;
+  fs.rmSync(venvDir, { recursive: true, force: true });
 }
 
 function fail(message) {
@@ -120,9 +137,15 @@ async function main() {
   fs.mkdirSync(joinFor(platform, dir, "voices"), { recursive: true });
   fs.mkdirSync(joinFor(platform, dir, "cache"), { recursive: true });
 
-  if (fs.existsSync(plan.python)) {
+  const venvDir = plan.venvCmd[plan.venvCmd.length - 1];
+  const status = await venvStatus(plan.python);
+  if (status === "ok") {
     console.log("venv já existe: pulando a criação.");
   } else {
+    if (status === "incompleto") {
+      console.log("venv incompleto (sem pip): recriando.");
+      removeVenv(venvDir);
+    }
     const version = await pythonVersion(base);
     if (!version) {
       fail(
@@ -135,8 +158,9 @@ async function main() {
       fail(`o Python ${version.join(".")} é velho demais; o Piper pede ${MIN_PYTHON.join(".")} ou mais novo.`);
     }
     const created = await run(plan.venvCmd);
-    if (created.code !== 0 || !fs.existsSync(plan.python)) {
+    if (created.code !== 0 || (await venvStatus(plan.python)) !== "ok") {
       console.error(created.stdout);
+      removeVenv(venvDir); // não deixa um venv pela metade para a próxima execução
       fail(
         isWindows(platform)
           ? "não consegui criar o ambiente virtual (venv). Reinstale o Python incluindo o módulo venv."

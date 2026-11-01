@@ -1,5 +1,31 @@
-import { describe, expect, it } from "vitest";
-import { DEFAULT_VOICES, planInstall } from "../../scripts/voz-install.mjs";
+import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_VOICES, planInstall, venvStatus } from "../../scripts/voz-install.mjs";
+
+describe("venvStatus", () => {
+  const python = "/srv/voz/venv/bin/python";
+
+  it("sem o Python do venv: ausente (e nem testa o pip)", async () => {
+    const runCmd = vi.fn();
+    expect(await venvStatus(python, { exists: () => false, runCmd })).toBe("ausente");
+    expect(runCmd).not.toHaveBeenCalled();
+  });
+
+  it("com Python e pip funcionando: ok", async () => {
+    const runCmd = vi.fn().mockResolvedValue({ code: 0, stdout: "pip 24.0" });
+    expect(await venvStatus(python, { exists: () => true, runCmd })).toBe("ok");
+    expect(runCmd).toHaveBeenCalledWith([python, "-m", "pip", "--version"]);
+  });
+
+  it("com Python mas sem pip (venv que parou no ensurepip): incompleto", async () => {
+    const runCmd = vi.fn().mockResolvedValue({ code: 1, stdout: "No module named pip" });
+    expect(await venvStatus(python, { exists: () => true, runCmd })).toBe("incompleto");
+  });
+
+  it("Python do venv que nem executa: incompleto", async () => {
+    const runCmd = vi.fn().mockResolvedValue({ code: -1, stdout: "", error: new Error("ENOENT") });
+    expect(await venvStatus(python, { exists: () => true, runCmd })).toBe("incompleto");
+  });
+});
 
 const VOICES = ["pt_BR-faber-medium", "pt_BR-cadu-medium"];
 
