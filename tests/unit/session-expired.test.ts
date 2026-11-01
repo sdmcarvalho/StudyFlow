@@ -20,6 +20,8 @@ import * as cards from "@/features/cards/actions";
 import { listStudyCards, listStudyTestSummaries } from "@/features/cards/queries";
 import * as estudo from "@/features/estudo/actions";
 import { getStudyDocument, getStudyFolder, listStudyRecords } from "@/features/estudo/queries";
+import * as voz from "@/features/voz/actions";
+import { getVoiceSettings } from "@/features/voz/queries";
 import { AuthError } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
@@ -43,6 +45,8 @@ const aiInput = {
   extraParams: "",
 };
 
+const vozInput = { voice: "pt_BR-faber-medium", speed: 1, volume: 1 };
+
 const actionCalls: Record<string, () => Promise<unknown>> = {
   "estudo.createStudyRecord": () => estudo.createStudyRecord(studyInput),
   "estudo.updateStudyRecord": () => estudo.updateStudyRecord("id-1", studyInput),
@@ -63,6 +67,7 @@ const actionCalls: Record<string, () => Promise<unknown>> = {
   "ai.generateCardQuestion": () => ai.generateCardQuestion("Texto"),
   "ai.generateCardAnswer": () => ai.generateCardAnswer("Pergunta?"),
   "ai.summarizeText": () => ai.summarizeText("Texto"),
+  "voz.saveVoiceSettings": () => voz.saveVoiceSettings(vozInput),
 };
 
 /** Exports que não devolvem `ActionResult`: deixam o AuthError subir para o chamador. */
@@ -75,6 +80,7 @@ const throwingCalls: Record<string, () => Promise<unknown>> = {
   "queries.listStudyCards": () => listStudyCards("id-1"),
   "queries.listStudyTestSummaries": () => listStudyTestSummaries(),
   "queries.getAiSettings": () => getAiSettings(),
+  "queries.getVoiceSettings": () => getVoiceSettings(),
 };
 
 function exportedFunctions(module: Record<string, unknown>): string[] {
@@ -128,10 +134,11 @@ describe("cobertura da lista de entradas", () => {
       ...exportedFunctions(cards).map((n) => `cards.${n}`),
       ...exportedFunctions(agenda).map((n) => `agenda.${n}`),
       ...exportedFunctions(ai).map((n) => `ai.${n}`),
+      ...exportedFunctions(voz).map((n) => `voz.${n}`),
     ].sort();
     const covered = [...Object.keys(actionCalls), "agenda.listUserSchedules", "agenda.checkStudyHasActiveSchedules"].sort();
     expect(exported).toEqual(covered);
-    expect(Object.keys(actionCalls)).toHaveLength(19);
+    expect(Object.keys(actionCalls)).toHaveLength(20);
   });
 });
 
@@ -143,6 +150,7 @@ describe.each(situations)("%s", (_name, setup) => {
     await db.card.deleteMany();
     await db.studyRecord.deleteMany();
     await db.aiSettings.deleteMany();
+    await db.voiceSettings.deleteMany();
     await db.user.deleteMany();
     signOut();
     await setup();

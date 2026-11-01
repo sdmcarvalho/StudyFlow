@@ -13,21 +13,22 @@ enum Role {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String
+  id            String         @id @default(cuid())
+  name          String
   // Opcionais só para a linha legada `local-user` aceitar a migration; o código sempre os preenche.
-  email        String?       @unique
-  passwordHash String?
-  folderName   String?       @unique
-  role         Role          @default(USER)
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  sessions     Session[]
-  records      StudyRecord[]
-  cards        Card[]
-  aiSettings   AiSettings?
-  cardResults  CardResult[]
-  schedules    Schedule[]
+  email         String?        @unique
+  passwordHash  String?
+  folderName    String?        @unique
+  role          Role           @default(USER)
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  sessions      Session[]
+  records       StudyRecord[]
+  cards         Card[]
+  aiSettings    AiSettings?
+  voiceSettings VoiceSettings?
+  cardResults   CardResult[]
+  schedules     Schedule[]
 }
 
 model Session {
@@ -122,4 +123,14 @@ model AiSettings {
   timeout     Int      @default(300)
   extraParams String   @default("")
   updatedAt   DateTime @updatedAt
+}
+
+model VoiceSettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voice     String   @default("pt_BR-faber-medium")
+  speed     Float    @default(1)
+  volume    Float    @default(1)
+  updatedAt DateTime @updatedAt
 }

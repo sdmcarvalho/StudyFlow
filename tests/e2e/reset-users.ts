@@ -13,6 +13,7 @@ async function main() {
   await db.card.deleteMany({ where: others });
   await db.studyRecord.deleteMany({ where: others });
   await db.aiSettings.deleteMany({ where: others });
+  await db.voiceSettings.deleteMany({ where: others });
   await db.session.deleteMany();
   await db.user.deleteMany({ where: { role: { not: "SUPER" } } });
 }

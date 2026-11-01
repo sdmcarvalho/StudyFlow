@@ -139,6 +139,7 @@ export async function deleteUser(
       db.card.deleteMany({ where }),
       db.studyRecord.deleteMany({ where }), // inclusive os da lixeira
       db.aiSettings.deleteMany({ where }),
+      db.voiceSettings.deleteMany({ where }),
       db.session.deleteMany({ where }),
       db.user.deleteMany({ where: { id: target.id, role: "USER" } }),
     ]);

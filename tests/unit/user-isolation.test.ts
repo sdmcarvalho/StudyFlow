@@ -40,6 +40,8 @@ import {
 } from "@/features/estudo/actions";
 import { userRoot } from "@/features/estudo/folder-scope";
 import { getStudyDocument, getStudyFolder, listStudyRecords } from "@/features/estudo/queries";
+import { saveVoiceSettings } from "@/features/voz/actions";
+import { getVoiceSettings } from "@/features/voz/queries";
 import { db } from "@/lib/db";
 import { createTestUser, signInAs, signOut } from "./helpers/auth";
 
@@ -56,6 +58,7 @@ const PNG_BYTES = Uint8Array.from(
 );
 
 let base: string;
+let vozFolder: string;
 
 async function clearDatabase() {
   await db.cardResult.deleteMany();
@@ -63,6 +66,7 @@ async function clearDatabase() {
   await db.card.deleteMany();
   await db.studyRecord.deleteMany();
   await db.aiSettings.deleteMany();
+  await db.voiceSettings.deleteMany();
   await db.session.deleteMany();
   await db.user.deleteMany();
 }
@@ -70,6 +74,12 @@ async function clearDatabase() {
 beforeAll(async () => {
   base = await fs.mkdtemp(path.join(os.tmpdir(), "studyflow-isolation-"));
   vi.stubEnv("STUDYFLOW_BASE_DIR", base);
+  // Catálogo de vozes de mentira: salvar a voz exige que ela esteja instalada.
+  vozFolder = await fs.mkdtemp(path.join(os.tmpdir(), "studyflow-isolation-voz-"));
+  await fs.mkdir(path.join(vozFolder, "voices"));
+  await fs.writeFile(path.join(vozFolder, "voices", "pt_BR-faber-medium.onnx"), "x");
+  await fs.writeFile(path.join(vozFolder, "voices", "pt_BR-faber-medium.onnx.json"), "{}");
+  vi.stubEnv("STUDYFLOW_VOZ_DIR", vozFolder);
 });
 
 afterAll(async () => {
@@ -77,6 +87,7 @@ afterAll(async () => {
   await clearDatabase();
   vi.unstubAllEnvs();
   await fs.rm(base, { recursive: true, force: true });
+  await fs.rm(vozFolder, { recursive: true, force: true });
 });
 
 type Person = Awaited<ReturnType<typeof createTestUser>>;
@@ -96,6 +107,7 @@ async function snapshot(userId: string) {
       results: await db.cardResult.findMany({ where, orderBy }),
       schedules: await db.schedule.findMany({ where, orderBy }),
       ai: await db.aiSettings.findMany({ where, orderBy }),
+      voice: await db.voiceSettings.findMany({ where, orderBy }),
     }),
   );
 }
@@ -154,6 +166,7 @@ beforeEach(async () => {
   await db.aiSettings.create({
     data: { userId: userA.id, baseUrl: "https://gateway-de-a/v1", apiKey: A_KEY, model: "modelo-a" },
   });
+  await db.voiceSettings.create({ data: { userId: userA.id, voice: "pt_BR-faber-medium", speed: 1.5, volume: 0.5 } });
   ids = {
     study: study.id,
     trashedStudy: trashedStudy.id,
@@ -273,6 +286,16 @@ describe("um usuário não enxerga nem altera os dados de outro", () => {
     });
     expect(saved.ok).toBe(true);
     expect(await db.aiSettings.count({ where: { userId: userB.id } })).toBe(1);
+    await expectAUntouched();
+  });
+
+  it("Voz: B começa com os padrões e salvar a dele não toca na linha de A", async () => {
+    expect(await getVoiceSettings()).toEqual({ voice: "pt_BR-faber-medium", speed: 1, volume: 1 });
+
+    const saved = await saveVoiceSettings({ voice: "pt_BR-faber-medium", speed: 2, volume: 0.2 });
+    expect(saved).toEqual({ ok: true, data: { voice: "pt_BR-faber-medium", speed: 2, volume: 0.2 } });
+    expect(await db.voiceSettings.count({ where: { userId: userB.id } })).toBe(1);
+    expect(await getVoiceSettings()).toEqual({ voice: "pt_BR-faber-medium", speed: 2, volume: 0.2 });
     await expectAUntouched();
   });
 
