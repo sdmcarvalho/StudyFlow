@@ -8,6 +8,7 @@ import {
   newCellId,
   removeCell,
   restoreCell,
+  splitCell,
   updateCellText,
 } from "@/features/estudo/editor/cells";
 
@@ -173,5 +174,21 @@ describe("updateCellText", () => {
   it("id inexistente não altera nada", () => {
     const list = cells("a", "b");
     expect(updateCellText(list, "zzz", "x")).toEqual(list);
+  });
+});
+
+describe("splitCell", () => {
+  it("mantém o início na célula e move o resto para uma nova logo abaixo", () => {
+    const cells: Cell[] = [{ id: "a", texto: "um\ndois", fixada: true }, { id: "z", texto: "fim" }];
+    expect(splitCell(cells, "a", 3, "n")).toEqual([
+      { id: "a", texto: "um", fixada: true },
+      { id: "n", texto: "dois" },
+      { id: "z", texto: "fim" },
+    ]);
+  });
+
+  it("id inexistente não muda nada", () => {
+    const cells: Cell[] = [{ id: "a", texto: "x" }];
+    expect(splitCell(cells, "b", 0, "n")).toBe(cells);
   });
 });

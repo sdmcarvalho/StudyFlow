@@ -133,6 +133,13 @@ export const PreviewIcon = (p: IconProps) => (
     <circle cx="10" cy="10" r="2.3" />
   </Icon>
 );
+export const ScissorsIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="5" cy="14.5" r="2.3" />
+    <circle cx="15" cy="14.5" r="2.3" />
+    <path d="M6.6 12.8 15.5 3M13.4 12.8 4.5 3" />
+  </Icon>
+);
 export const SaveIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 3h9.5L17 6.5V16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />

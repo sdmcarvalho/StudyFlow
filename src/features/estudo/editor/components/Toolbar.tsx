@@ -21,6 +21,7 @@ import {
   QuoteIcon,
   RuleIcon,
   SaveIcon,
+  ScissorsIcon,
   SplitViewIcon,
   StrikeIcon,
   TableIcon,
@@ -36,6 +37,7 @@ type ToolbarProps = {
   onImage: () => void;
   imageDisabled: boolean;
   onEmoji: () => void;
+  onSplit?: () => void;
   state: AutosaveState;
   onSave: () => void;
   onCard?: () => void;
@@ -109,6 +111,7 @@ export function Toolbar({
   onImage,
   imageDisabled,
   onEmoji,
+  onSplit,
   state,
   onSave,
   onCard,
@@ -180,6 +183,11 @@ export function Toolbar({
           >
             <PreviewIcon />
           </ToolButton>
+          {onSplit ? (
+            <ToolButton label="Cortar célula no cursor" disabled={disabled} onClick={onSplit}>
+              <ScissorsIcon />
+            </ToolButton>
+          ) : null}
         </div>
         <span className={styles.separator} aria-hidden="true" />
         <button type="button" className={styles.save} aria-label="Criar card"
@@ -191,7 +199,7 @@ export function Toolbar({
           <>
             <button
               type="button"
-              className={styles.action}
+              className={`${styles.save} ${styles.saveWide}`}
               aria-label="Resumir"
               title={summarizing ? "Resumindo…" : canSummarize ? "Resumir a célula atual com IA" : "Selecione uma célula"}
               disabled={!canSummarize || summarizing}

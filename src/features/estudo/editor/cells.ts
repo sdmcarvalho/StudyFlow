@@ -39,6 +39,21 @@ export function addCellAfter(
   return [...cells.slice(0, position), emptyCell(newId), ...cells.slice(position)];
 }
 
+/** Corta a célula em `offset`: o início fica nela e o resto vira uma célula nova logo abaixo. */
+export function splitCell(cells: Cell[], id: string, offset: number, newId: string): Cell[] {
+  const index = cells.findIndex((cell) => cell.id === id);
+  if (index === -1) return cells;
+  const { texto } = cells[index];
+  const head = texto.slice(0, offset).trimEnd();
+  const tail = texto.slice(offset).trimStart();
+  return [
+    ...cells.slice(0, index),
+    { ...cells[index], texto: head },
+    { id: newId, texto: tail },
+    ...cells.slice(index + 1),
+  ];
+}
+
 export function removeCell(
   cells: Cell[],
   id: string,

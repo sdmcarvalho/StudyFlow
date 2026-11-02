@@ -31,7 +31,7 @@ type EditorViewProps = {
 };
 
 export function EditorView({ studyId, descricao, pasta, initialCells, initialCards = [] }: EditorViewProps) {
-  const { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, togglePin, resizeImage, saveNow } =
+  const { cells, saveState, changeText, addBelow, split, remove, undoRemove, reorder, togglePin, resizeImage, saveNow } =
     useEditorDocument(studyId, initialCells);
   const { toast, show, hide } = useToast();
   const [mode, setMode] = useState<EditorMode>("default");
@@ -161,6 +161,23 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
     },
     [addBelow],
   );
+
+  function handleSplit() {
+    if (targetId === null) return;
+    const textarea = textareasRef.current.get(targetId);
+    if (!textarea) return;
+    if (cells.length >= MAX_CELLS) {
+      show("O documento já está no limite de células.");
+      return;
+    }
+    const newId = split(targetId, textarea.selectionStart);
+    if (newId === null) {
+      show("Coloque o cursor no meio do texto para cortar a célula.");
+      return;
+    }
+    if (mode === "default") setEditingId(newId);
+    else setFocusedId(newId);
+  }
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -314,6 +331,7 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
         summarizing={summarizing}
         onImage={openImage}
         onEmoji={openEmoji}
+        onSplit={handleSplit}
         imageDisabled={!imagesEnabled}
         state={saveState}
         onSave={() => void handleSave()}

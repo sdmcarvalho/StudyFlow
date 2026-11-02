@@ -11,6 +11,7 @@ import {
   newCellId,
   removeCell,
   restoreCell,
+  splitCell,
   toggleCellPinned,
   updateCellText,
   type RemovedCell,
@@ -31,6 +32,8 @@ export type EditorDocument = {
   changeText(id: string, texto: string): void;
   /** Cria uma célula vazia logo abaixo de `id` e devolve o id dela (`null` no limite de células). */
   addBelow(id: string): string | null;
+  /** Corta a célula em `offset`; devolve o id da nova célula com o resto (`null` no limite ou sem o que cortar). */
+  split(id: string, offset: number): string | null;
   remove(id: string): RemovedCell | null;
   undoRemove(removed: RemovedCell): void;
   reorder(from: number, to: number): void;
@@ -95,6 +98,19 @@ export function useEditorDocument(studyId: string, initialCells: Cell[]): Editor
     [commit],
   );
 
+  const split = useCallback(
+    (id: string, offset: number) => {
+      const current = cellsRef.current;
+      const target = current.find((cell) => cell.id === id);
+      if (!target || current.length >= MAX_CELLS) return null;
+      if (target.texto.slice(0, offset).trim() === "" || target.texto.slice(offset).trim() === "") return null;
+      const newId = newCellId();
+      commit((cells) => splitCell(cells, id, offset, newId));
+      return newId;
+    },
+    [commit],
+  );
+
   const remove = useCallback(
     (id: string) => {
       let removed: RemovedCell | null = null;
@@ -145,5 +161,5 @@ export function useEditorDocument(studyId: string, initialCells: Cell[]): Editor
     return withinLimits(cellsRef.current) ? "unsaved" : "invalid";
   }, []);
 
-  return { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, togglePin, resizeImage, saveNow };
+  return { cells, saveState, changeText, addBelow, split, remove, undoRemove, reorder, togglePin, resizeImage, saveNow };
 }
