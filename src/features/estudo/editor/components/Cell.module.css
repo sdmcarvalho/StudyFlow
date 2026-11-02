@@ -138,6 +138,12 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   transition: border-color var(--transition-fast);
+  /* A coluna de controles pode ser mais alta que o texto: o editor preenche a moldura toda. */
+  display: flex;
+  flex-direction: column;
+}
+.body > .split {
+  flex: 1;
 }
 .cell:hover .body {
   border-color: var(--color-border-strong);
