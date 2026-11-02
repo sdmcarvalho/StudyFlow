@@ -495,6 +495,20 @@ describe("EditorView — imagens", () => {
     expect(textarea).toHaveValue("primeira![foto](https://example.com/a.png)");
   });
 
+  it("Emojis abre a tabela de 50 e insere o emoji escolhido na célula em edição", async () => {
+    const { user } = setup(TWO);
+    const textarea = await edit(user, 1);
+    textarea.setSelectionRange(8, 8);
+    await user.click(screen.getByRole("button", { name: "Emojis" }));
+    const dialog = screen.getByRole("dialog", { name: "Inserir emoji" });
+    expect(within(dialog).getAllByRole("button")).toHaveLength(50);
+    expect(within(cell(1)).getByRole("textbox")).toBe(textarea);
+
+    await user.click(within(dialog).getByRole("button", { name: "Importante" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(textarea).toHaveValue("primeira⭐");
+  });
+
   it("redimensionar pelo campo Largura reescreve só a imagem no texto da célula", async () => {
     const { user } = setup([{ id: "a", texto: "antes ![foto](https://example.com/a.png) depois" }]);
     await user.click(screen.getByRole("button", { name: "Visualização dividida" }));

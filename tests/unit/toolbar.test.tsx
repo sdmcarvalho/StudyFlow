@@ -14,6 +14,7 @@ function setup(overrides: Partial<Props> = {}) {
     canFormat: true,
     onFormat: vi.fn(),
     onImage: vi.fn(),
+    onEmoji: vi.fn(),
     imageDisabled: false,
     state: { status: "idle", savedAt: null },
     onSave: vi.fn(),

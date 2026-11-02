@@ -16,6 +16,7 @@ import { applyEditToTextarea } from "../textarea-edit";
 import { useUnsavedGuard } from "../unsaved-guard";
 import { useEditorDocument } from "../use-editor-document";
 import { CellList } from "./CellList";
+import { EmojiDialog } from "./EmojiDialog";
 import { ImageDialog } from "./ImageDialog";
 import { Toolbar } from "./Toolbar";
 import { UnsavedDialog } from "./UnsavedDialog";
@@ -38,6 +39,8 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
   const [focusedId, setFocusedId] = useState<string | null>(null);
   // Célula que recebe a imagem enquanto o diálogo está aberto; o ref é lido nos eventos de foco.
   const [imageTarget, setImageTarget] = useState<string | null>(null);
+  const [emojiTarget, setEmojiTarget] = useState<string | null>(null);
+  // Vale para os dois diálogos (imagem e emoji): a célula continua em edição enquanto um está aberto.
   const imageOpenRef = useRef(false);
   const summarizingRef = useRef(false);
   const [summarizing, setSummarizing] = useState(false);
@@ -240,8 +243,26 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
     setImageTarget(null);
   }
 
+  function openEmoji() {
+    if (targetId === null) return;
+    imageOpenRef.current = true;
+    setEmojiTarget(targetId);
+  }
+
+  function closeEmoji() {
+    imageOpenRef.current = false;
+    setEmojiTarget(null);
+  }
+
   function insertImage(markdown: string) {
-    const id = imageTarget;
+    insertAtCaret(imageTarget, markdown);
+  }
+
+  function insertEmoji(emoji: string) {
+    insertAtCaret(emojiTarget, emoji);
+  }
+
+  function insertAtCaret(id: string | null, markdown: string) {
     if (!exists(id)) return;
     const textarea = textareasRef.current.get(id);
     if (textarea?.isConnected) {
@@ -280,6 +301,7 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
         canSummarize={currentId !== null && !summarizing}
         summarizing={summarizing}
         onImage={openImage}
+        onEmoji={openEmoji}
         imageDisabled={!imagesEnabled}
         state={saveState}
         onSave={() => void handleSave()}
@@ -310,6 +332,7 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
       </div>
 
       <ImageDialog open={imageTarget !== null} studyId={studyId} onClose={closeImage} onInsert={insertImage} />
+      <EmojiDialog open={emojiTarget !== null} onClose={closeEmoji} onInsert={insertEmoji} />
       {cardForm && <CardFormModal
         open
         studyId={studyId}

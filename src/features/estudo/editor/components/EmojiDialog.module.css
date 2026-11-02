@@ -1,0 +1,29 @@
+/* Tabela compacta: 10 colunas por 5 linhas. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.cell {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.cell:hover {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+.cell:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

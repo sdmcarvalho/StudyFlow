@@ -10,6 +10,7 @@ import {
   BoldIcon,
   BulletListIcon,
   CodeIcon,
+  EmojiIcon,
   FormulaIcon,
   HeadingIcon,
   ImageIcon,
@@ -34,6 +35,7 @@ type ToolbarProps = {
   onFormat: (action: FormatAction) => void;
   onImage: () => void;
   imageDisabled: boolean;
+  onEmoji: () => void;
   state: AutosaveState;
   onSave: () => void;
   onCard?: () => void;
@@ -106,6 +108,7 @@ export function Toolbar({
   onFormat,
   onImage,
   imageDisabled,
+  onEmoji,
   state,
   onSave,
   onCard,
@@ -155,6 +158,9 @@ export function Toolbar({
           {formatButton(LINK)}
           <ToolButton label="Imagem" disabled={disabled || imageDisabled} onClick={onImage}>
             <ImageIcon />
+          </ToolButton>
+          <ToolButton label="Emojis" disabled={disabled} onClick={onEmoji}>
+            <EmojiIcon />
           </ToolButton>
           {INSERTS.map(formatButton)}
         </div>
