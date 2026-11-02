@@ -101,6 +101,17 @@
   height: 14px;
 }
 
+/* Fixar: ligado fica sempre visível e em destaque, mesmo sem hover. */
+.controls:has(.pin[aria-pressed="true"]) {
+  opacity: 1;
+}
+.pin[aria-pressed="true"] {
+  color: var(--color-primary);
+}
+.pin[aria-pressed="true"] :global(.icon) {
+  fill: currentColor;
+}
+
 /* Número da célula: não é botão; aparece junto com os controles. */
 .number {
   width: 32px;

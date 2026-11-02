@@ -38,6 +38,8 @@ type CellCallbacks = Pick<
   | "registerTextarea"
   | "onFocusCell"
   | "onImageError"
+  | "onTogglePin"
+  | "onNavigatePinned"
 >;
 
 type CellListProps = CellCallbacks & {

@@ -509,6 +509,37 @@ describe("EditorView — imagens", () => {
     expect(textarea).toHaveValue("primeira⭐");
   });
 
+  it("Fixar liga e desliga o marcador; as setas vão à fixada anterior/seguinte e, sem ela, não mudam nada", async () => {
+    const four: Cell[] = [
+      { id: "a", texto: "um" },
+      { id: "b", texto: "dois" },
+      { id: "c", texto: "três" },
+      { id: "d", texto: "quatro" },
+    ];
+    const { user } = setup(four);
+    const pin = (n: number) => within(cell(n)).getByRole("button", { name: "Fixar célula" });
+    expect(pin(2)).toHaveAttribute("aria-pressed", "false");
+    await user.click(pin(2));
+    expect(pin(2)).toHaveAttribute("aria-pressed", "true");
+    await user.click(pin(2));
+    expect(pin(2)).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(pin(2));
+    await user.click(pin(4));
+    const next = (n: number) => within(cell(n)).getByRole("button", { name: "Ir para a próxima célula fixada" });
+    const prev = (n: number) => within(cell(n)).getByRole("button", { name: "Ir para a célula fixada anterior" });
+
+    await user.click(next(1));
+    expect(cell(2)).toHaveFocus();
+    await user.click(next(2));
+    expect(cell(4)).toHaveFocus();
+    await user.click(prev(4));
+    expect(cell(2)).toHaveFocus();
+    // Sem fixada anterior a 2: o foco fica onde está.
+    await user.click(prev(2));
+    expect(within(cell(2)).getByRole("button", { name: "Ir para a célula fixada anterior" })).toHaveFocus();
+  });
+
   it("redimensionar pelo campo Largura reescreve só a imagem no texto da célula", async () => {
     const { user } = setup([{ id: "a", texto: "antes ![foto](https://example.com/a.png) depois" }]);
     await user.click(screen.getByRole("button", { name: "Visualização dividida" }));

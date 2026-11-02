@@ -89,6 +89,22 @@ export const EmojiIcon = (p: IconProps) => (
     <path d="M6.8 11.8c.8 1.3 1.9 2 3.2 2s2.4-.7 3.2-2" />
   </Icon>
 );
+export const PinIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M7 3h6l-.8 5 2.3 3H5.5l2.3-3L7 3Z" />
+    <path d="M10 11v6" />
+  </Icon>
+);
+export const ArrowUpIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10 16V4M5 9l5-5 5 5" />
+  </Icon>
+);
+export const ArrowDownIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10 4v12M5 11l5 5 5-5" />
+  </Icon>
+);
 export const CodeIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M7 6 3 10l4 4M13 6l4 4-4 4" />

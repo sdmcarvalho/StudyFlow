@@ -11,6 +11,7 @@ import {
   newCellId,
   removeCell,
   restoreCell,
+  toggleCellPinned,
   updateCellText,
   type RemovedCell,
 } from "./cells";
@@ -33,6 +34,8 @@ export type EditorDocument = {
   remove(id: string): RemovedCell | null;
   undoRemove(removed: RemovedCell): void;
   reorder(from: number, to: number): void;
+  /** Liga/desliga o marcador de célula importante. */
+  togglePin(id: string): void;
   resizeImage(id: string, range: { start: number; end: number }, width: number): void;
   /** Salva na hora: "saved" só se salvou e não sobrou nada pendente; "invalid" fora do limite. */
   saveNow(): Promise<SaveNowResult>;
@@ -121,6 +124,8 @@ export function useEditorDocument(studyId: string, initialCells: Cell[]): Editor
     [commit],
   );
 
+  const togglePin = useCallback((id: string) => commit((current) => toggleCellPinned(current, id)), [commit]);
+
   const resizeImage = useCallback(
     (id: string, range: { start: number; end: number }, width: number) =>
       commit((current) => {
@@ -140,5 +145,5 @@ export function useEditorDocument(studyId: string, initialCells: Cell[]): Editor
     return withinLimits(cellsRef.current) ? "unsaved" : "invalid";
   }, []);
 
-  return { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, resizeImage, saveNow };
+  return { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, togglePin, resizeImage, saveNow };
 }

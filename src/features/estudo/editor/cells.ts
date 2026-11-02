@@ -80,6 +80,19 @@ export function moveCell(
   return next;
 }
 
+/** Liga/desliga o marcador; desligado some do JSON (documentos sem fixadas não mudam). */
+export function toggleCellPinned(cells: Cell[], id: string): Cell[] {
+  return cells.map((cell) => {
+    if (cell.id !== id) return cell;
+    if (cell.fixada) {
+      const { fixada, ...rest } = cell;
+      void fixada;
+      return rest;
+    }
+    return { ...cell, fixada: true };
+  });
+}
+
 export function updateCellText(
   cells: Cell[],
   id: string,

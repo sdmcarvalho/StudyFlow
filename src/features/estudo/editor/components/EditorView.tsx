@@ -31,7 +31,7 @@ type EditorViewProps = {
 };
 
 export function EditorView({ studyId, descricao, pasta, initialCells, initialCards = [] }: EditorViewProps) {
-  const { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, resizeImage, saveNow } =
+  const { cells, saveState, changeText, addBelow, remove, undoRemove, reorder, togglePin, resizeImage, saveNow } =
     useEditorDocument(studyId, initialCells);
   const { toast, show, hide } = useToast();
   const [mode, setMode] = useState<EditorMode>("default");
@@ -243,6 +243,18 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
     setImageTarget(null);
   }
 
+  function navigatePinned(id: string, direction: -1 | 1) {
+    const start = cells.findIndex((cell) => cell.id === id);
+    if (start < 0) return;
+    for (let i = start + direction; i >= 0 && i < cells.length; i += direction) {
+      if (!cells[i].fixada) continue;
+      const element = document.querySelector<HTMLElement>(`[data-cell-id="${cells[i].id}"]`);
+      element?.focus({ preventScroll: true });
+      element?.scrollIntoView?.({ block: "center" });
+      return;
+    }
+  }
+
   function openEmoji() {
     if (targetId === null) return;
     imageOpenRef.current = true;
@@ -328,6 +340,8 @@ export function EditorView({ studyId, descricao, pasta, initialCells, initialCar
           registerTextarea={registerTextarea}
           onFocusCell={setFocusedId}
           onImageError={handleImageError}
+          onTogglePin={togglePin}
+          onNavigatePinned={navigatePinned}
         />
       </div>
 

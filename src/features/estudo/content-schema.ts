@@ -2,7 +2,8 @@ import { z } from "zod";
 
 /** Este módulo é client-safe: sem node:fs nem acesso ao banco. */
 
-export type Cell = { id: string; texto: string };
+/** `fixada`: marcador de célula importante (ausente = desligado). */
+export type Cell = { id: string; texto: string; fixada?: boolean };
 
 export const MAX_CELLS = 500;
 export const MAX_CELL_CHARS = 200_000;
@@ -22,6 +23,7 @@ export const CONTENT_LIMIT_MESSAGE =
 const cellSchema = z.object({
   id: z.string().min(1).max(64),
   texto: z.string().max(MAX_CELL_CHARS),
+  fixada: z.boolean().optional(),
 });
 
 const cellsSchema = z

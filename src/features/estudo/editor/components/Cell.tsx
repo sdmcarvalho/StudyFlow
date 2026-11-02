@@ -20,7 +20,7 @@ import { imageMarkdown } from "../markdown-format";
 import { applyEditToTextarea } from "../textarea-edit";
 import { uploadImage } from "../upload";
 import { MarkdownView, type ImageRange } from "./MarkdownView";
-import { DragHandleIcon } from "./toolbar-icons";
+import { ArrowDownIcon, ArrowUpIcon, DragHandleIcon, PinIcon } from "./toolbar-icons";
 import styles from "./Cell.module.css";
 
 /** O que o `CellList` passa quando a célula está dentro do contexto de arrastar. */
@@ -53,6 +53,10 @@ export type CellProps = {
   onFocusCell?: (id: string) => void;
   /** Colar ou soltar uma imagem falhou no envio (o editor mostra o toast). */
   onImageError?: (message: string) => void;
+  /** Liga/desliga o marcador de célula importante. */
+  onTogglePin?: (id: string) => void;
+  /** Foca a célula fixada anterior (`-1`) ou seguinte (`1`); sem ela, nada muda. */
+  onNavigatePinned?: (id: string, direction: -1 | 1) => void;
   cardCount?: number;
   onOpenCards?: (id: string) => void;
   drag?: CellDrag;
@@ -85,6 +89,8 @@ export function Cell({
   registerTextarea,
   onFocusCell,
   onImageError,
+  onTogglePin,
+  onNavigatePinned,
   cardCount = 0,
   onOpenCards,
   drag,
@@ -274,6 +280,34 @@ export function Cell({
           <span className={styles.number} aria-hidden="true">
             {number}
           </span>
+          <button
+            type="button"
+            className={`${styles.control} ${styles.pin}`}
+            title={cell.fixada ? "Desafixar célula" : "Fixar célula"}
+            aria-label="Fixar célula"
+            aria-pressed={cell.fixada === true}
+            onClick={() => onTogglePin?.(id)}
+          >
+            <PinIcon />
+          </button>
+          <button
+            type="button"
+            className={styles.control}
+            title="Célula fixada anterior"
+            aria-label="Ir para a célula fixada anterior"
+            onClick={() => onNavigatePinned?.(id, -1)}
+          >
+            <ArrowUpIcon />
+          </button>
+          <button
+            type="button"
+            className={styles.control}
+            title="Próxima célula fixada"
+            aria-label="Ir para a próxima célula fixada"
+            onClick={() => onNavigatePinned?.(id, 1)}
+          >
+            <ArrowDownIcon />
+          </button>
         </div>
       )}
 
